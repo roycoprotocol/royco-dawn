@@ -5,7 +5,6 @@ pragma solidity ^0.8.28;
 /// @notice Library containing role constants for the Royco protocol access control system
 library RoycoRoles {
     /// Common roles
-    bytes32 public constant ROYCO_KERNEL = keccak256(abi.encode("ROYCO_KERNEL"));
     bytes32 public constant PAUSER_ROLE = keccak256(abi.encode("ROYCO_PAUSER_ROLE"));
     bytes32 public constant UPGRADER_ROLE = keccak256(abi.encode("ROYCO_UPGRADER_ROLE"));
     bytes32 public constant SCHEDULER_MANAGER_ROLE = keccak256(abi.encode("ROYCO_SCHEDULER_MANAGER_ROLE"));

@@ -47,6 +47,9 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoAuth, UUPSUpgrad
     /// @notice Thrown when the redeem amount is zero
     error MUST_CLAIM_NON_ZERO_SHARES();
 
+    /// @notice Thrown when the caller isn't the kernel
+    error ONLY_KERNEL();
+
     /// @notice Modifier to ensure the functionality is disabled
     /// forge-lint: disable-next-item(unwrapped-modifier-logic)
     modifier disabled() {
@@ -675,8 +678,8 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoAuth, UUPSUpgrad
         external
         virtual
         override(IRoycoVaultTranche)
-        onlyRole(RoycoRoles.ROYCO_KERNEL)
     {
+        require(msg.sender == _kernel(), ONLY_KERNEL());
         // Compute the shares to be minted to the protocol fee recipient to satisfy the ratio of total assets that the fee represents
         // Subtract fee assets from total tranche assets because fees are included in total tranche assets
         // Round in favor of the tranche

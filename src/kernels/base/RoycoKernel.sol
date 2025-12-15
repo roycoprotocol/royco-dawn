@@ -67,12 +67,7 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
 
     /// @inheritdoc IRoycoKernel
     function stMaxDeposit(address, address _receiver) external view override(IRoycoKernel) returns (uint256) {
-        return Math.min(
-            _maxSTDepositGlobally(_receiver),
-            IRoycoAccountant(RoycoKernelStorageLib._getRoycoKernelStorage().accountant).maxSTDepositGivenCoverage(
-                _getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV()
-            )
-        );
+        return Math.min(_maxSTDepositGlobally(_receiver), _accountant().maxSTDepositGivenCoverage(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV()));
     }
 
     /// @inheritdoc IRoycoKernel
@@ -87,12 +82,7 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
 
     /// @inheritdoc IRoycoKernel
     function jtMaxWithdraw(address, address _owner) external view override(IRoycoKernel) returns (uint256) {
-        return Math.min(
-            _maxJTWithdrawalGlobally(_owner),
-            IRoycoAccountant(RoycoKernelStorageLib._getRoycoKernelStorage().accountant).maxJTWithdrawalGivenCoverage(
-                _getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV()
-            )
-        );
+        return Math.min(_maxJTWithdrawalGlobally(_owner), _accountant().maxJTWithdrawalGivenCoverage(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV()));
     }
 
     /// @inheritdoc IRoycoKernel

@@ -238,7 +238,7 @@ abstract contract BaseAsyncJTRedemptionDelayKernel is IAsyncJTWithdrawalKernel, 
     /// @param _shares The amount of JT shares to redeem
     /// @param _totalShares The total number of JT shares to withdraw
     /// @return value The value of the redemption request
-    function _redemptionValue(uint256 _currentJTEffectiveNAV, uint256 _shares, uint256 _totalShares) internal view returns (uint256 value) {
+    function _redemptionValue(uint256 _currentJTEffectiveNAV, uint256 _shares, uint256 _totalShares) internal pure returns (uint256 value) {
         return _shares.mulDiv(_currentJTEffectiveNAV, _totalShares, Math.Rounding.Floor);
     }
 

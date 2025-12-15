@@ -1,13 +1,22 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { ExecutionModel, RequestRedeemSharesBehavior } from "../../libraries/Types.sol";
+import { ExecutionModel, RequestRedeemSharesBehavior, SyncedNAVsPacket } from "../../libraries/Types.sol";
 
 /**
  * @title IRoycoKernel
  *
  */
 interface IRoycoKernel {
+    /// @notice Thrown when any of the required initialization params are null
+    error NULL_ADDRESS();
+
+    /// @notice Thrown when the caller of a permissioned function isn't the market's senior tranche
+    error ONLY_SENIOR_TRANCHE();
+
+    /// @notice Thrown when the caller of a permissioned function isn't the market's junior tranche
+    error ONLY_JUNIOR_TRANCHE();
+
     function ST_REQUEST_REDEEM_SHARES_BEHAVIOR() external pure returns (RequestRedeemSharesBehavior);
     function JT_REQUEST_REDEEM_SHARES_BEHAVIOR() external pure returns (RequestRedeemSharesBehavior);
 
@@ -20,20 +29,12 @@ interface IRoycoKernel {
     function getSTRawNAV() external view returns (uint256);
     function getJTRawNAV() external view returns (uint256);
 
-    function getSTEffectiveNAV() external view returns (uint256);
-    function getJTEffectiveNAV() external view returns (uint256);
-
     function getSTTotalEffectiveAssets() external view returns (uint256);
     function getJTTotalEffectiveAssets() external view returns (uint256);
 
-    function syncTrancheNAVs()
-        external
-        returns (uint256 stRawNAV, uint256 jtRawNAV, uint256 stEffectiveNAV, uint256 jtEffectiveNAV, uint256 stProtocolFeeTaken, uint256 jtProtocolFeeTaken);
+    function syncTrancheNAVs() external returns (SyncedNAVsPacket memory packet);
 
-    function previewSyncTrancheNAVs()
-        external
-        view
-        returns (uint256 stRawNAV, uint256 jtRawNAV, uint256 stEffectiveNAV, uint256 jtEffectiveNAV, uint256 stProtocolFeeTaken, uint256 jtProtocolFeeTaken);
+    function previewSyncTrancheNAVs() external view returns (SyncedNAVsPacket memory packet);
 
     function stMaxDeposit(address _asset, address _receiver) external view returns (uint256);
     function stMaxWithdraw(address _asset, address _owner) external view returns (uint256);
@@ -47,6 +48,7 @@ interface IRoycoKernel {
     )
         external
         returns (uint256 valueAllocated, uint256 effectiveNAVToMintAt);
+
     function stRedeem(
         address _asset,
         uint256 _shares,
@@ -69,6 +71,7 @@ interface IRoycoKernel {
     )
         external
         returns (uint256 valueAllocated, uint256 effectiveNAVToMintAt);
+
     function jtRedeem(
         address _asset,
         uint256 _shares,

@@ -6,8 +6,11 @@ import { RoycoAuth, RoycoRoles } from "../../auth/RoycoAuth.sol";
 import { IRDM } from "../../interfaces/IRDM.sol";
 import { IRoycoKernel } from "../../interfaces/kernel/IRoycoKernel.sol";
 import { IRoycoVaultTranche } from "../../interfaces/tranche/IRoycoVaultTranche.sol";
-import { Operation, RoycoKernelInitParams, RoycoKernelState, RoycoKernelStorageLib } from "../../libraries/RoycoKernelStorageLib.sol";
+import { RoycoKernelInitParams, RoycoKernelState, RoycoKernelStorageLib } from "../../libraries/RoycoKernelStorageLib.sol";
+
+import { SyncedNAVsPacket } from "../../libraries/Types.sol";
 import { ConstantsLib, Math, UtilsLib } from "../../libraries/UtilsLib.sol";
+import { IRoycoAccountant, Operation } from "./../../interfaces/IRoycoAccountant.sol";
 
 /**
  * @title RoycoKernel
@@ -17,21 +20,6 @@ import { ConstantsLib, Math, UtilsLib } from "../../libraries/UtilsLib.sol";
  */
 abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
     using Math for uint256;
-
-    /// @notice Thrown when the market's coverage requirement is unsatisfied
-    error INSUFFICIENT_COVERAGE();
-
-    /// @notice Thrown when the caller of a permissioned function isn't the market's senior tranche
-    error ONLY_SENIOR_TRANCHE();
-
-    /// @notice Thrown when the caller of a permissioned function isn't the market's junior tranche
-    error ONLY_JUNIOR_TRANCHE();
-
-    /// @notice Thrown when the sum of the raw NAVs don't equal the sum of the effective NAVs of both tranches
-    error NAV_CONSERVATION_VIOLATION();
-
-    /// @notice Thrown when an operation results in an invalid NAV state in the post-operation synchronization
-    error INVALID_POST_OP_STATE(Operation _op);
 
     /// @dev Permissions the function to only the market's senior tranche
     /// @dev Should be placed on all ST deposit and withdraw functions
@@ -48,47 +36,9 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
     }
 
     /**
-     * @notice Synchronizes tranche NAVs before and after an operation (deposit or withdrawal).
-     * @dev Should be placed on senior tranche withdrawal functions and junior tranche deposit functions since coverage doesn't need to be enforced
-     * @dev Before execution: realizes unrealized PnL into effective NAVs
-     * @dev After execution: applies the effects of the operation (deposit or withdrawal) to all NAVs
-     * @param _op The operation being executed in between the pre and post synchronizations
-     */
-    /// forge-lint: disable-next-item(unwrapped-modifier-logic)
-    modifier syncNAVs(Operation _op) {
-        // Sync the tranche NAVs based on the difference in current NAVs and checkpointed NAVs since the last operation
-        // Any NAV updates caused by this are a result of unrealized PNL(s) in the underlying strategy
-        _preOpSyncTrancheNAVs();
-        _;
-        // Sync the NAVs after the operation (deposit or withdrawal) has been executed
-        // Any NAV updates caused by this are a result of a deposit or withdrawal
-        _postOpSyncTrancheNAVs(_op);
-    }
-
-    /**
-     * @notice Synchronizes tranche NAVs before and after an operation (deposit or withdrawal).
-     * @dev Should be placed on senior tranche deposit functions and junior tranche withdrawal functions since coverage needs to be enforced
-     * @dev Before execution: realizes unrealized PnL into effective NAVs
-     * @dev After execution: applies the effects of the operation (deposit or withdrawal) to all NAVs
-     * @param _op The operation being executed in between the pre and post synchronizations
-     */
-    /// forge-lint: disable-next-item(unwrapped-modifier-logic)
-    modifier syncNAVsAndEnforceCoverage(Operation _op) {
-        // Sync the tranche NAVs based on the difference in current NAVs and checkpointed NAVs since the last operation
-        // Any NAV updates caused by this are a result of unrealized PNL(s) in the underlying strategy
-        _preOpSyncTrancheNAVs();
-        _;
-        // Sync the NAVs after the operation (deposit or withdrawal) has been executed
-        // Any NAV updates caused by this are a result of a deposit or withdrawal
-        _postOpSyncTrancheNAVs(_op);
-        // Enforce that the coverage requirement of the market is satisfied
-        _enforceCoverage();
-    }
-
-    /**
      * @notice Initializes the base kernel state
      * @dev Initializes any parent contracts and the base kernel state
-     * @param _params The initialization parameters for the base kernel
+     * @param _params The initialization parameters for the Royco kernel
      * @param _owner The initial owner of the base kernel
      * @param _pauser The initial pauser of the base kernel
      */
@@ -105,21 +55,24 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
      * @param _params The initialization parameters for the base kernel
      */
     function __RoycoKernel_init_unchained(RoycoKernelInitParams memory _params) internal onlyInitializing {
-        // Ensure that the coverage requirement is valid
-        require(_params.coverageWAD < ConstantsLib.WAD && _params.coverageWAD >= ConstantsLib.MIN_COVERAGE_WAD);
-        // Ensure that JT withdrawals are not permanently bricked
-        require(uint256(_params.coverageWAD).mulDiv(_params.betaWAD, ConstantsLib.WAD, Math.Rounding.Ceil) < ConstantsLib.WAD);
-        // Ensure that the tranche address and RDM are not null
-        require(_params.seniorTranche != address(0) && _params.juniorTranche != address(0) && _params.rdm != address(0));
-        // Ensure that the protocol fee configuration is valid
-        require(_params.protocolFeeRecipient != address(0) && _params.protocolFeeWAD <= ConstantsLib.MAX_PROTOCOL_FEE_WAD);
+        // Ensure that the tranche addresses, accountant, and protocol fee recipient are not null
+        require(
+            _params.seniorTranche != address(0) && _params.juniorTranche != address(0) && _params.accountant != address(0)
+                && _params.protocolFeeRecipient != address(0),
+            NULL_ADDRESS()
+        );
         // Initialize the base kernel state
         RoycoKernelStorageLib.__RoycoKernel_init(_params);
     }
 
     /// @inheritdoc IRoycoKernel
     function stMaxDeposit(address, address _receiver) external view override(IRoycoKernel) returns (uint256) {
-        return Math.min(_maxSTDepositGlobally(_receiver), _maxSTDepositGivenCoverage());
+        return Math.min(
+            _maxSTDepositGlobally(_receiver),
+            IRoycoAccountant(RoycoKernelStorageLib._getRoycoKernelStorage().accountant).maxSTDepositGivenCoverage(
+                _getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV()
+            )
+        );
     }
 
     /// @inheritdoc IRoycoKernel
@@ -134,7 +87,12 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
 
     /// @inheritdoc IRoycoKernel
     function jtMaxWithdraw(address, address _owner) external view override(IRoycoKernel) returns (uint256) {
-        return Math.min(_maxJTWithdrawalGlobally(_owner), _maxJTWithdrawalGivenCoverage());
+        return Math.min(
+            _maxJTWithdrawalGlobally(_owner),
+            IRoycoAccountant(RoycoKernelStorageLib._getRoycoKernelStorage().accountant).maxJTWithdrawalGivenCoverage(
+                _getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV()
+            )
+        );
     }
 
     /// @inheritdoc IRoycoKernel
@@ -147,496 +105,80 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
         return _getJuniorTrancheRawNAV();
     }
 
-    /// @inheritdoc IRoycoKernel
-    function getSTEffectiveNAV() external view override(IRoycoKernel) returns (uint256) {
-        return _getSeniorTrancheEffectiveNAV();
-    }
-
-    /// @inheritdoc IRoycoKernel
-    function getJTEffectiveNAV() external view override(IRoycoKernel) returns (uint256) {
-        return _getJuniorTrancheEffectiveNAV();
-    }
-
     /**
      * @notice Synchronizes and persists the raw and effective NAVs of both tranches
-     * @dev Only performs a pre-op sync because there is no operation being executed in the same function call as this sync
-     * @return stRawNAV The senior tranche's raw NAV: the pure value of its investment
-     * @return jtRawNAV The junior tranche's raw NAV: the pure value of its investment
-     * @return stEffectiveNAV The senior tranche's effective NAV, including applied coverage, ST yield distribution, and uncovered losses
-     * @return jtEffectiveNAV The junior tranche's effective NAV, including provided coverage, JT yield, ST yield distribution, and JT losses
-     * @return stProtocolFeeTaken The protocol fee taken on ST yield on this sync
-     * @return jtProtocolFeeTaken The protocol fee taken on JT yield on this sync
+     * @dev Only executes a pre-op sync because there is no operation being executed in the same call as this sync
+     * @return packet The NAV sync packet containing all mark to market accounting data
      */
-    function syncTrancheNAVs()
-        external
-        override(IRoycoKernel)
-        onlyRole(RoycoRoles.SYNC_ROLE)
-        whenNotPaused
-        returns (uint256 stRawNAV, uint256 jtRawNAV, uint256 stEffectiveNAV, uint256 jtEffectiveNAV, uint256 stProtocolFeeTaken, uint256 jtProtocolFeeTaken)
-    {
+    function syncTrancheNAVs() external override(IRoycoKernel) onlyRole(RoycoRoles.SYNC_ROLE) whenNotPaused returns (SyncedNAVsPacket memory packet) {
         return _preOpSyncTrancheNAVs();
     }
 
     /**
      * @notice Previews a synchronization of the raw and effective NAVs of both tranches
-     * @return stRawNAV The senior tranche's raw NAV: the pure value of its investment
-     * @return jtRawNAV The junior tranche's raw NAV: the pure value of its investment
-     * @return stEffectiveNAV The senior tranche's effective NAV, including applied coverage, ST yield distribution, and uncovered losses
-     * @return jtEffectiveNAV The junior tranche's effective NAV, including provided coverage, JT yield, ST yield distribution, and JT losses
-     * @return stProtocolFeeTaken The protocol fee taken on ST yield on this sync
-     * @return jtProtocolFeeTaken The protocol fee taken on JT yield on this sync
+     * @dev Does not mutate any state
+     * @return packet The NAV sync packet containing all mark to market accounting data
      */
-    function previewSyncTrancheNAVs()
-        external
-        view
-        override(IRoycoKernel)
-        onlyRole(RoycoRoles.SYNC_ROLE)
-        whenNotPaused
-        returns (uint256 stRawNAV, uint256 jtRawNAV, uint256 stEffectiveNAV, uint256 jtEffectiveNAV, uint256 stProtocolFeeTaken, uint256 jtProtocolFeeTaken)
-    {
-        (stRawNAV, jtRawNAV, stEffectiveNAV, jtEffectiveNAV,,, stProtocolFeeTaken, jtProtocolFeeTaken,) = _previewSyncTrancheNAVs(_previewJTYieldShareAccrual());
+    function previewSyncTrancheNAVs() public view override(IRoycoKernel) returns (SyncedNAVsPacket memory packet) {
+        (packet,,) = _accountant().previewSyncTrancheNAVs(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
     }
 
     /**
-     * @notice Synchronizes the raw and effective NAVs of both tranches before any operation
-     * @dev Accrues JT yield share over time based on the market's RDM output
-     * @dev Applies unrealized PnL and yield distribution
-     * @dev Persists updated NAV checkpoints for the next sync to use as reference
-     * @return stRawNAV The senior tranche's raw NAV: the pure value of its investment
-     * @return jtRawNAV The junior tranche's raw NAV: the pure value of its investment
-     * @return stEffectiveNAV The senior tranche's effective NAV, including applied coverage, ST yield distribution, and uncovered losses
-     * @return jtEffectiveNAV The junior tranche's effective NAV, including provided coverage, JT yield, ST yield distribution, and JT losses
-     * @return stProtocolFeeTaken The protocol fee taken on ST yield on this sync
-     * @return jtProtocolFeeTaken The protocol fee taken on JT yield on this sync
+     * @notice Invokes the accountant to do a pre-operation (deposit and withdrawal) NAV sync
+     * @dev Should be called on every NAV mutating user operation
+     * @return packet The NAV sync packet containing all mark to market accounting data
      */
-    function _preOpSyncTrancheNAVs()
-        internal
-        returns (uint256 stRawNAV, uint256 jtRawNAV, uint256 stEffectiveNAV, uint256 jtEffectiveNAV, uint256 stProtocolFeeTaken, uint256 jtProtocolFeeTaken)
-    {
-        // Get the storage pointer to the base kernel state
-        RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
+    function _preOpSyncTrancheNAVs() internal returns (SyncedNAVsPacket memory packet) {
+        // Execute the pre-op sync via the accountant
+        packet = _accountant().preOpSyncTrancheNAVs(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
 
-        // Accrue the yield distribution owed to JT since the last tranche interaction
-        uint256 twJTYieldShareAccruedWAD = $.twJTYieldShareAccruedWAD = _previewJTYieldShareAccrual();
-        $.lastAccrualTimestamp = uint32(block.timestamp);
-
-        // Preview the new NAVs and protocol fees accrued for each tranche based on PNL(s) of the underlying investment(s)
-        uint256 stCoverageDebt;
-        uint256 jtCoverageDebt;
-        bool yieldDistributed;
-        (stRawNAV, jtRawNAV, stEffectiveNAV, jtEffectiveNAV, stCoverageDebt, jtCoverageDebt, stProtocolFeeTaken, jtProtocolFeeTaken, yieldDistributed) =
-            _previewSyncTrancheNAVs(twJTYieldShareAccruedWAD);
-
-        // ST yield was split between ST and JT
-        if (yieldDistributed) {
-            // Reset the accumulator and update the last yield distribution timestamp
-            delete $.twJTYieldShareAccruedWAD;
-            $.lastDistributionTimestamp = uint32(block.timestamp);
-        }
-
-        // Checkpoint the mark to market NAVs and debts
-        $.lastSTRawNAV = stRawNAV;
-        $.lastJTRawNAV = jtRawNAV;
-        $.lastSTEffectiveNAV = stEffectiveNAV;
-        $.lastJTEffectiveNAV = jtEffectiveNAV;
-        $.lastSTCoverageDebt = stCoverageDebt;
-        $.lastJTCoverageDebt = jtCoverageDebt;
-
-        // Collect protocol fees
-        address protocolFeeRecipient = $.protocolFeeRecipient;
-        // If ST yield was distributed, Mint ST protocol fee shares to the protocol fee recipient
-        if (stProtocolFeeTaken > 0) IRoycoVaultTranche($.seniorTranche).mintProtocolFeeShares(stProtocolFeeTaken, stEffectiveNAV, protocolFeeRecipient);
-        // If JT yield was distributed, Mint JT protocol fee shares to the protocol fee recipient
-        if (jtProtocolFeeTaken > 0) IRoycoVaultTranche($.juniorTranche).mintProtocolFeeShares(jtProtocolFeeTaken, jtEffectiveNAV, protocolFeeRecipient);
-    }
-
-    /**
-     * @notice Previews a synchronization of tranche NAVs based on the underlying PNL(s) and their effects on the current state of the loss waterfall
-     * @param _twJTYieldShareAccruedWAD The accumulated time-weighted JT yield share since the last yield distribution
-     * @return stRawNAV The senior tranche's raw NAV: the pure value of its investment
-     * @return jtRawNAV The junior tranche's raw NAV: the pure value of its investment
-     * @return stEffectiveNAV The senior tranche's effective NAV, including applied coverage, ST yield distribution, and uncovered losses
-     * @return jtEffectiveNAV The junior tranche's effective NAV, including provided coverage, JT yield, ST yield distribution, and JT losses
-     * @return stCoverageDebt The coverage that has currently been applied to ST from the JT loss-absorption buffer: represents the second claim on capital the junior tranche has on future recoveries
-     * @return jtCoverageDebt The losses that ST incurred after exhausting the JT loss-absorption buffer: represents the first claim on capital the senior tranche has on future recoveries
-     * @return stProtocolFeeTaken The protocol fee taken on ST yield on this sync
-     * @return jtProtocolFeeTaken The protocol fee taken on JT yield on this sync
-     * @return yieldDistributed A boolean indicating whether ST yield was split between ST and JT
-     */
-    function _previewSyncTrancheNAVs(uint256 _twJTYieldShareAccruedWAD)
-        internal
-        view
-        returns (
-            uint256 stRawNAV,
-            uint256 jtRawNAV,
-            uint256 stEffectiveNAV,
-            uint256 jtEffectiveNAV,
-            uint256 stCoverageDebt,
-            uint256 jtCoverageDebt,
-            uint256 stProtocolFeeTaken,
-            uint256 jtProtocolFeeTaken,
-            bool yieldDistributed
-        )
-    {
-        // Get the storage pointer to the base kernel state
-        RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
-
-        // Compute the delta in the raw NAV of the junior tranche
-        // The delta represents the unrealized JT PNL of the underlying investment since the last NAV checkpoints
-        jtRawNAV = _getJuniorTrancheRawNAV();
-        int256 deltaJT = _computeRawNAVDelta(jtRawNAV, $.lastJTRawNAV);
-
-        // Cache the last checkpointed effective NAV and coverage debt for each tranche
-        stEffectiveNAV = $.lastSTEffectiveNAV;
-        jtEffectiveNAV = $.lastJTEffectiveNAV;
-        stCoverageDebt = $.lastSTCoverageDebt;
-        jtCoverageDebt = $.lastJTCoverageDebt;
-
-        /// @dev STEP_APPLY_JT_LOSS: The JT assets depreciated in value
-        if (deltaJT < 0) {
-            /// @dev STEP_JT_ABSORB_LOSS: JT's remaning loss-absorption buffer incurs as much of the loss as possible
-            uint256 jtLoss = uint256(-deltaJT);
-            uint256 jtAbsorbableLoss = Math.min(jtLoss, jtEffectiveNAV);
-            if (jtAbsorbableLoss != 0) {
-                // Incur the maximum absorbable losses to remaining JT loss capital
-                jtEffectiveNAV -= jtAbsorbableLoss;
-                // Reduce the residual JT loss by the loss absorbed
-                jtLoss -= jtAbsorbableLoss;
+        // Collect any protocol fees accrued from the sync to the fee recipient
+        if (packet.stProtocolFeeAccrued != 0 || packet.jtProtocolFeeAccrued != 0) {
+            RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
+            address protocolFeeRecipient = $.protocolFeeRecipient;
+            // If ST yield was distributed, Mint ST protocol fee shares to the protocol fee recipient
+            if (packet.stProtocolFeeAccrued != 0) {
+                IRoycoVaultTranche($.seniorTranche).mintProtocolFeeShares(packet.stProtocolFeeAccrued, packet.stEffectiveNAV, protocolFeeRecipient);
             }
-            /// @dev STEP_ST_INCURS_RESIDUAL_LOSSES: Residual loss after emptying JT's remaning loss-absorption buffer are incurred by ST
-            if (jtLoss != 0) {
-                // The excess loss is absorbed by ST
-                stEffectiveNAV -= jtLoss;
-                // Repay ST debt to JT
-                // This is equivalent to retroactively reducing previously applied coverage
-                // Thus, the liability is flipped to JT debt to ST
-                stCoverageDebt -= jtLoss;
-                jtCoverageDebt += jtLoss;
-            }
-            /// @dev STEP_APPLY_JT_GAIN: The JT assets appreciated in value
-        } else if (deltaJT > 0) {
-            uint256 jtGain = uint256(deltaJT);
-            /// @dev STEP_REPAY_JT_COVERAGE_DEBT: Pay off any JT debt to ST (previously uncovered losses)
-            uint256 jtDebtRepayment = Math.min(jtGain, jtCoverageDebt);
-            if (jtDebtRepayment != 0) {
-                // Repay JT debt to ST
-                // This is equivalent to retroactively applying coverage for previously uncovered losses
-                // Thus, the liability is flipped to ST debt to JT
-                jtCoverageDebt -= jtDebtRepayment;
-                stCoverageDebt += jtDebtRepayment;
-                // Apply the repayment (retroactive coverage) to the ST
-                stEffectiveNAV += jtDebtRepayment;
-                jtGain -= jtDebtRepayment;
-            }
-            /// @dev STEP_JT_ACCRUES_RESIDUAL_GAINS: JT accrues any remaining appreciation after repaying liabilities
-            if (jtGain != 0) {
-                // Compute the protocol fee taken on this JT yield accrual - will be used to mint JT shares to the protocol fee recipient at the updated JT effective NAV
-                jtProtocolFeeTaken = jtGain.mulDiv($.protocolFeeWAD, ConstantsLib.WAD, Math.Rounding.Floor);
-                // Book the residual gains to the JT
-                jtEffectiveNAV += jtGain;
+            // If JT yield was distributed, Mint JT protocol fee shares to the protocol fee recipient
+            if (packet.jtProtocolFeeAccrued != 0) {
+                IRoycoVaultTranche($.juniorTranche).mintProtocolFeeShares(packet.jtProtocolFeeAccrued, packet.jtEffectiveNAV, protocolFeeRecipient);
             }
         }
-
-        // Compute the delta in the raw NAV of the senior tranche
-        // The delta represents the unrealized ST PNL of the underlying investment since the last NAV checkpoints
-        stRawNAV = _getSeniorTrancheRawNAV();
-        int256 deltaST = _computeRawNAVDelta(stRawNAV, $.lastSTRawNAV);
-
-        /// @dev STEP_APPLY_ST_LOSS: The ST assets depreciated in value
-        if (deltaST < 0) {
-            uint256 stLoss = uint256(-deltaST);
-            /// @dev STEP_APPLY_JT_COVERAGE_TO_ST: Apply any possible coverage to ST provided by JT's loss-absorption buffer
-            uint256 coverageApplied = Math.min(stLoss, jtEffectiveNAV);
-            if (coverageApplied != 0) {
-                jtEffectiveNAV -= coverageApplied;
-                // Any coverage provided is a ST liability to JT
-                stCoverageDebt += coverageApplied;
-            }
-            /// @dev STEP_ST_INCURS_RESIDUAL_LOSSES: Apply any uncovered losses by JT to ST
-            uint256 netStLoss = stLoss - coverageApplied;
-            if (netStLoss != 0) {
-                // Apply residual losses to ST
-                stEffectiveNAV -= netStLoss;
-                // The uncovered portion of the ST loss is a JT liability to ST
-                jtCoverageDebt += netStLoss;
-            }
-            /// @dev STEP_APPLY_ST_GAIN: The ST assets appreciated in value
-        } else if (deltaST > 0) {
-            uint256 stGain = uint256(deltaST);
-            /// @dev STEP_REPAY_JT_COVERAGE_DEBT: The first priority of repayment to reverse the loss-waterfall is making ST whole again
-            // Repay JT debt to ST: previously uncovered ST losses
-            uint256 debtRepayment = Math.min(stGain, jtCoverageDebt);
-            if (debtRepayment != 0) {
-                // Pay back JT debt to ST: making ST whole again
-                stEffectiveNAV += debtRepayment;
-                jtCoverageDebt -= debtRepayment;
-                // Deduct the repayment from the ST gains and return if no gains are left
-                stGain -= debtRepayment;
-            }
-            /// @dev STEP_REPAY_ST_COVERAGE_DEBT: The second priority of repayment to reverse the loss-waterfall is making JT whole again
-            // Repay ST debt to JT: previously applied coverage from JT to ST
-            debtRepayment = Math.min(stGain, stCoverageDebt);
-            if (debtRepayment != 0) {
-                // Pay back ST debt to JT: making JT whole again
-                jtEffectiveNAV += debtRepayment;
-                stCoverageDebt -= debtRepayment;
-                // Deduct the repayment from the remaining ST gains and return if no gains are left
-                stGain -= debtRepayment;
-            }
-            /// @dev STEP_DISTRIBUTE_YIELD: There are no remaining debts in the system, the residual gains will be used to distribute yield to both tranches
-            if (stGain != 0) {
-                // Compute the time weighted average JT share of yield
-                uint256 elapsed = block.timestamp - $.lastDistributionTimestamp;
-                uint256 protocolFeeWAD = $.protocolFeeWAD;
-                // If the last yield distribution wasn't in this block, split the yield between ST and JT
-                if (elapsed != 0) {
-                    // Compute the ST gain allocated to JT based on its time weighted yield share since the last distribution, rounding in favor of the senior tranche
-                    uint256 jtGain = stGain.mulDiv((_twJTYieldShareAccruedWAD / elapsed), ConstantsLib.WAD, Math.Rounding.Floor);
-                    // Apply the yield split to JT's effective NAV
-                    if (jtGain != 0) {
-                        // Compute the protocol fee taken on this JT yield accrual (will be used to mint shares to the protocol fee recipient) at the updated JT effective NAV
-                        jtProtocolFeeTaken += jtGain.mulDiv(protocolFeeWAD, ConstantsLib.WAD, Math.Rounding.Floor);
-                        jtEffectiveNAV += jtGain;
-                        stGain -= jtGain;
-                    }
-                    yieldDistributed = true;
-                }
-                // Compute the protocol fee taken on this ST yield accrual (will be used to mint shares to the protocol fee recipient) at the updated JT effective NAV
-                stProtocolFeeTaken = stGain.mulDiv(protocolFeeWAD, ConstantsLib.WAD, Math.Rounding.Floor);
-                // Book the residual gain to the ST
-                stEffectiveNAV += stGain;
-            }
-        }
-        // Enforce the NAV conservation invariant
-        require((stRawNAV + jtRawNAV) == (stEffectiveNAV + jtEffectiveNAV), NAV_CONSERVATION_VIOLATION());
     }
 
     /**
-     * @notice Computes the currently accrued JT yield share since the last yield distribution
-     * @dev Gets the instantaneous JT yield share and accumulates it over the time elapsed since the last accrual
-     * @return The updated time-weighted JT yield share since the last yield distribution
-     */
-    function _previewJTYieldShareAccrual() internal view returns (uint192) {
-        // Get the storage pointer to the base kernel state
-        RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
-
-        // Get the last update timestamp
-        uint256 lastUpdate = $.lastAccrualTimestamp;
-        if (lastUpdate == 0) return 0;
-
-        // Compute the elapsed time since the last update
-        uint256 elapsed = block.timestamp - lastUpdate;
-        // Preemptively return if last accrual was in the same block
-        if (elapsed == 0) return $.twJTYieldShareAccruedWAD;
-
-        // Get the instantaneous JT yield share, scaled by WAD
-        uint256 jtYieldShareWAD = IRDM($.rdm).getJTYieldShare($.lastSTRawNAV, $.lastJTRawNAV, $.betaWAD, $.coverageWAD, $.lastJTEffectiveNAV);
-        // Apply the accural of JT yield share to the accumulator, weighted by the time elapsed
-        return ($.twJTYieldShareAccruedWAD + uint192(jtYieldShareWAD * elapsed));
-    }
-
-    /**
-     * @notice Applies post-operation (deposit and withdrawal) raw NAV deltas to effective NAV checkpoints
-     * @dev Interprets deltas strictly as deposits/withdrawals with no yield or coverage logic
+     * @notice Invokes the accountant to do a post-operation (deposit and withdrawal) NAV sync
+     * @dev Should be called on every NAV mutating user operation that doesn't require a coverage check
      * @param _op The operation being executed in between the pre and post synchronizations
      */
     function _postOpSyncTrancheNAVs(Operation _op) internal {
-        // Get the storage pointer to the base kernel state
-        RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
-        if (_op == Operation.ST_DEPOSIT) {
-            // Compute the delta in the raw NAV of the senior tranche
-            // The deltas represent the NAV changes after a deposit and withdrawal
-            uint256 stRawNAV = _getSeniorTrancheRawNAV();
-            int256 deltaST = _computeRawNAVDelta(stRawNAV, $.lastSTRawNAV);
-            // Deposits must increase NAV
-            require(deltaST > 0, INVALID_POST_OP_STATE(_op));
-            // Update the post-operation raw NAV ST checkpoint
-            $.lastSTRawNAV = stRawNAV;
-            // Apply the deposit to the senior tranche's effective NAV
-            $.lastSTEffectiveNAV += uint256(deltaST);
-        } else if (_op == Operation.JT_DEPOSIT) {
-            // Compute the delta in the raw NAV of the junior tranche
-            // The deltas represent the NAV changes after a deposit and withdrawal
-            uint256 jtRawNAV = _getJuniorTrancheRawNAV();
-            int256 deltaJT = _computeRawNAVDelta(jtRawNAV, $.lastJTRawNAV);
-            // Deposits must increase NAV
-            require(deltaJT > 0, INVALID_POST_OP_STATE(_op));
-            // Update the post-operation raw NAV ST checkpoint
-            $.lastJTRawNAV = jtRawNAV;
-            // Apply the deposit to the junior tranche's effective NAV
-            $.lastJTEffectiveNAV += uint256(deltaJT);
-        } else if (_op == Operation.ST_WITHDRAW || _op == Operation.JT_WITHDRAW) {
-            // Compute the deltas in the raw NAVs of each tranche after an operation's execution and cache the raw NAVs
-            // The deltas represent the NAV changes after a deposit and withdrawal
-            uint256 stRawNAV = _getSeniorTrancheRawNAV();
-            uint256 jtRawNAV = _getJuniorTrancheRawNAV();
-            int256 deltaST = _computeRawNAVDelta(stRawNAV, $.lastSTRawNAV);
-            int256 deltaJT = _computeRawNAVDelta(jtRawNAV, $.lastJTRawNAV);
-
-            // Update the post-operation raw NAV checkpoints
-            $.lastSTRawNAV = stRawNAV;
-            $.lastJTRawNAV = jtRawNAV;
-
-            if (_op == Operation.ST_WITHDRAW) {
-                // ST withdrawals must decrease ST NAV and leave JT NAV decreased or unchanged (coverage realization)
-                // Or they must leave ST NAV unchanged and decrease JT NAV (pure coverage realization)
-                require((deltaST < 0 && deltaJT <= 0) || (deltaST == 0 && deltaJT < 0), INVALID_POST_OP_STATE(_op));
-                // Senior withdrew: The NAV deltas include the discrete withdrawal amount in addition to any coverage pulled from JT to ST
-                // If the withdrawal used JT capital as coverage to facilitate this ST withdrawal
-                uint256 preWithdrawalSTEffectiveNAV = $.lastSTEffectiveNAV;
-                if (deltaJT < 0) {
-                    // The actual amount withdrawn was the delta in ST raw NAV and the coverage applied from JT
-                    uint256 coverageRealized = uint256(-deltaJT);
-                    $.lastSTEffectiveNAV = preWithdrawalSTEffectiveNAV - (uint256(-deltaST) + coverageRealized);
-                    // The withdrawing senior LP has realized its proportional share of past covered losses, settling the realized portion between JT and ST
-                    $.lastSTCoverageDebt -= coverageRealized;
-                } else {
-                    // Apply the withdrawal to the senior tranche's effective NAV
-                    $.lastSTEffectiveNAV = preWithdrawalSTEffectiveNAV - uint256(-deltaST);
-                }
-                // The withdrawing senior LP has realized its proportional share of past uncovered losses and associated recovery optionality
-                // Round in favor of senior
-                uint256 jtCoverageDebt = $.lastJTCoverageDebt;
-                if (jtCoverageDebt != 0) $.lastJTCoverageDebt = jtCoverageDebt.mulDiv($.lastSTEffectiveNAV, preWithdrawalSTEffectiveNAV, Math.Rounding.Ceil);
-            } else if (_op == Operation.JT_WITHDRAW) {
-                // JT withdrawals must decrease JT NAV and leave ST NAV decreased or unchanged (yield claiming)
-                require(deltaJT < 0 && deltaST <= 0, INVALID_POST_OP_STATE(_op));
-                // Junior withdrew: The NAV deltas include the discrete withdrawal amount in addition to any assets (yield + debt repayments) pulled from ST to JT
-                // JT LPs cannot settle debts on withdrawal since they don't have discretion on when coverage applied to ST (stCoverageDebt) and uncovered ST losses (jtCoverageDebt) can be realized
-                // If ST delta was negative, the actual amount withdrawn by JT was the delta in JT raw NAV and the assets claimed from ST
-                if (deltaST < 0) $.lastJTEffectiveNAV -= (uint256(-deltaJT) + uint256(-deltaST));
-                // Apply the pure withdrawal to the junior tranche's effective NAV
-                else $.lastJTEffectiveNAV -= uint256(-deltaJT);
-
-                // TODO: Should we explicitly enforce this?
-                // require($.lastJTEffectiveNAV + $.lastSTCoverageDebt >= jtRawNAV);
-            }
-        }
-        // We ignore the following operations: ST_REQUEST_DEPOSIT, ST_REQUEST_REDEEM, JT_REQUEST_DEPOSIT, JT_REQUEST_REDEEM
-
-        // Enforce the NAV conservation invariant
-        require(($.lastSTRawNAV + $.lastJTRawNAV) == ($.lastSTEffectiveNAV + $.lastJTEffectiveNAV), NAV_CONSERVATION_VIOLATION());
+        // Execute the post-op sync on the accountant
+        _accountant().postOpSyncTrancheNAVs(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV(), _op);
     }
 
     /**
-     * @notice Enforces the market’s coverage requirement
-     * @dev Junior capital must be sufficient to absorb losses to the senior exposure up to the coverage ratio
-     * @dev Must be used as a post-check after all NAVs have been synchronized
-     * @dev Informally: junior loss absorbtion buffer >= total covered exposure
-     * @dev Formally: JT_EFFECTIVE_NAV >= (ST_RAW_NAV + (JT_RAW_NAV * BETA_%)) * COV_%
-     *      JT_EFFECTIVE_NAV is JT's current loss absorbtion buffer after applying all prior JT yield accrual and coverage adjustments
-     *      ST_RAW_NAV and JT_RAW_NAV are the mark-to-market NAVs of the tranches
-     *      BETA_% is the JT's sensitivity to the same downside stress that affects ST (eg. 0 if JT is in RFR and 1 if JT and ST are in the same opportunity)
-     * @dev If we rearrange the coverage condition, we get:
-     *      1 >= ((ST_RAW_NAV + (JT_RAW_NAV * BETA_%)) * COV_%) / JT_EFFECTIVE_NAV
-     *      Notice that the RHS is identical to how we define utilization: 1 >= Utilization
-     * @dev If this condition is unsatisfied, senior deposits and junior withdrawals must be blocked to prevent undercollateralized senior exposure
-     * @dev Reverts if the condition is unsatisfied
+     * @notice Invokes the accountant to do a post-operation (deposit and withdrawal) NAV sync and checks the market's coverage requirement is satisfied
+     * @dev Should be called on every NAV mutating user operation that requires a coverage check: ST deposit and JT withdrawal
+     * @param _op The operation being executed in between the pre and post synchronizations
      */
-    function _enforceCoverage() internal view {
-        // Get the storage pointer to the base kernel state
-        RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
-        // Compute the utilization and enforce that the senior tranche is properly collateralized based on persisted NAVs
-        uint256 utilization = UtilsLib.computeUtilization($.lastSTRawNAV, $.lastJTRawNAV, $.betaWAD, $.coverageWAD, $.lastJTEffectiveNAV);
-        require(ConstantsLib.WAD >= utilization, INSUFFICIENT_COVERAGE());
+    function _postOpSyncTrancheNAVsAndEnforceCoverage(Operation _op) internal {
+        // Execute the post-op sync on the accountant
+        _accountant().postOpSyncTrancheNAVsAndEnforceCoverage(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV(), _op);
     }
 
-    /**
-     * @notice Returns the max assets depositable into the senior tranche without violating the market's coverage requirement
-     * @dev Always rounds in favor of senior tranche protection
-     * @dev Coverage Invariant: JT_EFFECTIVE_NAV >= (ST_RAW_NAV + (JT_RAW_NAV * BETA_%)) * COV_%
-     * @dev Max assets depositable into ST, x: JT_EFFECTIVE_NAV = ((ST_RAW_NAV + x) + (JT_RAW_NAV * BETA_%)) * COV_%
-     *      Isolate x: x = (JT_EFFECTIVE_NAV / COV_%) - (JT_RAW_NAV * BETA_%) - ST_RAW_NAV
-     */
-    function _maxSTDepositGivenCoverage() internal view returns (uint256) {
-        // Get the storage pointer to the base kernel state
-        RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
-        // Preview a NAV sync to get the market's current state
-        (uint256 stRawNAV, uint256 jtRawNAV,, uint256 jtEffectiveNAV,,,,,) = _previewSyncTrancheNAVs(_previewJTYieldShareAccrual());
-        // Solve for x, rounding in favor of senior protection
-        // Compute the total covered assets by the junior tranche loss absorption buffer
-        uint256 totalCoveredAssets = jtEffectiveNAV.mulDiv(ConstantsLib.WAD, $.coverageWAD, Math.Rounding.Floor);
-        // Compute the assets required to cover current junior tranche exposure
-        uint256 jtCoverageRequired = jtRawNAV.mulDiv($.betaWAD, ConstantsLib.WAD, Math.Rounding.Ceil);
-        // Compute the assets required to cover current senior tranche exposure
-        uint256 stCoverageRequired = stRawNAV;
-        // Compute the amount of assets that can be deposited into senior while retaining full coverage
-        return totalCoveredAssets.saturatingSub(jtCoverageRequired).saturatingSub(stCoverageRequired);
-    }
-
-    /**
-     * @notice Returns the max assets withdrawable from the junior tranche without violating the market's coverage requirement
-     * @dev Always rounds in favor of senior tranche protection
-     * @dev Coverage Invariant: JT_EFFECTIVE_NAV >= (ST_RAW_NAV + (JT_RAW_NAV * BETA_%)) * COV_%
-     * @dev Max assets withdrawable from JT, y: (JT_EFFECTIVE_NAV - y) = (ST_RAW_NAV + ((JT_RAW_NAV - y) * BETA_%)) * COV_%
-     *      Isolate y: y = (JT_EFFECTIVE_NAV - (COV_% * (ST_RAW_NAV + (JT_RAW_NAV * BETA_%)))) / (1 - (BETA_% * COV_%))
-     */
-    function _maxJTWithdrawalGivenCoverage() internal view returns (uint256) {
-        // Get the storage pointer to the base kernel state and cache beta and coverage
-        RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
-        uint256 betaWAD = $.betaWAD;
-        uint256 coverageWAD = $.coverageWAD;
-        // Preview a NAV sync to get the market's current state
-        (uint256 stRawNAV, uint256 jtRawNAV,, uint256 jtEffectiveNAV,,,,,) = _previewSyncTrancheNAVs(_previewJTYieldShareAccrual());
-        // Solve for y, rounding in favor of senior protection
-        // Compute the total covered exposure of the underlying investment
-        uint256 totalCoveredExposure = stRawNAV + jtRawNAV.mulDiv(betaWAD, ConstantsLib.WAD, Math.Rounding.Ceil);
-        // Compute the minimum junior tranche assets required to cover the exposure as per the market's coverage requirement
-        uint256 requiredJTAssets = totalCoveredExposure.mulDiv(coverageWAD, ConstantsLib.WAD, Math.Rounding.Ceil);
-        // Compute the surplus coverage currently provided by the junior tranche based on its currently remaining loss-absorption buffer
-        uint256 surplusJTAssets = Math.saturatingSub(jtEffectiveNAV, requiredJTAssets);
-        // Compute how much coverage the system retains per 1 unit of JT assets withdrawn scaled by WAD
-        uint256 coverageRetentionWAD = ConstantsLib.WAD - betaWAD.mulDiv(coverageWAD, ConstantsLib.WAD, Math.Rounding.Floor);
-        // Return how much of the surplus can be withdrawn while satisfying the coverage requirement
-        return surplusJTAssets.mulDiv(ConstantsLib.WAD, coverageRetentionWAD, Math.Rounding.Floor);
-    }
-
-    function _computeFractionOfTotalAssetsAllocatedWAD(uint256 _assets, uint256 _totalAssets) internal pure returns (uint256) {
-        return _assets.mulDiv(ConstantsLib.WAD, _totalAssets + 1, Math.Rounding.Floor);
-    }
-
-    /// @notice Returns the effective net asset value of the senior tranche
-    /// @dev Includes applied coverage, ST yield distribution, and uncovered losses
-    function _getSeniorTrancheEffectiveNAV() internal view returns (uint256 stEffectiveNAV) {
-        (,, stEffectiveNAV,,,,,,) = _previewSyncTrancheNAVs(_previewJTYieldShareAccrual());
-    }
-
-    /// @notice Returns the effective net asset value of the junior tranche
-    /// @dev Includes provided coverage, JT yield, ST yield distribution, and JT losses
-    function _getJuniorTrancheEffectiveNAV() internal view returns (uint256 jtEffectiveNAV) {
-        (,,, jtEffectiveNAV,,,,,) = _previewSyncTrancheNAVs(_previewJTYieldShareAccrual());
-    }
-
-    /// @notice Returns ST's total claim on JT's assets at this point in time
-    /// @dev ST's coverage debt represents ST's economic claim on JT's assets right now
-    /// @dev This claim consists of coverage that has been applied and is currently callable by ST LPs (subject to JT liquidity constraints)
-    function _getSeniorClaimOnJuniorNAV() internal view returns (uint256) {
-        return RoycoKernelStorageLib._getRoycoKernelStorage().lastSTCoverageDebt;
-    }
-
-    /// @notice Returns JT's total claim on ST's assets at this point in time
-    /// @dev Any positive delta between JT's effective and raw NAVs represents JT's economic claim on ST's assets right now
-    /// @dev This claim consists of ST yield distribution to JT and ST coverage debt repayments that are currently callable by JT LPs (subject to ST liquidity constraints)
-    function _getJuniorClaimOnSeniorNAV() internal view returns (uint256) {
-        return Math.saturatingSub(_getJuniorTrancheEffectiveNAV(), _getJuniorTrancheRawNAV());
-    }
-
-    /**
-     * @notice Computes raw NAV deltas for a tranche
-     * @param _currentRawNAV The current raw NAV
-     * @param _lastRawNAV The last recorded raw NAV
-     * @return deltaNAV The delta between the last recorded and current raw NAV
-     */
-    function _computeRawNAVDelta(uint256 _currentRawNAV, uint256 _lastRawNAV) internal pure returns (int256 deltaNAV) {
-        deltaNAV = int256(_currentRawNAV) - int256(_lastRawNAV);
+    /// @notice Returns this kernel's accountant casted to the IRoycoAccountant interface
+    /// @return The Royco Accountant for this kernel
+    function _accountant() internal view returns (IRoycoAccountant) {
+        return IRoycoAccountant(RoycoKernelStorageLib._getRoycoKernelStorage().accountant);
     }
 
     /// @notice Returns the raw net asset value of the senior tranche
-    /// @dev The pure net asset value of the senior tranche invested assets
+    /// @return The pure net asset value of the senior tranche invested assets
     function _getSeniorTrancheRawNAV() internal view virtual returns (uint256);
 
     /// @notice Returns the raw net asset value of the junior tranche
-    /// @dev The pure net asset value of the junior tranche invested assets
+    /// @return The pure net asset value of the junior tranche invested assets
     function _getJuniorTrancheRawNAV() internal view virtual returns (uint256);
 
     /**
@@ -685,5 +227,5 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
 
     /// @inheritdoc UUPSUpgradeable
     /// @dev Will revert if the caller is not the upgrader role
-    function _authorizeUpgrade(address newImplementation) internal override checkRoleAndDelayIfGated(RoycoRoles.UPGRADER_ROLE) { }
+    function _authorizeUpgrade(address _newImplementation) internal override checkRoleAndDelayIfGated(RoycoRoles.UPGRADER_ROLE) { }
 }

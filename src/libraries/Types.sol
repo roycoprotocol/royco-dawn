@@ -1,52 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-/// @notice A struct representing a Royco market and its state
-/// @custom:field seniorTranche - The market's senior tranche
-/// @custom:field juniorTranche - The market's junior tranche
-/// @custom:field rdm - The market's Reward Distribution Model (RDM), responsible for determining the allocation of the ST's yield between ST and JT
-/// @custom:field coverageWAD - The expected minimum coverage provided by the junior tranche to the senior tranche at all times (scaled by WAD)
-/// @custom:field lastSTRawNAV - The last recorded raw NAV (excluding any losses, coverage, and yield accrual) of the senior tranche
-/// @custom:field lastJTRawNAV - The last recorded raw NAV (excluding any losses, coverage, and yield accrual) of the junior tranche
-/// @custom:field lastSTEffectiveNAV - The last recorded effective NAV (including any losses, coverage, and yield accrual) of the senior tranche
-/// @custom:field lastJTEffectiveNAV - The last recorded effective NAV (including any losses, coverage, and yield accrual) of the junior tranche
-/// @custom:field twJTYieldShareAccruedWAD - The time-weighted junior tranche yield share (RDM output) since the last yield distribution
-/// @custom:field lastAccrualTimestamp - The last time the time-weighted JT yield share accumulator was updated
-/// @custom:field lastDistributionTimestamp - The last time a yield distribution occurred
-struct Market {
-    address seniorTranche;
-    address juniorTranche;
-    address rdm;
-    uint64 coverageWAD;
-    uint256 lastSTRawNAV;
-    uint256 lastJTRawNAV;
-    uint256 lastSTEffectiveNAV;
-    uint256 lastJTEffectiveNAV;
-    uint192 twJTYieldShareAccruedWAD;
-    uint32 lastAccrualTimestamp;
-    uint32 lastDistributionTimestamp;
-}
-
-/// @notice Parameters required for Royco market creation
-/// @custom:field owner - The owner of this market
-/// @custom:field asset - The markets deposit and withdrawal asset for senior and junior tranches
-/// @custom:field rewardFeeWAD - The percentage of the yield that is paid to the protocol (WAD = 100%)
-/// @custom:field feeClaimant - The fee claimant for the reward fee
-/// @custom:field rdm - The Reward Distribution Model (RDM) - Responsible for determing the yield split between junior and senior tranche
-/// @custom:field coverageWAD - The percentage of the senior tranche that is always insured by the junior tranche (WAD = 100%)
-/// @custom:field stParams - The deployment params for the senior tranche
-/// @custom:field jtParams - The deployment params for the junior tranche
-struct CreateMarketParams {
-    address owner;
-    address asset;
-    uint64 rewardFeeWAD;
-    address feeClaimant;
-    address rdm;
-    uint64 coverageWAD;
-    TrancheDeploymentParams stParams;
-    TrancheDeploymentParams jtParams;
-}
-
 /// @custom:field name - The name of the tranche (should be prefixed with "Royco-ST" or "Royco-JT") share token
 /// @custom:field symbol - The symbol of the tranche (should be prefixed with "ST" or "JT") share token
 /// @custom:field kernel - The tranche kernel responsible for defining the execution model and logic of the tranche
@@ -54,6 +8,52 @@ struct TrancheDeploymentParams {
     string name;
     string symbol;
     address kernel;
+}
+
+/**
+ * @title SyncedNAVsPacket
+ * @dev Contains all current mark to market NAV accounting data for the market's tranches
+ * @custom:field stRawNAV - The senior tranche's current raw NAV: the pure value of its invested assets
+ * @custom:field jtRawNAV - The junior tranche's current raw NAV: the pure value of its invested assets
+ * @custom:field stEffectiveNAV - Senior tranche effective NAV: includes applied coverage, its share of ST yield, and uncovered losses
+ * @custom:field jtEffectiveNAV - Junior tranche effective NAV: includes provided coverage, JT yield, its share of ST yield, and JT losses
+ * @custom:field stCoverageDebt - Coverage that has currently been applied to ST from the JT loss-absorption buffer
+ * @custom:field jtCoverageDebt - Losses that ST incurred after exhausting the JT loss-absorption buffer
+ * @custom:field stProtocolFeeAccrued - Protocol fee taken on ST yield on this sync
+ * @custom:field jtProtocolFeeAccrued - Protocol fee taken on JT yield on this sync
+ */
+struct SyncedNAVsPacket {
+    uint256 stRawNAV;
+    uint256 jtRawNAV;
+    uint256 stEffectiveNAV;
+    uint256 jtEffectiveNAV;
+    uint256 stCoverageDebt;
+    uint256 jtCoverageDebt;
+    uint256 stProtocolFeeAccrued;
+    uint256 jtProtocolFeeAccrued;
+}
+
+/**
+ * @title Operation
+ * @dev Defines the operation being executed by the user
+ * @custom:type ST_DEPOSIT Depositing assets into the senior tranche
+ * @custom:type ST_WITHDRAW Withdrawing assets from the senior tranche
+ * @custom:type JT_DEPOSIT Depositing assets into the junior tranche
+ * @custom:type JT_WITHDRAW Withdrawing assets from the junior tranche
+ * @custom:type ST_REQUEST_DEPOSIT Requesting a deposit for the senior tranche
+ * @custom:type ST_REQUEST_REDEEM Requesting a redemption for the senior tranche
+ * @custom:type JT_REQUEST_DEPOSIT Requesting a deposit for the junior tranche
+ * @custom:type JT_REQUEST_REDEEM Requesting a redemption for the junior tranche
+ */
+enum Operation {
+    ST_DEPOSIT,
+    ST_WITHDRAW,
+    ST_REQUEST_DEPOSIT,
+    ST_REQUEST_REDEEM,
+    JT_DEPOSIT,
+    JT_WITHDRAW,
+    JT_REQUEST_DEPOSIT,
+    JT_REQUEST_REDEEM
 }
 
 /// @title Action
@@ -90,10 +90,4 @@ enum RequestRedeemSharesBehavior {
 enum ExecutionModel {
     SYNC,
     ASYNC
-}
-
-library TypesLib {
-    function Id(CreateMarketParams calldata _createMarketParams) internal pure returns (bytes32) {
-        return keccak256(abi.encode(_createMarketParams));
-    }
 }

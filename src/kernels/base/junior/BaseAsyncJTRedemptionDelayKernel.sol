@@ -7,9 +7,8 @@ import { RoycoRoles } from "../../../auth/RoycoRoles.sol";
 import { IAsyncJTWithdrawalKernel } from "../../../interfaces/kernel/IAsyncJTWithdrawalKernel.sol";
 import { IRoycoKernel } from "../../../interfaces/kernel/IRoycoKernel.sol";
 import { ConstantsLib } from "../../../libraries/ConstantsLib.sol";
-import { Operation } from "../../../libraries/RoycoKernelStorageLib.sol";
 import { RequestRedeemSharesBehavior } from "../../../libraries/Types.sol";
-import { RoycoKernel } from "../RoycoKernel.sol";
+import { Operation, RoycoKernel, SyncedNAVsPacket } from "../RoycoKernel.sol";
 
 /// @title BaseAsyncJTRedemptionDelayKernel
 /// @notice Abstract base contract for the junior tranche redemption delay kernel
@@ -75,10 +74,10 @@ abstract contract BaseAsyncJTRedemptionDelayKernel is IAsyncJTWithdrawalKernel, 
     )
         external
         onlyJuniorTranche
-        syncNAVs(Operation.JT_REQUEST_REDEEM)
         whenNotPaused
         returns (uint256 requestId)
     {
+        uint256 jtEffectiveNAV = _preOpSyncTrancheNAVs().jtEffectiveNAV;
         BaseAsyncJTRedemptionDelayKernelState storage $ = _getBaseAsyncJTRedemptionDelayKernelState();
 
         Redemption storage redemption = $.redemptions[_controller];
@@ -88,7 +87,7 @@ abstract contract BaseAsyncJTRedemptionDelayKernel is IAsyncJTWithdrawalKernel, 
         requestId = ConstantsLib.ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID;
 
         // Compute the redemption value at request
-        uint256 redemptionValueAtRequest = _redemptionValue(_shares, _totalShares);
+        uint256 redemptionValueAtRequest = _redemptionValue(jtEffectiveNAV, _shares, _totalShares);
 
         // Add the shares to the total shares to withdraw
         // If an existing redemption request exists, it's redemption delay is extended by the new redemption delay
@@ -201,16 +200,25 @@ abstract contract BaseAsyncJTRedemptionDelayKernel is IAsyncJTWithdrawalKernel, 
 
     /// @notice Accounts for the total JT shares claimed from a claimable redemption request
     /// @param _controller The controller that is allowed to operate the claim
+    /// @param _currentJTEffectiveNAV The current effective NAV of JT
     /// @param _sharesToRedeem The amount of JT shares to redeem
     /// @param _totalShares The total number of JT shares to withdraw
     /// @return valueClaimed The value of the shares claimed from the redemption request
-    function _processClaimableRedeemRequest(address _controller, uint256 _sharesToRedeem, uint256 _totalShares) internal returns (uint256 valueClaimed) {
+    function _processClaimableRedeemRequest(
+        address _controller,
+        uint256 _currentJTEffectiveNAV,
+        uint256 _sharesToRedeem,
+        uint256 _totalShares
+    )
+        internal
+        returns (uint256 valueClaimed)
+    {
         BaseAsyncJTRedemptionDelayKernelState storage $ = _getBaseAsyncJTRedemptionDelayKernelState();
         Redemption storage redemption = $.redemptions[_controller];
 
         // JT LPs are not entitled to any of the upside during the redemption delay
         // They are however, liable for providing coverage to ST LPs during the redemption delay
-        uint256 redemptionValueAtCurrentNAV = _redemptionValue(_sharesToRedeem, _totalShares);
+        uint256 redemptionValueAtCurrentNAV = _redemptionValue(_currentJTEffectiveNAV, _sharesToRedeem, _totalShares);
         uint256 redemptionValueAtRequest = redemption.redemptionValueAtRequest.mulDiv(_sharesToRedeem, redemption.totalJTSharesToRedeem);
         valueClaimed = Math.min(redemptionValueAtCurrentNAV, redemptionValueAtRequest);
 
@@ -226,11 +234,12 @@ abstract contract BaseAsyncJTRedemptionDelayKernel is IAsyncJTWithdrawalKernel, 
     }
 
     /// @notice Computes the value of a redemption request
+    /// @param _currentJTEffectiveNAV The current effective NAV of JT
     /// @param _shares The amount of JT shares to redeem
     /// @param _totalShares The total number of JT shares to withdraw
     /// @return value The value of the redemption request
-    function _redemptionValue(uint256 _shares, uint256 _totalShares) internal view returns (uint256 value) {
-        return _shares.mulDiv(_getJuniorTrancheEffectiveNAV(), _totalShares, Math.Rounding.Floor);
+    function _redemptionValue(uint256 _currentJTEffectiveNAV, uint256 _shares, uint256 _totalShares) internal view returns (uint256 value) {
+        return _shares.mulDiv(_currentJTEffectiveNAV, _totalShares, Math.Rounding.Floor);
     }
 
     function _getBaseAsyncJTRedemptionDelayKernelState() private pure returns (BaseAsyncJTRedemptionDelayKernelState storage $) {

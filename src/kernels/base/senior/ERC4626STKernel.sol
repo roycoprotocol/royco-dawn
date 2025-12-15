@@ -5,10 +5,10 @@ import { IERC4626 } from "../../../../lib/openzeppelin-contracts/contracts/inter
 import { IERC20, SafeERC20 } from "../../../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "../../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import { ExecutionModel, IRoycoKernel } from "../../../interfaces/kernel/IRoycoKernel.sol";
-import { Operation, RoycoKernelState, RoycoKernelStorageLib } from "../../../libraries/RoycoKernelStorageLib.sol";
+import { RoycoKernelState, RoycoKernelStorageLib } from "../../../libraries/RoycoKernelStorageLib.sol";
 import { RequestRedeemSharesBehavior } from "../../../libraries/Types.sol";
 import { ERC4626STKernelStorageLib } from "../../../libraries/kernels/ERC4626STKernelStorageLib.sol";
-import { RoycoKernel } from "../RoycoKernel.sol";
+import { Operation, RoycoKernel, SyncedNAVsPacket } from "../RoycoKernel.sol";
 
 abstract contract ERC4626STKernel is RoycoKernel {
     using SafeERC20 for IERC20;
@@ -45,7 +45,7 @@ abstract contract ERC4626STKernel is RoycoKernel {
 
     /// @inheritdoc IRoycoKernel
     function getSTTotalEffectiveAssets() external view override(IRoycoKernel) returns (uint256) {
-        return _getSeniorTrancheEffectiveNAV();
+        return previewSyncTrancheNAVs().stEffectiveNAV;
     }
 
     /// @inheritdoc IRoycoKernel
@@ -59,20 +59,20 @@ abstract contract ERC4626STKernel is RoycoKernel {
         override(IRoycoKernel)
         onlySeniorTranche
         whenNotPaused
-        syncNAVsAndEnforceCoverage(Operation.ST_DEPOSIT)
         returns (uint256 valueAllocated, uint256 effectiveNAVToMintAt)
     {
-        // Deposit the assets into the underlying investment vault
-        address vault = ERC4626STKernelStorageLib._getERC4626STKernelStorage().vault;
+        // The effective NAV to mint at is the effective NAV of the tranche before the deposit is made, ie. the NAV at which the shares will be minted
+        // This is the NAV returned by the pre-op sync
+        effectiveNAVToMintAt = (_preOpSyncTrancheNAVs()).stEffectiveNAV;
 
         // Deposit the assets into the underlying investment vault
-        IERC4626(vault).deposit(_assets, address(this));
+        IERC4626(ERC4626STKernelStorageLib._getERC4626STKernelStorage().vault).deposit(_assets, address(this));
 
         // The value of the assets deposited is the value of the assets in the asset that the tranche's NAV is denominated in
         valueAllocated = _convertAssetsToValue(_assets);
 
-        // The effective NAV to mint at is the effective NAV of the tranche before the deposit is made, ie. the NAV at which the shares will be minted
-        effectiveNAVToMintAt = _getSeniorTrancheEffectiveNAV();
+        // Execute a post-op sync on NAV accounting and enforce the market's coverage requirement
+        _postOpSyncTrancheNAVsAndEnforceCoverage(Operation.ST_DEPOSIT);
     }
 
     /// @inheritdoc IRoycoKernel
@@ -87,21 +87,26 @@ abstract contract ERC4626STKernel is RoycoKernel {
         override(IRoycoKernel)
         onlySeniorTranche
         whenNotPaused
-        syncNAVs(Operation.ST_WITHDRAW)
         returns (uint256 assetsWithdrawn)
     {
-        // Get the storage pointer to the base kernel state
-        // We can assume that all NAV and debt values are synced
-        RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
-        // Compute the assets expected to be received on withdrawal based on the ST's effective NAV
-        assetsWithdrawn = _shares.mulDiv($.lastSTEffectiveNAV, _totalShares, Math.Rounding.Floor);
+        // Execute a pre-op sync on NAV accounting
+        SyncedNAVsPacket memory packet = _preOpSyncTrancheNAVs();
 
-        // Compute and claim the assets that need to pulled from JT for this withdrawal
-        uint256 jtAssetsToWithdraw = _shares.mulDiv(_getSeniorClaimOnJuniorNAV(), _totalShares, Math.Rounding.Floor);
+        // Compute the assets expected to be received on withdrawal based on the ST's effective NAV
+        assetsWithdrawn = _shares.mulDiv(packet.stEffectiveNAV, _totalShares, Math.Rounding.Floor);
+
+        // ST's coverage debt post-sync is the total applied coverage by JT to ST
+        uint256 totalAppliedCoverage = packet.stCoverageDebt;
+        // Compute and claim the assets that need to pulled from JT for this withdrawal, rounding in favor of ST
+        uint256 jtAssetsToWithdraw = Math.min(_shares.mulDiv(totalAppliedCoverage, _totalShares, Math.Rounding.Ceil), totalAppliedCoverage);
         if (jtAssetsToWithdraw != 0) _claimSeniorAssetsFromJunior(_asset, jtAssetsToWithdraw, _receiver);
 
         // Facilitate the remainder of the withdrawal from ST exposure
+        // TODO: Should we use redeem flow instead since some vaults disable withdrawal flows?
         IERC4626(ERC4626STKernelStorageLib._getERC4626STKernelStorage().vault).withdraw((assetsWithdrawn - jtAssetsToWithdraw), _receiver, address(this));
+
+        // Execute a post-op sync on NAV accounting
+        _postOpSyncTrancheNAVs(Operation.ST_WITHDRAW);
     }
 
     /**

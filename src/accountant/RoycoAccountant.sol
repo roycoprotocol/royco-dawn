@@ -213,13 +213,11 @@ contract RoycoAccountant is Initializable, IRoycoAccountant {
                 stEffectiveNAV += stGain;
             }
         }
-
-        // Construct the NAV sync packet to return to the caller
-        packet =
-            SyncedNAVsPacket(_stRawNAV, _jtRawNAV, stEffectiveNAV, jtEffectiveNAV, stCoverageDebt, jtCoverageDebt, stProtocolFeeAccrued, jtProtocolFeeAccrued);
-
         // Enforce the NAV conservation invariant
         require((_stRawNAV + _jtRawNAV) == (stEffectiveNAV + jtEffectiveNAV), NAV_CONSERVATION_VIOLATION());
+        // Construct the synced NAVs packet to return to the caller
+        packet =
+            SyncedNAVsPacket(_stRawNAV, _jtRawNAV, stEffectiveNAV, jtEffectiveNAV, stCoverageDebt, jtCoverageDebt, stProtocolFeeAccrued, jtProtocolFeeAccrued);
     }
 
     /// @inheritdoc IRoycoAccountant

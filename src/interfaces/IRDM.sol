@@ -11,12 +11,12 @@ interface IRDM {
      * @dev Does not mutate any state
      * @param _stRawNAV The raw net asset value of the senior tranche invested assets
      * @param _jtRawNAV The raw net asset value of the junior tranche invested assets
-     * @param _betaWAD The JT's sensitivity to the same downside stress that affects ST scaled by WAD
+     * @param _betaWAD The JT's sensitivity to the same downside stress that affects ST scaled to WAD precision
      *                 For example, beta is 0 when JT is in the RFR and 1 when JT is in the same opportunity as senior
-     * @param _coverageWAD The ratio of current exposure that is expected to be covered by the junior capital scaled by WAD
+     * @param _coverageWAD The ratio of current exposure that is expected to be covered by the junior capital scaled to WAD precision
      * @param _jtEffectiveNAV JT's net asset value after applying provided coverage, JT yield, ST yield distribution, and JT losses
      *                        Equivalent to its remaining loss-absorption buffer to cover ST's and its own drawdowns
-     * @return jtYieldShareWAD The percentage of the ST's yield allocated to its JT, scaled by WAD
+     * @return jtYieldShareWAD The percentage of the ST's yield allocated to its JT, scaled to WAD precision
      *                         It is implied that (WAD - jtRewardPercentageWAD) will be the percentage allocated to ST, excluding any protocol fees
      */
     function previewJTYieldShare(
@@ -35,12 +35,12 @@ interface IRDM {
      * @dev Can mutate state
      * @param _stRawNAV The raw net asset value of the senior tranche invested assets
      * @param _jtRawNAV The raw net asset value of the junior tranche invested assets
-     * @param _betaWAD The JT's sensitivity to the same downside stress that affects ST scaled by WAD
+     * @param _betaWAD The JT's sensitivity to the same downside stress that affects ST scaled to WAD precision
      *                 For example, beta is 0 when JT is in the RFR and 1 when JT is in the same opportunity as senior
-     * @param _coverageWAD The ratio of current exposure that is expected to be covered by the junior capital scaled by WAD
+     * @param _coverageWAD The ratio of current exposure that is expected to be covered by the junior capital scaled to WAD precision
      * @param _jtEffectiveNAV JT's net asset value after applying provided coverage, JT yield, ST yield distribution, and JT losses
      *                        Equivalent to its remaining loss-absorption buffer to cover ST's and its own drawdowns
-     * @return jtYieldShareWAD The percentage of the ST's yield allocated to its JT, scaled by WAD
+     * @return jtYieldShareWAD The percentage of the ST's yield allocated to its JT, scaled to WAD precision
      *                         It is implied that (WAD - jtRewardPercentageWAD) will be the percentage allocated to ST, excluding any protocol fees
      */
     function jtYieldShare(

@@ -35,38 +35,38 @@ interface IRoycoAccountant {
      * @dev Accrues JT yield share over time based on the market's RDM output
      * @dev Applies unrealized PnL and yield distribution
      * @dev Persists updated NAV and debt checkpoints for the next sync to use as reference
-     * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
-     * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
-     * @return packet The NAV sync packet containing all mark to market accounting data
+     * @param _stRawNavRAY The senior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+     * @param _jtRawNavRAY The junior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+     * @return packet The NAV sync packet containing all mark to market accounting data, scaled to RAY precision
      */
-    function preOpSyncTrancheNAVs(uint256 _stRawNAV, uint256 _jtRawNAV) external returns (SyncedNAVsPacket memory packet);
+    function preOpSyncTrancheNAVs(uint256 _stRawNavRAY, uint256 _jtRawNavRAY) external returns (SyncedNAVsPacket memory packet);
 
     /**
      * @notice Previews a synchronization of tranche NAVs based on the underlying PNL(s) and their effects on the current state of the loss waterfall
-     * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
-     * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
-     * @return packet The NAV sync packet containing all mark to market accounting data
+     * @param _stRawNavRAY The senior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+     * @param _jtRawNavRAY The junior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+     * @return packet The NAV sync packet containing all mark to market accounting data, scaled to RAY precision
      */
-    function previewSyncTrancheNAVs(uint256 _stRawNAV, uint256 _jtRawNAV) external view returns (SyncedNAVsPacket memory packet);
+    function previewSyncTrancheNAVs(uint256 _stRawNavRAY, uint256 _jtRawNavRAY) external view returns (SyncedNAVsPacket memory packet);
 
     /**
      * @notice Applies post-operation (deposit and withdrawal) raw NAV deltas to effective NAV checkpoints
      * @dev Interprets deltas strictly as deposits/withdrawals with no yield or coverage logic
-     * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
-     * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
-     * @param _op The operation being executed in between the pre and post synchronizations
+     * @param _stRawNavRAY The senior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+     * @param _jtRawNavRAY The junior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+     * @param _op The operation being executed in between the pre and post synchronizations, scaled to RAY precision
      */
-    function postOpSyncTrancheNAVs(uint256 _stRawNAV, uint256 _jtRawNAV, Operation _op) external;
+    function postOpSyncTrancheNAVs(uint256 _stRawNavRAY, uint256 _jtRawNavRAY, Operation _op) external;
 
     /**
      * @notice Applies post-operation (deposit and withdrawal) raw NAV deltas to effective NAV checkpoints and enforces the coverage condition of the market
      * @dev Interprets deltas strictly as deposits/withdrawals with no yield or coverage logic
      * @dev Reverts if the coverage requirement is unsatisfied
-     * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
-     * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
-     * @param _op The operation being executed in between the pre and post synchronizations
+     * @param _stRawNavRAY The senior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+     * @param _jtRawNavRAY The junior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+     * @param _op The operation being executed in between the pre and post synchronizations, scaled to RAY precision
      */
-    function postOpSyncTrancheNAVsAndEnforceCoverage(uint256 _stRawNAV, uint256 _jtRawNAV, Operation _op) external;
+    function postOpSyncTrancheNAVsAndEnforceCoverage(uint256 _stRawNavRAY, uint256 _jtRawNavRAY, Operation _op) external;
 
     /**
      * @notice Returns if the market’s coverage requirement is satisfied
@@ -78,18 +78,18 @@ interface IRoycoAccountant {
     /**
      * @notice Returns the maximum assets depositable into the senior tranche without violating the market's coverage requirement
      * @dev Always rounds in favor of senior tranche protection
-     * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
-     * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
-     * @return maxSTDeposit The maximum assets depositable into the senior tranche without violating the market's coverage requirement
+     * @param _stRawNavRAY The senior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+     * @param _jtRawNavRAY The junior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+     * @return maxSTDepositRAY The maximum assets depositable into the senior tranche without violating the market's coverage requirement, scaled to RAY precision
      */
-    function maxSTDepositGivenCoverage(uint256 _stRawNAV, uint256 _jtRawNAV) external view returns (uint256 maxSTDeposit);
+    function maxSTDepositGivenCoverage(uint256 _stRawNavRAY, uint256 _jtRawNavRAY) external view returns (uint256 maxSTDepositRAY);
 
     /**
      * @notice Returns the maximum assets withdrawable from the junior tranche without violating the market's coverage requirement
      * @dev Always rounds in favor of senior tranche protection
-     * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
-     * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
-     * @return maxJTWithdrawal The maximum assets withdrawable from the junior tranche without violating the market's coverage requirement
+     * @param _stRawNavRAY The senior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+     * @param _jtRawNavRAY The junior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+     * @return maxJTWithdrawalRAY The maximum assets withdrawable from the junior tranche without violating the market's coverage requirement, scaled to RAY precision
      */
-    function maxJTWithdrawalGivenCoverage(uint256 _stRawNAV, uint256 _jtRawNAV) external view returns (uint256 maxJTWithdrawal);
+    function maxJTWithdrawalGivenCoverage(uint256 _stRawNavRAY, uint256 _jtRawNavRAY) external view returns (uint256 maxJTWithdrawalRAY);
 }

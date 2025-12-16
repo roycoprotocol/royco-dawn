@@ -24,13 +24,13 @@ contract StaticCurveRDM is IRDM {
      */
     uint256 public constant TARGET_UTILIZATION = 0.9e18;
 
-    /// @dev The slope when the market's utilization is less than the target utilization (scaled by WAD)
+    /// @dev The slope when the market's utilization is less than the target utilization (scaled to WAD precision)
     uint256 public constant SLOPE_LT_TARGET_UTIL = 0.25e18;
 
-    /// @dev The slope when the market's utilization is greater than or equal to the target utilization (scaled by WAD)
+    /// @dev The slope when the market's utilization is greater than or equal to the target utilization (scaled to WAD precision)
     uint256 public constant SLOPE_GTE_TARGET_UTIL = 7.75e18;
 
-    /// @dev The base rate paid to the junior tranche when the utilization is exactly at the target (scaled by WAD)
+    /// @dev The base rate paid to the junior tranche when the utilization is exactly at the target (scaled to WAD precision)
     uint256 public constant BASE_RATE_GTE_TARGET_UTIL = 0.225e18;
 
     /// @inheritdoc IRDM

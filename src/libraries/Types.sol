@@ -13,24 +13,24 @@ struct TrancheDeploymentParams {
 /**
  * @title SyncedNAVsPacket
  * @dev Contains all current mark to market NAV accounting data for the market's tranches
- * @custom:field stRawNAV - The senior tranche's current raw NAV: the pure value of its invested assets
- * @custom:field jtRawNAV - The junior tranche's current raw NAV: the pure value of its invested assets
- * @custom:field stEffectiveNAV - Senior tranche effective NAV: includes applied coverage, its share of ST yield, and uncovered losses
- * @custom:field jtEffectiveNAV - Junior tranche effective NAV: includes provided coverage, JT yield, its share of ST yield, and JT losses
- * @custom:field stCoverageDebt - Coverage that has currently been applied to ST from the JT loss-absorption buffer
- * @custom:field jtCoverageDebt - Losses that ST incurred after exhausting the JT loss-absorption buffer
- * @custom:field stProtocolFeeAccrued - Protocol fee taken on ST yield on this sync
- * @custom:field jtProtocolFeeAccrued - Protocol fee taken on JT yield on this sync
+ * @custom:field stRawNavRAY - The senior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+ * @custom:field jtRawNavRAY - The junior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+ * @custom:field stEffectiveNavRAY - Senior tranche effective NAV: includes applied coverage, its share of ST yield, and uncovered losses, scaled to RAY precision
+ * @custom:field jtEffectiveNavRAY - Junior tranche effective NAV: includes provided coverage, JT yield, its share of ST yield, and JT losses, scaled to RAY precision
+ * @custom:field stCoverageDebtRAY - Coverage that has currently been applied to ST from the JT loss-absorption buffer, scaled to RAY precision
+ * @custom:field jtCoverageDebtRAY - Losses that ST incurred after exhausting the JT loss-absorption buffer, scaled to RAY precision
+ * @custom:field stProtocolFeeAccruedRAY - Protocol fee taken on ST yield on this sync, scaled to RAY precision
+ * @custom:field jtProtocolFeeAccruedRAY - Protocol fee taken on JT yield on this sync, scaled to RAY precision
  */
 struct SyncedNAVsPacket {
-    uint256 stRawNAV;
-    uint256 jtRawNAV;
-    uint256 stEffectiveNAV;
-    uint256 jtEffectiveNAV;
-    uint256 stCoverageDebt;
-    uint256 jtCoverageDebt;
-    uint256 stProtocolFeeAccrued;
-    uint256 jtProtocolFeeAccrued;
+    uint256 stRawNavRAY;
+    uint256 jtRawNavRAY;
+    uint256 stEffectiveNavRAY;
+    uint256 jtEffectiveNavRAY;
+    uint256 stCoverageDebtRAY;
+    uint256 jtCoverageDebtRAY;
+    uint256 stProtocolFeeAccruedRAY;
+    uint256 jtProtocolFeeAccruedRAY;
 }
 
 /**

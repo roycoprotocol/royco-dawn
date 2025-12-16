@@ -8,7 +8,7 @@ import { ExecutionModel, IRoycoKernel } from "../../../interfaces/kernel/IRoycoK
 import { RoycoKernelState, RoycoKernelStorageLib } from "../../../libraries/RoycoKernelStorageLib.sol";
 import { RequestRedeemSharesBehavior } from "../../../libraries/Types.sol";
 import { ERC4626STKernelStorageLib } from "../../../libraries/kernels/ERC4626STKernelStorageLib.sol";
-import { Operation, RoycoKernel, SyncedNAVsPacket } from "../RoycoKernel.sol";
+import { Operation, RoycoKernel, SyncedNAVsPacketRAY } from "../RoycoKernel.sol";
 
 abstract contract ERC4626STKernel is RoycoKernel {
     using SafeERC20 for IERC20;
@@ -90,7 +90,7 @@ abstract contract ERC4626STKernel is RoycoKernel {
         returns (uint256 assetsWithdrawn)
     {
         // Execute a pre-op sync on NAV accounting
-        SyncedNAVsPacket memory packet = _preOpSyncTrancheNAVs();
+        SyncedNAVsPacketRAY memory packet = _preOpSyncTrancheNAVs();
 
         // Compute the assets expected to be received on withdrawal based on the ST's effective NAV
         assetsWithdrawn = _shares.mulDiv(packet.stEffectiveNAV, _totalShares, Math.Rounding.Floor);

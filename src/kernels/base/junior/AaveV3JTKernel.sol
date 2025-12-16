@@ -8,7 +8,7 @@ import { IPoolAddressesProvider } from "../../../interfaces/aave/IPoolAddressesP
 import { IPoolDataProvider } from "../../../interfaces/aave/IPoolDataProvider.sol";
 import { ExecutionModel, IRoycoKernel } from "../../../interfaces/kernel/IRoycoKernel.sol";
 import { AaveV3KernelState, AaveV3KernelStorageLib } from "../../../libraries/kernels/AaveV3KernelStorageLib.sol";
-import { Operation, RoycoKernel, SyncedNAVsPacket } from "../RoycoKernel.sol";
+import { Operation, RoycoKernel, SyncedNAVsPacketRAY } from "../RoycoKernel.sol";
 import { BaseAsyncJTRedemptionDelayKernel } from "./BaseAsyncJTRedemptionDelayKernel.sol";
 
 abstract contract AaveV3JTKernel is RoycoKernel, BaseAsyncJTRedemptionDelayKernel {
@@ -86,7 +86,7 @@ abstract contract AaveV3JTKernel is RoycoKernel, BaseAsyncJTRedemptionDelayKerne
         onlyJuniorTranche
         returns (uint256 assetsWithdrawn)
     {
-        SyncedNAVsPacket memory packet = _preOpSyncTrancheNAVs();
+        SyncedNAVsPacketRAY memory packet = _preOpSyncTrancheNAVs();
         require(_shares <= _jtClaimableRedeemRequest(_controller), INSUFFICIENT_CLAIMABLE_SHARES(_shares, _jtClaimableRedeemRequest(_controller)));
         // Calculate the value of the shares to claim and update the controller's redemption request
         assetsWithdrawn = _processClaimableRedeemRequest(_controller, packet.jtEffectiveNAV, _shares, _totalShares);

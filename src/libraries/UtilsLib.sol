@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import { ConstantsLib } from "./ConstantsLib.sol";
+import { SyncedNAVsPacket, SyncedNAVsPacketRAY } from "./Types.sol";
 
 library UtilsLib {
     using Math for uint256;
@@ -51,10 +52,40 @@ library UtilsLib {
      * @notice Scales a quantity from RAY precision to its original precision
      * @dev Uses integer division, rounding down
      * @param _amountRAY The amount to scale from RAY precision back to its original precision
-     * @param _scaleFactorToRAY The scaling factor applied to scale the amount to RAY precision (10 ^ (27 - _amount precision))
+     * @param _scaleFactorToRAY The scaling factor applied to scale the amount to RAY precision (10 ^ (27 - _amount's original precision))
      * @return _amount The amount scaled from RAY precision back to its original precision
      */
     function scaleFromRAY(uint256 _amountRAY, uint96 _scaleFactorToRAY) internal pure returns (uint256 _amount) {
         _amount = _amountRAY / _scaleFactorToRAY;
+    }
+
+    /**
+     * @notice Converts a SyncedNAVsPacketRAY to a SyncedNAVsPacket by scaling down all values to the correct precision
+     * @param _packetRAY The RAY-precision synced NAV packet to convert
+     * @param _stScaleFactorToRAY The scaling factor used to convert ST asset quantities to RAY precision
+     * @param _jtScaleFactorToRAY The scaling factor used to convert JT asset quantities to RAY precision
+     * @return packet The synced NAV packet with values scaled down to asset precision
+     */
+    function scaleSyncedNAVsPacketFromRAY(
+        SyncedNAVsPacketRAY memory _packetRAY,
+        uint96 _stScaleFactorToRAY,
+        uint96 _jtScaleFactorToRAY
+    )
+        internal
+        pure
+        returns (SyncedNAVsPacket memory packet)
+    {
+        packet = SyncedNAVsPacket({
+            stRawNAV: scaleFromRAY(_packetRAY.stRawNavRAY, _stScaleFactorToRAY),
+            jtRawNAV: scaleFromRAY(_packetRAY.jtRawNavRAY, _jtScaleFactorToRAY),
+            stEffectiveNAV: scaleFromRAY(_packetRAY.stEffectiveNavRAY, _stScaleFactorToRAY),
+            jtEffectiveNAV: scaleFromRAY(_packetRAY.jtEffectiveNavRAY, _jtScaleFactorToRAY),
+            // Since this is a liability from ST to JT, it is booked in JT's base asset's precision
+            stCoverageDebt: scaleFromRAY(_packetRAY.stCoverageDebtRAY, _jtScaleFactorToRAY),
+            // Since this is a liability from JT to ST, it is booked in ST's base asset's precision
+            jtCoverageDebt: scaleFromRAY(_packetRAY.jtCoverageDebtRAY, _stScaleFactorToRAY),
+            stProtocolFeeAccrued: scaleFromRAY(_packetRAY.stProtocolFeeAccruedRAY, _stScaleFactorToRAY),
+            jtProtocolFeeAccrued: scaleFromRAY(_packetRAY.jtProtocolFeeAccruedRAY, _jtScaleFactorToRAY)
+        });
     }
 }

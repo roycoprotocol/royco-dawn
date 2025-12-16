@@ -19,7 +19,7 @@ import { ExecutionModel, IRoycoKernel, RequestRedeemSharesBehavior } from "../in
 import { IERC165, IERC7540, IERC7575, IERC7887, IRoycoVaultTranche } from "../interfaces/tranche/IRoycoVaultTranche.sol";
 import { RoycoTrancheStorageLib } from "../libraries/RoycoTrancheStorageLib.sol";
 import { TrancheType } from "../libraries/Types.sol";
-import { Action, SyncedNAVsPacket, TrancheDeploymentParams } from "../libraries/Types.sol";
+import { Action, SyncedNAVsPacketRAY, TrancheDeploymentParams } from "../libraries/Types.sol";
 
 /// @title RoycoVaultTranche
 /// @notice Abstract base contract implementing core functionality for Royco tranches
@@ -734,7 +734,7 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoAuth, UUPSUpgrad
     function _previewPostSyncTrancheState() internal view returns (uint256 trancheTotalAssets, uint256 trancheTotalShares) {
         // Get the post-sync state of the kernel for the tranche
         IRoycoKernel kernel = IRoycoKernel(_kernel());
-        SyncedNAVsPacket memory packet = kernel.previewSyncTrancheNAVs();
+        SyncedNAVsPacketRAY memory packet = kernel.previewSyncTrancheNAVs();
         uint256 protocolFeeAssetsAccrued;
         if (TRANCHE_TYPE() == TrancheType.SENIOR) {
             trancheTotalAssets = packet.stEffectiveNAV;

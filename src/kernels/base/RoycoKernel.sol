@@ -9,7 +9,7 @@ import { IRDM } from "../../interfaces/IRDM.sol";
 import { IRoycoKernel } from "../../interfaces/kernel/IRoycoKernel.sol";
 import { IRoycoVaultTranche } from "../../interfaces/tranche/IRoycoVaultTranche.sol";
 import { RoycoKernelInitParams, RoycoKernelState, RoycoKernelStorageLib } from "../../libraries/RoycoKernelStorageLib.sol";
-import { SyncedNAVsPacket } from "../../libraries/Types.sol";
+import { SyncedNAVsPacket, SyncedNAVsPacketRAY } from "../../libraries/Types.sol";
 import { ConstantsLib, Math, UtilsLib } from "../../libraries/UtilsLib.sol";
 import { IRoycoAccountant, Operation } from "./../../interfaces/IRoycoAccountant.sol";
 
@@ -121,7 +121,7 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
     /**
      * @notice Synchronizes and persists the raw and effective NAVs of both tranches
      * @dev Only executes a pre-op sync because there is no operation being executed in the same call as this sync
-     * @return packet The NAV sync packet containing all mark to market accounting data
+     * @return packet The synced NAV packet containing all mark to market accounting data scaled to RAY precision
      */
     function syncTrancheNAVs() external override(IRoycoKernel) onlyRole(RoycoRoles.SYNC_ROLE) whenNotPaused returns (SyncedNAVsPacket memory packet) {
         return _preOpSyncTrancheNAVs();
@@ -130,43 +130,26 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
     /**
      * @notice Previews a synchronization of the raw and effective NAVs of both tranches
      * @dev Does not mutate any state
-     * @return packet The NAV sync packet containing all mark to market accounting data
+     * @return packet The synced NAV packet containing all mark to market accounting data scaled to RAY precision
      */
     function previewSyncTrancheNAVs() public view override(IRoycoKernel) returns (SyncedNAVsPacket memory packet) {
-        return _accountant().previewSyncTrancheNAVs(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
+        // Get each tranche's raw NAV scaled to RAY precision
+        (uint256 stRawNavRAY, uint256 jtRawNavRAY, uint96 stScaleFactorToRAY, uint96 jtScaleFactorToRAY) = _getTrancheRawNAVsRAY();
+        return UtilsLib.scaleSyncedNAVsPacketFromRAY(_accountant().previewSyncTrancheNAVs(stRawNavRAY, jtRawNavRAY), stScaleFactorToRAY, jtScaleFactorToRAY);
     }
 
     /**
      * @notice Invokes the accountant to do a pre-operation (deposit and withdrawal) NAV sync
      * @dev Should be called on every NAV mutating user operation
-     * @return packet The NAV sync packet containing all mark to market accounting data
+     * @return packet The synced NAV packet containing all mark to market accounting data scaled to RAY precision
      */
     function _preOpSyncTrancheNAVs() internal returns (SyncedNAVsPacket memory packet) {
         // Get each tranche's raw NAV scaled to RAY precision
         (uint256 stRawNavRAY, uint256 jtRawNavRAY, uint96 stScaleFactorToRAY, uint96 jtScaleFactorToRAY) = _getTrancheRawNAVsRAY();
         // Execute the pre-op sync via the accountant
-        packet = _accountant().preOpSyncTrancheNAVs(stRawNavRAY, jtRawNavRAY);
-
-        // Collect any protocol fees accrued from the sync to the fee recipient
-
-        RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
-        address protocolFeeRecipient = $.protocolFeeRecipient;
-
-        // Scale down the ST fee accrued and effective NAV from RAY to the ST's base asset and collect fees
-        _collectProtocolFees(
-            $.seniorTranche,
-            UtilsLib.scaleFromRAY(packet.stProtocolFeeAccruedRAY, stScaleFactorToRAY),
-            UtilsLib.scaleFromRAY(packet.stEffectiveNavRAY, stScaleFactorToRAY),
-            protocolFeeRecipient
-        );
-
-        // Scale down the JT fee accrued and effective NAV from RAY to the JT's base asset and collect fees
-        _collectProtocolFees(
-            $.juniorTranche,
-            UtilsLib.scaleFromRAY(packet.jtProtocolFeeAccruedRAY, jtScaleFactorToRAY),
-            UtilsLib.scaleFromRAY(packet.jtEffectiveNavRAY, jtScaleFactorToRAY),
-            protocolFeeRecipient
-        );
+        packet = UtilsLib.scaleSyncedNAVsPacketFromRAY(_accountant().preOpSyncTrancheNAVs(stRawNavRAY, jtRawNavRAY), stScaleFactorToRAY, jtScaleFactorToRAY);
+        // Collect any protocol fees accrued
+        _collectProtocolFees(packet);
     }
 
     /**
@@ -215,15 +198,23 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
 
     /**
      * @notice Collects protocol fees for a specific tranche by minting protocol fee shares
-     * @param _tranche The tranche to collect protocol fees for
-     * @param _protocolFeeAccrued The amount of protocol fees accrued for this tranche scaled to the tranche base asset's precision
-     * @param _trancheEffectiveNAV The effective NAV of the tranche scaled to the tranche base asset's precision
-     * @param _protocolFeeRecipient The recipient of the protocol fee shares
+     * @param _packet The synced NAV packet containing all mark to market accounting data scaled to each value's base asset precision
      */
-    function _collectProtocolFees(address _tranche, uint256 _protocolFeeAccrued, uint256 _trancheEffectiveNAV, address _protocolFeeRecipient) internal {
-        // If non-zero protocol fees accrued, mint tranche fee shares to the protocol fee recipient
-        if (_protocolFeeAccrued == 0) return;
-        IRoycoVaultTranche(_tranche).mintProtocolFeeShares(_protocolFeeAccrued, _trancheEffectiveNAV, _protocolFeeRecipient);
+    function _collectProtocolFees(SyncedNAVsPacket memory _packet) internal {
+        // Premptively return if no fees accrued on sync
+        if (_packet.stProtocolFeeAccrued == 0 && _packet.jtProtocolFeeAccrued == 0) return;
+
+        // Collect any protocol fees accrued from the sync to the fee recipient
+        RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
+        address protocolFeeRecipient = $.protocolFeeRecipient;
+        // If any ST fees accrued after scaling, mint protocol fee shares for ST
+        if (_packet.stProtocolFeeAccrued == 0) {
+            IRoycoVaultTranche($.seniorTranche).mintProtocolFeeShares(_packet.stProtocolFeeAccrued, _packet.stEffectiveNAV, protocolFeeRecipient);
+        }
+        // If any JT fees accrued after scaling, mint protocol fee shares for JT
+        if (_packet.jtProtocolFeeAccrued == 0) {
+            IRoycoVaultTranche($.juniorTranche).mintProtocolFeeShares(_packet.jtProtocolFeeAccrued, _packet.jtEffectiveNAV, protocolFeeRecipient);
+        }
     }
 
     /// @notice Returns the raw net asset value of the senior tranche

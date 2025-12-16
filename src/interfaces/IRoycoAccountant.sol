@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { RoycoAccountantState } from "../libraries/RoycoAccountantStorageLib.sol";
-import { Operation, SyncedNAVsPacket } from "../libraries/Types.sol";
+import { Operation, SyncedNAVsPacketRAY } from "../libraries/Types.sol";
 
 /**
  * @title IRoycoAccountant
@@ -37,17 +37,17 @@ interface IRoycoAccountant {
      * @dev Persists updated NAV and debt checkpoints for the next sync to use as reference
      * @param _stRawNavRAY The senior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
      * @param _jtRawNavRAY The junior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
-     * @return packet The NAV sync packet containing all mark to market accounting data, scaled to RAY precision
+     * @return packetRAY The synced NAV packet containing all mark to market accounting data scaled to RAY precision, scaled to RAY precision
      */
-    function preOpSyncTrancheNAVs(uint256 _stRawNavRAY, uint256 _jtRawNavRAY) external returns (SyncedNAVsPacket memory packet);
+    function preOpSyncTrancheNAVs(uint256 _stRawNavRAY, uint256 _jtRawNavRAY) external returns (SyncedNAVsPacketRAY memory packetRAY);
 
     /**
      * @notice Previews a synchronization of tranche NAVs based on the underlying PNL(s) and their effects on the current state of the loss waterfall
      * @param _stRawNavRAY The senior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
      * @param _jtRawNavRAY The junior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
-     * @return packet The NAV sync packet containing all mark to market accounting data, scaled to RAY precision
+     * @return packetRAY The synced NAV packet containing all mark to market accounting data scaled to RAY precision, scaled to RAY precision
      */
-    function previewSyncTrancheNAVs(uint256 _stRawNavRAY, uint256 _jtRawNavRAY) external view returns (SyncedNAVsPacket memory packet);
+    function previewSyncTrancheNAVs(uint256 _stRawNavRAY, uint256 _jtRawNavRAY) external view returns (SyncedNAVsPacketRAY memory packetRAY);
 
     /**
      * @notice Applies post-operation (deposit and withdrawal) raw NAV deltas to effective NAV checkpoints

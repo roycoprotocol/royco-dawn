@@ -8,7 +8,7 @@ import { IAsyncJTWithdrawalKernel } from "../../../interfaces/kernel/IAsyncJTWit
 import { IRoycoKernel } from "../../../interfaces/kernel/IRoycoKernel.sol";
 import { ConstantsLib } from "../../../libraries/ConstantsLib.sol";
 import { RequestRedeemSharesBehavior } from "../../../libraries/Types.sol";
-import { Operation, RoycoKernel, SyncedNAVsPacket } from "../RoycoKernel.sol";
+import { Operation, RoycoKernel, SyncedNAVsPacketRAY } from "../RoycoKernel.sol";
 
 /// @title BaseAsyncJTRedemptionDelayKernel
 /// @notice Abstract base contract for the junior tranche redemption delay kernel

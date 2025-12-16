@@ -1,25 +1,20 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-<<<<<<< HEAD
 import { UUPSUpgradeable } from "../../../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
-
 import { IERC20Metadata, IERC4626 } from "../../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-import { RoycoAuth, RoycoRoles } from "../../auth/RoycoAuth.sol";
+import { RoycoBase } from "../../base/RoycoBase.sol";
 import { IRDM } from "../../interfaces/IRDM.sol";
 import { IRoycoKernel } from "../../interfaces/kernel/IRoycoKernel.sol";
-import { IRoycoVaultTranche } from "../../interfaces/tranche/IRoycoVaultTranche.sol";
-import { RoycoKernelInitParams, RoycoKernelState, RoycoKernelStorageLib } from "../../libraries/RoycoKernelStorageLib.sol";
-import { SyncedNAVsPacket, SyncedNAVsPacketRAY } from "../../libraries/Types.sol";
-import { ConstantsLib, Math, UtilsLib } from "../../libraries/UtilsLib.sol";
-=======
-import { RoycoBase } from "../../base/RoycoBase.sol";
 import { IRoycoKernel } from "../../interfaces/kernel/IRoycoKernel.sol";
 import { IRoycoVaultTranche } from "../../interfaces/tranche/IRoycoVaultTranche.sol";
+import { IRoycoVaultTranche } from "../../interfaces/tranche/IRoycoVaultTranche.sol";
 import { RoycoKernelInitParams, RoycoKernelState, RoycoKernelStorageLib } from "../../libraries/RoycoKernelStorageLib.sol";
+import { RoycoKernelInitParams, RoycoKernelState, RoycoKernelStorageLib } from "../../libraries/RoycoKernelStorageLib.sol";
+import { SyncedNAVsPacket, SyncedNAVsPacketRAY } from "../../libraries/Types.sol";
 import { SyncedNAVsPacket } from "../../libraries/Types.sol";
+import { ConstantsLib, Math, UtilsLib } from "../../libraries/UtilsLib.sol";
 import { Math } from "../../libraries/UtilsLib.sol";
->>>>>>> 56ad48f91116a6126393d162874cb1414601ad60
 import { IRoycoAccountant, Operation } from "./../../interfaces/IRoycoAccountant.sol";
 
 /**
@@ -134,7 +129,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
      * @dev Only executes a pre-op sync because there is no operation being executed in the same call as this sync
      * @return packet The synced NAV packet containing all mark to market accounting data scaled to tranche base asset precisions
      */
-    function syncTrancheNAVs() external override(IRoycoKernel) onlyRole(RoycoRoles.SYNC_ROLE) whenNotPaused returns (SyncedNAVsPacket memory packet) {
+    function syncTrancheNAVs() external override(IRoycoKernel) whenNotPaused returns (SyncedNAVsPacket memory packet) {
         (packet,,) = _preOpSyncTrancheNAVs();
     }
 

@@ -6,7 +6,6 @@ import { TrancheType } from "./Types.sol";
 
 /// @notice Storage state for Royco Tranche contracts
 /// @custom:storage-location erc7201:Royco.storage.RoycoTrancheState
-/// @custom:field royco - The address of the Royco factory contract
 /// @custom:field kernel - The address of the kernel contract handling strategy logic
 /// @custom:field marketId - The identifier of the Royco market this tranche is linked to
 /// @custom:field decimalsOffset - Decimals offset for share token precision
@@ -16,7 +15,6 @@ import { TrancheType } from "./Types.sol";
 /// @custom:field REQUEST_REDEEM_SHARES_JT_BEHAVIOR - The behavior of the shares when a redeem request is made for the junior tranche
 /// @custom:field isOperator - Nested mapping tracking operator approvals for owners
 struct RoycoTrancheState {
-    address royco;
     address kernel;
     bytes32 marketId;
     uint8 decimalsOffset;
@@ -46,15 +44,13 @@ library RoycoTrancheStorageLib {
 
     /// @notice Initializes the tranche storage state
     /// @dev Sets up all initial parameters and validates fee constraints
-    /// @param _royco The address of the Royco factory contract
     /// @param _kernel The address of the kernel contract handling strategy logic
     /// @param _marketId The identifier of the Royco market this tranche is linked to
     /// @param _decimalsOffset Decimals offset for share token precision
     /// @param _trancheType The type of the tranche
-    function __RoycoTranche_init(address _royco, address _kernel, bytes32 _marketId, uint8 _decimalsOffset, TrancheType _trancheType) internal {
+    function __RoycoTranche_init(address _kernel, bytes32 _marketId, uint8 _decimalsOffset, TrancheType _trancheType) internal {
         // Set the initial state of the tranche
         RoycoTrancheState storage $ = _getRoycoTrancheStorage();
-        $.royco = _royco;
         $.kernel = _kernel;
         $.marketId = _marketId;
         $.decimalsOffset = _decimalsOffset;

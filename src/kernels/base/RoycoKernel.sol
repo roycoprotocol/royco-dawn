@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+<<<<<<< HEAD
 import { UUPSUpgradeable } from "../../../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 import { IERC20Metadata, IERC4626 } from "../../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
@@ -11,6 +12,14 @@ import { IRoycoVaultTranche } from "../../interfaces/tranche/IRoycoVaultTranche.
 import { RoycoKernelInitParams, RoycoKernelState, RoycoKernelStorageLib } from "../../libraries/RoycoKernelStorageLib.sol";
 import { SyncedNAVsPacket, SyncedNAVsPacketRAY } from "../../libraries/Types.sol";
 import { ConstantsLib, Math, UtilsLib } from "../../libraries/UtilsLib.sol";
+=======
+import { RoycoBase } from "../../base/RoycoBase.sol";
+import { IRoycoKernel } from "../../interfaces/kernel/IRoycoKernel.sol";
+import { IRoycoVaultTranche } from "../../interfaces/tranche/IRoycoVaultTranche.sol";
+import { RoycoKernelInitParams, RoycoKernelState, RoycoKernelStorageLib } from "../../libraries/RoycoKernelStorageLib.sol";
+import { SyncedNAVsPacket } from "../../libraries/Types.sol";
+import { Math } from "../../libraries/UtilsLib.sol";
+>>>>>>> 56ad48f91116a6126393d162874cb1414601ad60
 import { IRoycoAccountant, Operation } from "./../../interfaces/IRoycoAccountant.sol";
 
 /**
@@ -19,7 +28,7 @@ import { IRoycoAccountant, Operation } from "./../../interfaces/IRoycoAccountant
  * @dev Provides the foundational logic for kernel contracts including pre and post operation NAV reconciliation, coverage enforcement logic,
  *      and base wiring for tranche synchronization. All concrete kernel implementations should inherit from the Royco Kernel.
  */
-abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
+abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
     using Math for uint256;
 
     /// @dev Permissions the function to only the market's senior tranche
@@ -40,13 +49,10 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
      * @notice Initializes the base kernel state
      * @dev Initializes any parent contracts and the base kernel state
      * @param _params The initialization parameters for the Royco kernel
-     * @param _owner The initial owner of the base kernel
-     * @param _pauser The initial pauser of the base kernel
+     * @param _initialAuthority The initial authority for the base kernel
      */
-    function __RoycoKernel_init(RoycoKernelInitParams memory _params, address _owner, address _pauser) internal onlyInitializing {
-        // Initialize the auth state of the kernel
-        __RoycoAuth_init(_owner, _pauser);
-        // Initialize the base kernel state
+    function __RoycoKernel_init(RoycoKernelInitParams memory _params, address _initialAuthority) internal onlyInitializing {
+        __RoycoBase_init(_initialAuthority);
         __RoycoKernel_init_unchained(_params);
     }
 
@@ -116,6 +122,11 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
     /// @inheritdoc IRoycoKernel
     function getJTRawNAV() external view override(IRoycoKernel) returns (uint256) {
         return _getJuniorTrancheRawNAV();
+    }
+
+    /// @inheritdoc IRoycoKernel
+    function getState() external view override(IRoycoKernel) returns (RoycoKernelState memory) {
+        return RoycoKernelStorageLib._getRoycoKernelStorage();
     }
 
     /**
@@ -272,8 +283,4 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
      * @param _receiver The receiver of the assets
      */
     function _claimJuniorAssetsFromSenior(address _asset, uint256 _assets, address _receiver) internal virtual;
-
-    /// @inheritdoc UUPSUpgradeable
-    /// @dev Will revert if the caller is not the upgrader role
-    function _authorizeUpgrade(address _newImplementation) internal override checkRoleAndDelayIfGated(RoycoRoles.UPGRADER_ROLE) { }
 }

@@ -4,9 +4,7 @@ pragma solidity ^0.8.28;
 import { IERC4626 } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import { IERC20, SafeERC20 } from "../../../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "../../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
-import { ExecutionModel, IRoycoKernel } from "../../../interfaces/kernel/IRoycoKernel.sol";
-import { RoycoKernelState, RoycoKernelStorageLib } from "../../../libraries/RoycoKernelStorageLib.sol";
-import { RequestRedeemSharesBehavior } from "../../../libraries/Types.sol";
+import { ExecutionModel, IRoycoKernel, RequestRedeemSharesBehavior } from "../../../interfaces/kernel/IRoycoKernel.sol";
 import { ERC4626STKernelStorageLib } from "../../../libraries/kernels/ERC4626STKernelStorageLib.sol";
 import { Operation, RoycoKernel, SyncedNAVsPacket } from "../RoycoKernel.sol";
 

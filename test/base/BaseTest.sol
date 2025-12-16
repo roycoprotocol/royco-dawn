@@ -5,18 +5,30 @@ import { Test } from "../../lib/forge-std/src/Test.sol";
 import { Vm } from "../../lib/forge-std/src/Vm.sol";
 import { ERC20Mock } from "../../lib/openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol";
 import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { StaticCurveRDM } from "../../src/RDM/StaticCurveRDM.sol";
 import { RoycoTrancheFactory } from "../../src/RoycoTrancheFactory.sol";
-import { RoycoAuth, RoycoRoles } from "../../src/auth/RoycoAuth.sol";
-import { IRoycoKernel } from "../../src/interfaces/kernel/IRoycoKernel.sol";
+import { RoycoAccountant } from "../../src/accountant/RoycoAccountant.sol";
+import { RoycoAuth } from "../../src/auth/RoycoAuth.sol";
+import { RoycoRoles } from "../../src/auth/RoycoRoles.sol";
+import { IRoycoKernel } from "../../src/interfaces/KERNEL/IRoycoKernel.sol";
 import { ERC4626ST_AaveV3JT_Kernel } from "../../src/kernels/ERC4626ST_AaveV3JT_Kernel.sol";
+import { RoycoKernel } from "../../src/kernels/base/RoycoKernel.sol";
 import { ConstantsLib } from "../../src/libraries/ConstantsLib.sol";
+import { RoycoAccountantInitParams } from "../../src/libraries/RoycoAccountantStorageLib.sol";
 import { RoycoKernelInitParams } from "../../src/libraries/RoycoKernelStorageLib.sol";
-import { StaticCurveRDM } from "../../src/rdm/StaticCurveRDM.sol";
 import { RoycoJT } from "../../src/tranches/RoycoJT.sol";
 import { RoycoST } from "../../src/tranches/RoycoST.sol";
 import { RoycoVaultTranche } from "../../src/tranches/RoycoVaultTranche.sol";
 
-contract BaseTest is Test {
+contract BaseTest is Test, RoycoRoles {
+    struct TrancheState {
+        uint256 rawNAV;
+        uint256 effectiveNAV;
+        uint256 totalEffectiveAssets;
+        uint256 protocolFeeValue;
+        uint256 totalShares;
+    }
+
     // -----------------------------------------
     // Test Wallets
     // -----------------------------------------
@@ -51,20 +63,29 @@ contract BaseTest is Test {
     // Assets
     // -----------------------------------------
 
-    ERC20Mock internal mockUSDC;
-    ERC20Mock internal mockUSDT;
-    ERC20Mock internal mockDAI;
-    address[] internal assets;
+    ERC20Mock internal MOCK_USDC;
+    ERC20Mock internal MOCK_USDT;
+    ERC20Mock internal MOCK_DAI;
+    address[] internal ASSETS;
 
     // -----------------------------------------
     // Royco Deployments
     // -----------------------------------------
 
-    RoycoTrancheFactory public factory;
-    StaticCurveRDM public rdm;
-    RoycoST public stImplementation;
-    RoycoJT public jtImplementation;
-    ERC4626ST_AaveV3JT_Kernel public erc4626ST_AaveV3JT_KernelImplementation;
+    // Initial Deployments
+    RoycoTrancheFactory public FACTORY;
+    StaticCurveRDM public RDM;
+    RoycoST public ST_IMPL;
+    RoycoJT public JT_IMPL;
+    ERC4626ST_AaveV3JT_Kernel public ERC4626ST_AAVEV3JT_KERNEL_IMPL;
+    RoycoAccountant public ACCOUNTANT_IMPL;
+
+    // Deployed Later in the concrete tests
+    RoycoVaultTranche internal ST;
+    RoycoVaultTranche internal JT;
+    RoycoKernel internal KERNEL;
+    RoycoAccountant internal ACCOUNTANT;
+    bytes32 internal MARKET_ID;
 
     // -----------------------------------------
     // Royco Deployments Parameters
@@ -75,9 +96,9 @@ contract BaseTest is Test {
     string internal SENIOR_TRANCH_SYMBOL = "RST";
     string internal JUNIOR_TRANCH_NAME = "Royco Junior Tranche";
     string internal JUNIOR_TRANCH_SYMBOL = "RJT";
-    uint64 internal DEFAULT_COVERAGE_WAD = 0.2e18; // 20% coverage
-    uint96 internal DEFAULT_BETA_WAD = 1e18; // 100% beta (same opportunity)
-    uint64 internal DEFAULT_PROTOCOL_FEE_WAD = 0.01e18; // 1% protocol fee
+    uint64 internal COVERAGE_WAD = 0.2e18; // 20% coverage
+    uint96 internal BETA_WAD = 0; // Different opportunities
+    uint64 internal PROTOCOL_FEE_WAD = 0.01e18; // 1% protocol fee
 
     /// -----------------------------------------
     /// Mainnet Fork Addresses
@@ -103,22 +124,28 @@ contract BaseTest is Test {
         _setupAssets(10_000_000_000);
 
         // Deploy RDM
-        rdm = new StaticCurveRDM();
-        vm.label(address(rdm), "RDM");
+        RDM = new StaticCurveRDM();
+        vm.label(address(RDM), "RDM");
 
         // Deploy tranche implementations
-        stImplementation = new RoycoST();
-        jtImplementation = new RoycoJT();
-        vm.label(address(stImplementation), "STImpl");
-        vm.label(address(jtImplementation), "JTImpl");
+        ST_IMPL = new RoycoST();
+        JT_IMPL = new RoycoJT();
+        vm.label(address(ST_IMPL), "STImpl");
+        vm.label(address(JT_IMPL), "JTImpl");
 
-        // Deploy kernel implementation
-        erc4626ST_AaveV3JT_KernelImplementation = new ERC4626ST_AaveV3JT_Kernel();
-        vm.label(address(erc4626ST_AaveV3JT_KernelImplementation), "KernelImpl");
+        // Deploy accountant implementation
+        ACCOUNTANT_IMPL = new RoycoAccountant();
+        vm.label(address(ACCOUNTANT_IMPL), "AccountantImpl");
 
-        // Deploy factory
-        factory = new RoycoTrancheFactory(address(stImplementation), address(jtImplementation));
-        vm.label(address(factory), "Factory");
+        // Deploy KERNEL implementation
+        ERC4626ST_AAVEV3JT_KERNEL_IMPL = new ERC4626ST_AaveV3JT_Kernel();
+        vm.label(address(ERC4626ST_AAVEV3JT_KERNEL_IMPL), "KernelImpl");
+
+        // Deploy FACTORY
+        FACTORY = new RoycoTrancheFactory(OWNER_ADDRESS);
+        vm.label(address(FACTORY), "Factory");
+
+        _setupFactoryAuth();
     }
 
     function _setupFork() internal {
@@ -130,23 +157,23 @@ contract BaseTest is Test {
     }
 
     function _setupAssets(uint256 _seedAmount) internal {
-        mockUSDC = new ERC20Mock();
-        mockUSDC.mint(OWNER_ADDRESS, _seedAmount * (10 ** 18));
-        mockUSDC.mint(ALICE_ADDRESS, _seedAmount * (10 ** 18));
-        mockUSDC.mint(BOB_ADDRESS, _seedAmount * (10 ** 18));
-        assets.push(address(mockUSDC));
+        MOCK_USDC = new ERC20Mock();
+        MOCK_USDC.mint(OWNER_ADDRESS, _seedAmount * (10 ** 18));
+        MOCK_USDC.mint(ALICE_ADDRESS, _seedAmount * (10 ** 18));
+        MOCK_USDC.mint(BOB_ADDRESS, _seedAmount * (10 ** 18));
+        ASSETS.push(address(MOCK_USDC));
 
-        mockUSDT = new ERC20Mock();
-        mockUSDT.mint(OWNER_ADDRESS, _seedAmount * (10 ** 18));
-        mockUSDT.mint(ALICE_ADDRESS, _seedAmount * (10 ** 18));
-        mockUSDT.mint(BOB_ADDRESS, _seedAmount * (10 ** 18));
-        assets.push(address(mockUSDT));
+        MOCK_USDT = new ERC20Mock();
+        MOCK_USDT.mint(OWNER_ADDRESS, _seedAmount * (10 ** 18));
+        MOCK_USDT.mint(ALICE_ADDRESS, _seedAmount * (10 ** 18));
+        MOCK_USDT.mint(BOB_ADDRESS, _seedAmount * (10 ** 18));
+        ASSETS.push(address(MOCK_USDT));
 
-        mockDAI = new ERC20Mock();
-        mockDAI.mint(OWNER_ADDRESS, _seedAmount * (10 ** 18));
-        mockDAI.mint(ALICE_ADDRESS, _seedAmount * (10 ** 18));
-        mockDAI.mint(BOB_ADDRESS, _seedAmount * (10 ** 18));
-        assets.push(address(mockDAI));
+        MOCK_DAI = new ERC20Mock();
+        MOCK_DAI.mint(OWNER_ADDRESS, _seedAmount * (10 ** 18));
+        MOCK_DAI.mint(ALICE_ADDRESS, _seedAmount * (10 ** 18));
+        MOCK_DAI.mint(BOB_ADDRESS, _seedAmount * (10 ** 18));
+        ASSETS.push(address(MOCK_DAI));
     }
 
     function _setupWallets() internal {
@@ -178,6 +205,18 @@ contract BaseTest is Test {
         providers.push(DAN_ADDRESS);
     }
 
+    function _setDeployedMarket(RoycoVaultTranche _st, RoycoVaultTranche _jt, RoycoKernel _kernel, RoycoAccountant _accountant, bytes32 _marketId) internal {
+        ST = _st;
+        JT = _jt;
+        KERNEL = _kernel;
+        ACCOUNTANT = _accountant;
+        MARKET_ID = _marketId;
+
+        vm.label(address(ST), "ST");
+        vm.label(address(JT), "JT");
+        vm.label(address(KERNEL), "Kernel");
+    }
+
     function _initWallet(string memory _name, uint256 _amount) internal returns (Vm.Wallet memory) {
         Vm.Wallet memory wallet = vm.createWallet(_name);
         vm.label(wallet.addr, _name);
@@ -201,13 +240,12 @@ contract BaseTest is Test {
         internal
         prankModifier(OWNER_ADDRESS)
     {
-        RoycoVaultTranche tranche = RoycoVaultTranche(_tranche);
-        tranche.grantRole(RoycoRoles.PAUSER_ROLE, _pauser);
-        tranche.grantRole(RoycoRoles.UPGRADER_ROLE, _upgrader);
-        tranche.grantRole(RoycoRoles.SCHEDULER_MANAGER_ROLE, _schedulerManager);
+        FACTORY.grantRole(RoycoRoles.PAUSER_ROLE, _pauser, 0);
+        FACTORY.grantRole(RoycoRoles.UPGRADER_ROLE, _upgrader, 0);
+        FACTORY.grantRole(RoycoRoles.SCHEDULER_MANAGER_ROLE, _schedulerManager, 0);
         for (uint256 i = 0; i < _providers.length; i++) {
-            tranche.grantRole(RoycoRoles.DEPOSIT_ROLE, _providers[i]);
-            tranche.grantRole(RoycoRoles.REDEEM_ROLE, _providers[i]);
+            FACTORY.grantRole(RoycoRoles.DEPOSIT_ROLE, _providers[i], 0);
+            FACTORY.grantRole(RoycoRoles.REDEEM_ROLE, _providers[i], 0);
         }
     }
 
@@ -216,56 +254,90 @@ contract BaseTest is Test {
     /// @param _schedulerManager The scheduler manager address
     /// @param _kernelAdmin The kernel admin address
     function _setUpKernelRoles(address _kernel, address _schedulerManager, address _kernelAdmin) internal prankModifier(OWNER_ADDRESS) {
-        RoycoAuth __kernel = RoycoAuth(_kernel);
-        __kernel.grantRole(RoycoRoles.SCHEDULER_MANAGER_ROLE, _schedulerManager);
-        __kernel.grantRole(RoycoRoles.KERNEL_ADMIN_ROLE, _kernelAdmin);
+        FACTORY.grantRole(RoycoRoles.SCHEDULER_MANAGER_ROLE, _schedulerManager, 0);
+        FACTORY.grantRole(RoycoRoles.KERNEL_ADMIN_ROLE, _kernelAdmin, 0);
     }
 
-    /// @notice Deploys a market using the factory
-    /// @param _seniorTrancheName Name of the senior tranche
-    /// @param _seniorTrancheSymbol Symbol of the senior tranche
-    /// @param _juniorTrancheName Name of the junior tranche
-    /// @param _juniorTrancheSymbol Symbol of the junior tranche
-    /// @param _seniorAsset Asset for the senior tranche
-    /// @param _juniorAsset Asset for the junior tranche
-    /// @param _kernel Address of the kernel contract
-    function _deployMarket(
-        string memory _seniorTrancheName,
-        string memory _seniorTrancheSymbol,
-        string memory _juniorTrancheName,
-        string memory _juniorTrancheSymbol,
-        address _seniorAsset,
-        address _juniorAsset,
-        address _kernel
-    )
-        internal
-        returns (RoycoVaultTranche seniorTranche, RoycoVaultTranche juniorTranche, bytes32 marketId)
-    {
-        marketId = keccak256(abi.encode(_seniorTrancheName, _juniorTrancheName, block.timestamp));
-
-        (address _seniorTranche, address _juniorTranche) = factory.deployMarket(
-            _seniorTrancheName,
-            _seniorTrancheSymbol,
-            _juniorTrancheName,
-            _juniorTrancheSymbol,
-            _seniorAsset,
-            _juniorAsset,
-            _kernel,
-            OWNER_ADDRESS,
-            PAUSER_ADDRESS,
-            marketId
-        );
-
-        seniorTranche = RoycoVaultTranche(_seniorTranche);
-        juniorTranche = RoycoVaultTranche(_juniorTranche);
+    /// @notice Sets up roles for the factory
+    function _setupFactoryAuth() internal prankModifier(OWNER_ADDRESS) {
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = RoycoTrancheFactory.deployMarket.selector;
+        FACTORY.setTargetFunctionRole(address(FACTORY), selectors, type(uint64).max);
     }
 
-    /// @notice Deploys a kernel using ERC1967 proxy
+    /// @notice Generates a provider address
+    /// @param index The index of the provider
+    /// @return provider The provider address
+    function _generateProvider(RoycoVaultTranche _tranche, uint256 index) internal virtual prankModifier(OWNER_ADDRESS) returns (Vm.Wallet memory provider) {
+        // Generate a unique wallet
+        string memory providerName = string(abi.encodePacked("PROVIDER", vm.toString(index)));
+        provider = _initWallet(providerName, 10_000_000e6);
+
+        // Grant Permissions
+        FACTORY.grantRole(RoycoRoles.DEPOSIT_ROLE, provider.addr, 0);
+        FACTORY.grantRole(RoycoRoles.REDEEM_ROLE, provider.addr, 0);
+
+        return provider;
+    }
+
+    /// @notice Verifies the preview NAVs of the senior and junior tranches
+    /// @param _stState The state of the senior tranche
+    /// @param _jtState The state of the junior tranche
+    function _verifyPreviewNAVs(TrancheState memory _stState, TrancheState memory _jtState, uint256 _maxAbsDelta) internal {
+        assertTrue(address(ST) != address(0), "Senior tranche is not deployed");
+        assertTrue(address(JT) != address(0), "Junior tranche is not deployed");
+
+        assertApproxEqAbs(ST.getRawNAV(), _stState.rawNAV, _maxAbsDelta, "ST raw NAV mismatch");
+        assertApproxEqAbs(ST.getEffectiveNAV(), _stState.effectiveNAV, _maxAbsDelta, "ST effective NAV mismatch");
+        assertApproxEqAbs(ST.totalAssets(), _stState.totalEffectiveAssets, _maxAbsDelta, "ST total effective ASSETS mismatch");
+
+        assertApproxEqAbs(JT.getRawNAV(), _jtState.rawNAV, _maxAbsDelta, "JT raw NAV mismatch");
+        assertApproxEqAbs(JT.getEffectiveNAV(), _jtState.effectiveNAV, _maxAbsDelta, "JT effective NAV mismatch");
+        assertApproxEqAbs(JT.totalAssets(), _jtState.totalEffectiveAssets, _maxAbsDelta, "JT total effective ASSETS mismatch");
+    }
+
+    /// @notice Verifies the fee taken by the senior and junior tranches
+    /// @param _stState The state of the senior tranche
+    /// @param _jtState The state of the junior tranche
+    /// @param _feeRecipient The address of the fee recipient
+    function _verifyFeeTaken(TrancheState storage _stState, TrancheState storage _jtState, address _feeRecipient) internal {
+        uint256 seniorFeeShares = ST.balanceOf(_feeRecipient);
+        uint256 seniorFeeSharesValue = ST.convertToAssets(seniorFeeShares);
+        assertEq(seniorFeeSharesValue, _stState.protocolFeeValue, "ST protocol fee value mismatch");
+
+        uint256 juniorFeeShares = JT.balanceOf(_feeRecipient);
+        uint256 juniorFeeSharesValue = JT.convertToAssets(juniorFeeShares);
+        assertEq(juniorFeeSharesValue, _jtState.protocolFeeValue, "JT protocol fee value mismatch");
+    }
+
+    /// @notice Updates the state of the senior and junior tranches on a deposit
+    /// @param _trancheState The state of the tranche
+    /// @param _assets The amount of ASSETS deposited
+    /// @param _assetsValue The value of the ASSETS deposited
+    function _updateOnDeposit(TrancheState storage _trancheState, uint256 _assets, uint256 _assetsValue, uint256 _shares) internal {
+        _trancheState.rawNAV += _assetsValue;
+        _trancheState.effectiveNAV += _assetsValue;
+        _trancheState.totalEffectiveAssets += _assets;
+        _trancheState.totalShares += _shares;
+    }
+
+    /// @notice Updates the state of the senior and junior tranches on a withdrawal
+    /// @param _trancheState The state of the tranche
+    /// @param _assets The amount of ASSETS withdrawn
+    /// @param _assetsValue The value of the ASSETS withdrawn
+    function _updateOnWithdraw(TrancheState storage _trancheState, uint256 _assets, uint256 _assetsValue, uint256 _shares) internal {
+        _trancheState.rawNAV -= _assetsValue;
+        _trancheState.effectiveNAV -= _assetsValue;
+        _trancheState.totalEffectiveAssets -= _assets;
+        _trancheState.totalShares -= _shares;
+    }
+
+    /// @notice Deploys a KERNEL using ERC1967 proxy
     /// @param _kernelImplementation The implementation address
     /// @param _kernelInitData The initialization data
-    /// @return kernelProxy The deployed proxy address
-    function _deployKernel(address _kernelImplementation, bytes memory _kernelInitData) internal returns (address kernelProxy) {
-        kernelProxy = address(new ERC1967Proxy(_kernelImplementation, _kernelInitData));
+    /// @return KERNELProxy The deployed proxy address
+    function _deployKernel(address _kernelImplementation, bytes memory _kernelInitData) internal returns (address KERNELProxy) {
+        KERNELProxy = address(new ERC1967Proxy(_kernelImplementation, _kernelInitData));
     }
 
     /// @notice Returns the fork configuration

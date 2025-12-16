@@ -15,8 +15,8 @@ contract ERC4626Mock is ERC4626 {
         RESERVE_ADDRESS = _reserveAddress;
     }
 
-    function setSharePrice(uint256 sharePrice) external {
-        uint256 requiredTotalAssets = sharePrice * (totalSupply() + 10 ** _decimalsOffset()) - 1;
+    function setSharePrice(uint256 _sharePrice) external {
+        uint256 requiredTotalAssets = _sharePrice * (totalSupply() + 10 ** _decimalsOffset()) - 1;
         uint256 currentTotalAssets = totalAssets();
         if (currentTotalAssets < requiredTotalAssets) {
             uint256 requiredAssets = requiredTotalAssets - currentTotalAssets;
@@ -26,6 +26,6 @@ contract ERC4626Mock is ERC4626 {
             IERC20(asset()).transfer(RESERVE_ADDRESS, requiredAssets);
         }
 
-        require(_convertToAssets(1, Math.Rounding.Floor) == sharePrice, FailedToSetSharePrice(sharePrice, _convertToAssets(1, Math.Rounding.Floor)));
+        require(_convertToAssets(1, Math.Rounding.Floor) == _sharePrice, FailedToSetSharePrice(_sharePrice, _convertToAssets(1, Math.Rounding.Floor)));
     }
 }

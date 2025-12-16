@@ -43,30 +43,30 @@ interface IERC7887 {
 
     /// @notice Submit an asynchronous deposit cancelation Request.
     /// @dev MUST emit {CancelDepositRequest}.
-    /// @param requestId The identifier of the original deposit Request.
-    /// @param controller The controller of the Request (must equal msg.sender unless operator-approved).
-    function cancelDepositRequest(uint256 requestId, address controller) external;
+    /// @param _requestId The identifier of the original deposit Request.
+    /// @param _controller The controller of the Request (must equal msg.sender unless operator-approved).
+    function cancelDepositRequest(uint256 _requestId, address _controller) external;
 
     /// @notice Returns whether a deposit cancelation Request is pending for the given controller.
     /// @dev MUST NOT vary by caller. MUST NOT revert except for unreasonable input overflow.
-    /// @param requestId The identifier of the original deposit Request.
-    /// @param controller The controller address.
+    /// @param _requestId The identifier of the original deposit Request.
+    /// @param _controller The controller address.
     /// @return isPending True if the cancelation is pending.
-    function pendingCancelDepositRequest(uint256 requestId, address controller) external view returns (bool isPending);
+    function pendingCancelDepositRequest(uint256 _requestId, address _controller) external view returns (bool isPending);
 
     /// @notice Returns the amount of assets claimable for a deposit cancelation Request for the controller.
     /// @dev MUST NOT vary by caller. MUST NOT revert except for unreasonable input overflow.
-    /// @param requestId The identifier of the original deposit Request.
-    /// @param controller The controller address.
+    /// @param _requestId The identifier of the original deposit Request.
+    /// @param _controller The controller address.
     /// @return assets The amount of assets claimable.
-    function claimableCancelDepositRequest(uint256 requestId, address controller) external view returns (uint256 assets);
+    function claimableCancelDepositRequest(uint256 _requestId, address _controller) external view returns (uint256 assets);
 
     /// @notice Claim a deposit cancelation Request, transferring assets to the receiver.
     /// @dev MUST emit {CancelDepositClaim}.
-    /// @param requestId The identifier of the canceled deposit Request.
-    /// @param receiver The recipient of assets.
-    /// @param controller The controller of the Request (must equal msg.sender unless operator-approved).
-    function claimCancelDepositRequest(uint256 requestId, address receiver, address controller) external;
+    /// @param _requestId The identifier of the canceled deposit Request.
+    /// @param _receiver The recipient of assets.
+    /// @param _controller The controller of the Request (must equal msg.sender unless operator-approved).
+    function claimCancelDepositRequest(uint256 _requestId, address _receiver, address _controller) external;
 
     // =============================
     // Redeem Cancelation
@@ -74,28 +74,28 @@ interface IERC7887 {
 
     /// @notice Submit an asynchronous redeem cancelation Request.
     /// @dev MUST emit {CancelRedeemRequest}.
-    /// @param requestId The identifier of the original redeem Request.
-    /// @param controller The controller of the Request (must equal msg.sender unless operator-approved).
-    function cancelRedeemRequest(uint256 requestId, address controller) external;
+    /// @param _requestId The identifier of the original redeem Request.
+    /// @param _controller The controller of the Request (must equal msg.sender unless operator-approved).
+    function cancelRedeemRequest(uint256 _requestId, address _controller) external;
 
     /// @notice Returns whether a redeem cancelation Request is pending for the given controller.
     /// @dev MUST NOT vary by caller. MUST NOT revert except for unreasonable input overflow.
-    /// @param requestId The identifier of the original redeem Request.
-    /// @param controller The controller address.
+    /// @param _requestId The identifier of the original redeem Request.
+    /// @param _controller The controller address.
     /// @return isPending True if the cancelation is pending.
-    function pendingCancelRedeemRequest(uint256 requestId, address controller) external view returns (bool isPending);
+    function pendingCancelRedeemRequest(uint256 _requestId, address _controller) external view returns (bool isPending);
 
     /// @notice Returns the amount of shares claimable for a redeem cancelation Request for the controller.
     /// @dev MUST NOT vary by caller. MUST NOT revert except for unreasonable input overflow.
-    /// @param requestId The identifier of the original redeem Request.
-    /// @param controller The controller address.
+    /// @param _requestId The identifier of the original redeem Request.
+    /// @param _controller The controller address.
     /// @return shares The amount of shares claimable.
-    function claimableCancelRedeemRequest(uint256 requestId, address controller) external view returns (uint256 shares);
+    function claimableCancelRedeemRequest(uint256 _requestId, address _controller) external view returns (uint256 shares);
 
     /// @notice Claim a redeem cancelation Request, transferring shares to the receiver.
     /// @dev MUST emit {CancelRedeemClaim}.
-    /// @param requestId The identifier of the canceled redeem Request.
-    /// @param receiver The recipient of shares.
-    /// @param owner The owner for whom the shares are claimed (per draft spec).
-    function claimCancelRedeemRequest(uint256 requestId, address receiver, address owner) external;
+    /// @param _requestId The identifier of the canceled redeem Request.
+    /// @param _receiver The recipient of shares.
+    /// @param _owner The owner for whom the shares are claimed (per draft spec).
+    function claimCancelRedeemRequest(uint256 _requestId, address _receiver, address _owner) external;
 }

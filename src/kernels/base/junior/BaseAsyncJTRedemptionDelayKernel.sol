@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import { Math } from "../../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import { RoycoAuth } from "../../../auth/RoycoAuth.sol";
-import { RoycoRoles } from "../../../auth/RoycoRoles.sol";
 import { IAsyncJTWithdrawalKernel } from "../../../interfaces/kernel/IAsyncJTWithdrawalKernel.sol";
 import { IRoycoKernel } from "../../../interfaces/kernel/IRoycoKernel.sol";
 import { RequestRedeemSharesBehavior } from "../../../libraries/Types.sol";
@@ -191,7 +190,7 @@ abstract contract BaseAsyncJTRedemptionDelayKernel is IAsyncJTWithdrawalKernel, 
 
     /// @notice Sets the redemption delay
     /// @param _redemptionDelaySeconds The new redemption delay in seconds
-    function setRedemptionDelay(uint256 _redemptionDelaySeconds) external onlyRole(RoycoRoles.KERNEL_ADMIN_ROLE) {
+    function setRedemptionDelay(uint256 _redemptionDelaySeconds) external restricted {
         _getBaseAsyncJTRedemptionDelayKernelState().redemptionDelaySeconds = _redemptionDelaySeconds;
         emit RedemptionDelayUpdated(_redemptionDelaySeconds);
     }

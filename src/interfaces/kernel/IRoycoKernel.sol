@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+import { RoycoKernelState } from "../../libraries/RoycoKernelStorageLib.sol";
 import { ExecutionModel, RequestRedeemSharesBehavior, SyncedNAVsPacket } from "../../libraries/Types.sol";
 
 /**
@@ -40,6 +41,7 @@ interface IRoycoKernel {
     function previewSyncTrancheNAVs() external view returns (SyncedNAVsPacket memory packet);
 
     function stMaxDeposit(address _asset, address _receiver) external view returns (uint256);
+
     function stMaxWithdraw(address _asset, address _owner) external view returns (uint256);
 
     // Assumes that the funds are transferred to the kernel before the deposit call is made
@@ -52,15 +54,7 @@ interface IRoycoKernel {
         external
         returns (uint256 valueAllocated, uint256 effectiveNAVToMintAt);
 
-    function stRedeem(
-        address _asset,
-        uint256 _shares,
-        uint256 _totalShares,
-        address _controller,
-        address _receiver
-    )
-        external
-        returns (uint256 assetsWithdrawn);
+    function stRedeem(address _asset, uint256 _shares, uint256 _totalShares, address _controller, address _receiver) external returns (uint256 assetsWithdrawn);
 
     function jtMaxDeposit(address _asset, address _receiver) external view returns (uint256);
     function jtMaxWithdraw(address _asset, address _owner) external view returns (uint256);
@@ -75,13 +69,7 @@ interface IRoycoKernel {
         external
         returns (uint256 valueAllocated, uint256 effectiveNAVToMintAt);
 
-    function jtRedeem(
-        address _asset,
-        uint256 _shares,
-        uint256 _totalShares,
-        address _controller,
-        address _receiver
-    )
-        external
-        returns (uint256 assetsWithdrawn);
+    function jtRedeem(address _asset, uint256 _shares, uint256 _totalShares, address _controller, address _receiver) external returns (uint256 assetsWithdrawn);
+
+    function getState() external view returns (RoycoKernelState memory);
 }

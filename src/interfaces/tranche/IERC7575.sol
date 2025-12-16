@@ -23,7 +23,7 @@ interface IERC7575 {
 
     /// @notice Optional share-to-vault lookup for a given asset.
     /// @dev SHOULD be implemented by the share token to map an asset to its entry Vault.
-    /// @param asset The asset token address.
+    /// @param _asset The asset token address.
     /// @return vaultAddress The Vault address for the given asset.
-    function vault(address asset) external view returns (address vaultAddress);
+    function vault(address _asset) external view returns (address vaultAddress);
 }

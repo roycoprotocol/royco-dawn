@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { Initializable } from "../../lib/openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
+import { RoycoBase } from "../base/RoycoBase.sol";
 import { IRDM } from "../interfaces/IRDM.sol";
 import { IRoycoAccountant, Operation } from "../interfaces/IRoycoAccountant.sol";
 import { RoycoAccountantInitParams, RoycoAccountantState, RoycoAccountantStorageLib } from "../libraries/RoycoAccountantStorageLib.sol";
 import { SyncedNAVsPacketRAY } from "../libraries/Types.sol";
 import { ConstantsLib, Math, UtilsLib } from "../libraries/UtilsLib.sol";
 
-contract RoycoAccountant is Initializable, IRoycoAccountant {
+contract RoycoAccountant is IRoycoAccountant, RoycoBase {
     using Math for uint256;
 
     /// @dev Enforces that the function is called by the accountant's Royco kernel
@@ -20,8 +20,9 @@ contract RoycoAccountant is Initializable, IRoycoAccountant {
     /**
      * @notice Initializes the Royco accountant state
      * @param _params The initialization parameters for the Royco accountant
+     * @param _initialAuthority The initial authority for the Royco accountant
      */
-    function initialize(RoycoAccountantInitParams calldata _params) external initializer {
+    function initialize(RoycoAccountantInitParams calldata _params, address _initialAuthority) external initializer {
         // Ensure that the coverage requirement is valid
         require(_params.coverageWAD < ConstantsLib.WAD && _params.coverageWAD >= ConstantsLib.MIN_COVERAGE_WAD, INVALID_COVERAGE_CONFIG());
         // Ensure that JT withdrawals are not permanently bricked
@@ -30,8 +31,15 @@ contract RoycoAccountant is Initializable, IRoycoAccountant {
         require(_params.rdm != address(0), NULL_RDM_ADDRESS());
         // Ensure that the protocol fee configuration is valid
         require(_params.protocolFeeWAD <= ConstantsLib.MAX_PROTOCOL_FEE_WAD, MAX_PROTOCOL_FEE_EXCEEDED());
+        // Initialize the base state of the accountant
+        __RoycoBase_init(_initialAuthority);
         // Initialize the state of the accountant
         RoycoAccountantStorageLib.__RoycoAccountant_init(_params);
+    }
+
+    /// @inheritdoc IRoycoAccountant
+    function getState() external view override(IRoycoAccountant) returns (RoycoAccountantState memory) {
+        return RoycoAccountantStorageLib._getRoycoAccountantStorage();
     }
 
     /// @inheritdoc IRoycoAccountant

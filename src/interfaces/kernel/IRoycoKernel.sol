@@ -11,6 +11,9 @@ interface IRoycoKernel {
     /// @notice Thrown when any of the required initialization params are null
     error NULL_ADDRESS();
 
+    /// @notice Thrown when any of the tranche base tokens have greater than 27 decimals of precision
+    error UNSUPPORTED_DECIMALS();
+
     /// @notice Thrown when the caller of a permissioned function isn't the market's senior tranche
     error ONLY_SENIOR_TRANCHE();
 

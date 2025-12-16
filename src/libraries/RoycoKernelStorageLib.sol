@@ -22,12 +22,16 @@ struct RoycoKernelInitParams {
  * @custom:field juniorTranche - The address of the Royco junior tranche associated with this kernel
  * @custom:field accountant - The address of the Royco accountant used to perform per operation accounting for this kernel
  * @custom:field protocolFeeRecipient - The market's configured protocol fee recipient
+ * @custom:field stScaleFactorToRAY - The scaling factor used to convert ST asset quantities to RAY precision
+ * @custom:field jtScaleFactorToRAY - The scaling factor used to convert JT asset quantities to RAY precision
  */
 struct RoycoKernelState {
     address seniorTranche;
     address juniorTranche;
     address accountant;
     address protocolFeeRecipient;
+    uint96 stScaleFactorToRAY;
+    uint96 jtScaleFactorToRAY;
 }
 
 /// @title RoycoKernelStorageLib
@@ -46,14 +50,21 @@ library RoycoKernelStorageLib {
         }
     }
 
-    /// @notice Initializes the kernel state
-    /// @param _params The initialization parameters for the kernel
-    function __RoycoKernel_init(RoycoKernelInitParams memory _params) internal {
+    /**
+     * @notice Initializes the Royco Kernel state
+     * @custom:storage-location erc7201:Royco.storage.RoycoKernelState
+     * @param _params The initialization parameters for the kernel
+     * @param _stScaleFactorToRAY The scaling factor used to convert ST asset quantities to RAY precision
+     * @param _jtScaleFactorToRAY The scaling factor used to convert JT asset quantities to RAY precision
+     */
+    function __RoycoKernel_init(RoycoKernelInitParams memory _params, uint96 _stScaleFactorToRAY, uint96 _jtScaleFactorToRAY) internal {
         // Set the initial state of the kernel
         RoycoKernelState storage $ = _getRoycoKernelStorage();
         $.seniorTranche = _params.seniorTranche;
         $.juniorTranche = _params.juniorTranche;
         $.accountant = _params.accountant;
         $.protocolFeeRecipient = _params.protocolFeeRecipient;
+        $.stScaleFactorToRAY = _stScaleFactorToRAY;
+        $.jtScaleFactorToRAY = _jtScaleFactorToRAY;
     }
 }

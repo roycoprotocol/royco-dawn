@@ -2,6 +2,8 @@
 pragma solidity ^0.8.28;
 
 import { UUPSUpgradeable } from "../../../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+
+import { IERC20Metadata, IERC4626 } from "../../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import { RoycoAuth, RoycoRoles } from "../../auth/RoycoAuth.sol";
 import { IRDM } from "../../interfaces/IRDM.sol";
 import { IRoycoKernel } from "../../interfaces/kernel/IRoycoKernel.sol";
@@ -60,13 +62,30 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
                 && _params.protocolFeeRecipient != address(0),
             NULL_ADDRESS()
         );
+
+        // Get the decimals for each tranche's base asset and ensure they are less than or equal to RAY decimals of precision
+        uint8 stDecimals = IERC20Metadata(IERC4626(_params.seniorTranche).asset()).decimals();
+        uint8 jtDecimals = IERC20Metadata(IERC4626(_params.juniorTranche).asset()).decimals();
+        require(stDecimals <= ConstantsLib.RAY_DECIMALS && jtDecimals <= ConstantsLib.RAY_DECIMALS, UNSUPPORTED_DECIMALS());
+
+        // Compute the scaling factor that will scale each tranche's asset quantities to RAY precision
+        // These will be used to interface with the accountant and the tranches
+        // All accounting is done in RAY precision and all tranche operations are done on the base asset's native precision
+        uint96 stScaleFactorToRAY = uint96(10 ** (ConstantsLib.RAY_DECIMALS - stDecimals));
+        uint96 jtScaleFactorToRAY = uint96(10 ** (ConstantsLib.RAY_DECIMALS - jtDecimals));
+
         // Initialize the base kernel state
-        RoycoKernelStorageLib.__RoycoKernel_init(_params);
+        RoycoKernelStorageLib.__RoycoKernel_init(_params, stScaleFactorToRAY, jtScaleFactorToRAY);
     }
 
     /// @inheritdoc IRoycoKernel
     function stMaxDeposit(address, address _receiver) external view override(IRoycoKernel) returns (uint256) {
-        return Math.min(_maxSTDepositGlobally(_receiver), _accountant().maxSTDepositGivenCoverage(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV()));
+        // Get each tranche's raw NAV scaled to RAY precision
+        (uint256 stRawNavRAY, uint256 jtRawNavRAY, uint96 stScaleFactorToRAY,) = _getTrancheRawNAVsRAY();
+        // Get the max ST deposit amount scaled to RAY precision
+        uint256 maxSTDepositRAY = _accountant().maxSTDepositGivenCoverage(stRawNavRAY, jtRawNavRAY);
+        // Return the minimum of the max globally depositable and the max depositable without violating the coverage requirement (scaled to the base asset's precision)
+        return Math.min(_maxSTDepositGlobally(_receiver), UtilsLib.scaleFromRAY(maxSTDepositRAY, stScaleFactorToRAY));
     }
 
     /// @inheritdoc IRoycoKernel
@@ -81,7 +100,12 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
 
     /// @inheritdoc IRoycoKernel
     function jtMaxWithdraw(address, address _owner) external view override(IRoycoKernel) returns (uint256) {
-        return Math.min(_maxJTWithdrawalGlobally(_owner), _accountant().maxJTWithdrawalGivenCoverage(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV()));
+        // Get each tranche's raw NAV scaled to RAY precision
+        (uint256 stRawNavRAY, uint256 jtRawNavRAY,, uint96 jtScaleFactorToRAY) = _getTrancheRawNAVsRAY();
+        // Get the max JT withdrawal amount scaled to RAY precision
+        uint256 maxJTWithdrawalRAY = _accountant().maxJTWithdrawalGivenCoverage(stRawNavRAY, jtRawNavRAY);
+        // Return the minimum of the max globally withdrawable and the max withdrawable without violating the coverage requirement (scaled to the base asset's precision)
+        return Math.min(_maxJTWithdrawalGlobally(_owner), UtilsLib.scaleFromRAY(maxJTWithdrawalRAY, jtScaleFactorToRAY));
     }
 
     /// @inheritdoc IRoycoKernel
@@ -118,22 +142,31 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
      * @return packet The NAV sync packet containing all mark to market accounting data
      */
     function _preOpSyncTrancheNAVs() internal returns (SyncedNAVsPacket memory packet) {
+        // Get each tranche's raw NAV scaled to RAY precision
+        (uint256 stRawNavRAY, uint256 jtRawNavRAY, uint96 stScaleFactorToRAY, uint96 jtScaleFactorToRAY) = _getTrancheRawNAVsRAY();
         // Execute the pre-op sync via the accountant
-        packet = _accountant().preOpSyncTrancheNAVs(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
+        packet = _accountant().preOpSyncTrancheNAVs(stRawNavRAY, jtRawNavRAY);
 
         // Collect any protocol fees accrued from the sync to the fee recipient
-        if (packet.stProtocolFeeAccrued != 0 || packet.jtProtocolFeeAccrued != 0) {
-            RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
-            address protocolFeeRecipient = $.protocolFeeRecipient;
-            // If ST yield was distributed, Mint ST protocol fee shares to the protocol fee recipient
-            if (packet.stProtocolFeeAccrued != 0) {
-                IRoycoVaultTranche($.seniorTranche).mintProtocolFeeShares(packet.stProtocolFeeAccrued, packet.stEffectiveNAV, protocolFeeRecipient);
-            }
-            // If JT yield was distributed, Mint JT protocol fee shares to the protocol fee recipient
-            if (packet.jtProtocolFeeAccrued != 0) {
-                IRoycoVaultTranche($.juniorTranche).mintProtocolFeeShares(packet.jtProtocolFeeAccrued, packet.jtEffectiveNAV, protocolFeeRecipient);
-            }
-        }
+
+        RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
+        address protocolFeeRecipient = $.protocolFeeRecipient;
+
+        // Scale down the ST fee accrued and effective NAV from RAY to the ST's base asset and collect fees
+        _collectProtocolFees(
+            $.seniorTranche,
+            UtilsLib.scaleFromRAY(packet.stProtocolFeeAccruedRAY, stScaleFactorToRAY),
+            UtilsLib.scaleFromRAY(packet.stEffectiveNavRAY, stScaleFactorToRAY),
+            protocolFeeRecipient
+        );
+
+        // Scale down the JT fee accrued and effective NAV from RAY to the JT's base asset and collect fees
+        _collectProtocolFees(
+            $.juniorTranche,
+            UtilsLib.scaleFromRAY(packet.jtProtocolFeeAccruedRAY, jtScaleFactorToRAY),
+            UtilsLib.scaleFromRAY(packet.jtEffectiveNavRAY, jtScaleFactorToRAY),
+            protocolFeeRecipient
+        );
     }
 
     /**
@@ -142,8 +175,10 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
      * @param _op The operation being executed in between the pre and post synchronizations
      */
     function _postOpSyncTrancheNAVs(Operation _op) internal {
+        // Get each tranche's raw NAV scaled to RAY precision
+        (uint256 stRawNavRAY, uint256 jtRawNavRAY,,) = _getTrancheRawNAVsRAY();
         // Execute the post-op sync on the accountant
-        _accountant().postOpSyncTrancheNAVs(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV(), _op);
+        _accountant().postOpSyncTrancheNAVs(stRawNavRAY, jtRawNavRAY, _op);
     }
 
     /**
@@ -152,14 +187,43 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
      * @param _op The operation being executed in between the pre and post synchronizations
      */
     function _postOpSyncTrancheNAVsAndEnforceCoverage(Operation _op) internal {
+        // Get each tranche's raw NAV scaled to RAY precision
+        (uint256 stRawNavRAY, uint256 jtRawNavRAY,,) = _getTrancheRawNAVsRAY();
         // Execute the post-op sync on the accountant
-        _accountant().postOpSyncTrancheNAVsAndEnforceCoverage(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV(), _op);
+        _accountant().postOpSyncTrancheNAVsAndEnforceCoverage(stRawNavRAY, jtRawNavRAY, _op);
     }
 
     /// @notice Returns this kernel's accountant casted to the IRoycoAccountant interface
-    /// @return The Royco Accountant for this kernel
-    function _accountant() internal view returns (IRoycoAccountant) {
-        return IRoycoAccountant(RoycoKernelStorageLib._getRoycoKernelStorage().accountant);
+    /// @return accountant The Royco Accountant for this kernel
+    function _accountant() internal view returns (IRoycoAccountant accountant) {
+        accountant = IRoycoAccountant(RoycoKernelStorageLib._getRoycoKernelStorage().accountant);
+    }
+
+    /**
+     * @notice Gets and returns each tranche's raw NAV scaled to RAY precision
+     * @return stRawNavRAY The senior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+     * @return jtRawNavRAY The junior tranche's current raw NAV: the pure value of its invested assets, scaled to RAY precision
+     * @return stScaleFactorToRAY The scaling factor used to convert ST asset quantities to RAY precision
+     * @return jtScaleFactorToRAY The scaling factor used to convert JT asset quantities to RAY precision
+     */
+    function _getTrancheRawNAVsRAY() internal view returns (uint256 stRawNavRAY, uint256 jtRawNavRAY, uint96 stScaleFactorToRAY, uint96 jtScaleFactorToRAY) {
+        // Get the raw NAVs for each tranche and scale them to RAY precision
+        RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
+        stRawNavRAY = UtilsLib.scaleToRAY(_getSeniorTrancheRawNAV(), (stScaleFactorToRAY = $.stScaleFactorToRAY));
+        jtRawNavRAY = UtilsLib.scaleToRAY(_getJuniorTrancheRawNAV(), (jtScaleFactorToRAY = $.jtScaleFactorToRAY));
+    }
+
+    /**
+     * @notice Collects protocol fees for a specific tranche by minting protocol fee shares
+     * @param _tranche The tranche to collect protocol fees for
+     * @param _protocolFeeAccrued The amount of protocol fees accrued for this tranche scaled to the tranche base asset's precision
+     * @param _trancheEffectiveNAV The effective NAV of the tranche scaled to the tranche base asset's precision
+     * @param _protocolFeeRecipient The recipient of the protocol fee shares
+     */
+    function _collectProtocolFees(address _tranche, uint256 _protocolFeeAccrued, uint256 _trancheEffectiveNAV, address _protocolFeeRecipient) internal {
+        // If non-zero protocol fees accrued, mint tranche fee shares to the protocol fee recipient
+        if (_protocolFeeAccrued == 0) return;
+        IRoycoVaultTranche(_tranche).mintProtocolFeeShares(_protocolFeeAccrued, _trancheEffectiveNAV, _protocolFeeRecipient);
     }
 
     /// @notice Returns the raw net asset value of the senior tranche

@@ -183,8 +183,8 @@ contract RoycoAccountant is Initializable, IRoycoAccountant {
         // Get the storage pointer to the base kernel state
         RoycoAccountantState storage $ = RoycoAccountantStorageLib._getRoycoAccountantStorage();
         // Compute the utilization and return whether or not the senior tranche is properly collateralized based on persisted NAVs
-        uint256 utilization = UtilsLib.computeUtilization($.lastSTRawNavRAY, $.lastJTRawNavRAY, $.betaWAD, $.coverageWAD, $.lastJTEffectiveNavRAY);
-        return (utilization <= ConstantsLib.WAD);
+        uint256 utilizationWAD = UtilsLib.computeUtilization($.lastSTRawNavRAY, $.lastJTRawNavRAY, $.betaWAD, $.coverageWAD, $.lastJTEffectiveNavRAY);
+        return (utilizationWAD <= ConstantsLib.WAD);
     }
 
     /**

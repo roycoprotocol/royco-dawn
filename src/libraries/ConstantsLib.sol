@@ -8,6 +8,9 @@ library ConstantsLib {
     /// @dev Constant for the RAY scaling factor
     uint256 public constant RAY = 1e27;
 
+    /// @dev Constant for the number of decimals of precision used by RAY
+    uint256 public constant RAY_DECIMALS = 27;
+
     /// @dev The minimum configurable coverage percentage, scaled to WAD precision
     uint256 public constant MIN_COVERAGE_WAD = 0.01e18;
 

@@ -17,59 +17,60 @@ contract StaticCurveRDM is IRDM {
     using Math for uint256;
 
     /**
-     * @dev Constant for the target utilization (kink) of the junior tranche's (90%) loss capital
+     * @dev Constant for the target utilization (kink) of the junior tranche's loss capital, scaled to WAD precision
+     * @dev The target for this RDM is 90%
      * @dev Utilization = ((ST_RAW_NAV + (JT_RAW_NAV * BETA_%)) * COV_%) / JT_EFFECTIVE_NAV
      * @dev If Utilization <= 1, the senior tranche exposure is collateralized as per the market's configured coverage requirement
      *      If Utilization > 1, the senior tranche exposure is undercollateralized as per the market's configured coverage requirement
      */
-    uint256 public constant TARGET_UTILIZATION = 0.9e18;
+    uint256 public constant TARGET_UTILIZATION_WAD = 0.9e18;
 
-    /// @dev The slope when the market's utilization is less than the target utilization (scaled to WAD precision)
-    uint256 public constant SLOPE_LT_TARGET_UTIL = 0.25e18;
+    /// @dev The slope when the market's utilization is less than the target utilization, scaled to WAD precision
+    uint256 public constant SLOPE_LT_TARGET_UTIL_WAD = 0.25e18;
 
-    /// @dev The slope when the market's utilization is greater than or equal to the target utilization (scaled to WAD precision)
-    uint256 public constant SLOPE_GTE_TARGET_UTIL = 7.75e18;
+    /// @dev The slope when the market's utilization is greater than or equal to the target utilization, scaled to WAD precision
+    uint256 public constant SLOPE_GTE_TARGET_UTIL_WAD = 7.75e18;
 
-    /// @dev The base rate paid to the junior tranche when the utilization is exactly at the target (scaled to WAD precision)
-    uint256 public constant BASE_RATE_GTE_TARGET_UTIL = 0.225e18;
+    /// @dev The base rate paid to the junior tranche when the utilization is exactly at the target, scaled to WAD precision
+    uint256 public constant BASE_RATE_GTE_TARGET_UTIL_WAD = 0.225e18;
 
     /// @inheritdoc IRDM
     function previewJTYieldShare(
-        uint256 _stRawNAV,
-        uint256 _jtRawNAV,
+        uint256 _stRawNavRAY,
+        uint256 _jtRawNavRAY,
         uint256 _betaWAD,
         uint256 _coverageWAD,
-        uint256 _jtEffectiveNAV
+        uint256 _jtEffectiveNavRAY
     )
         external
         pure
         returns (uint256)
     {
-        return _computeJTYieldShare(_stRawNAV, _jtRawNAV, _betaWAD, _coverageWAD, _jtEffectiveNAV);
+        return _computeJTYieldShare(_stRawNavRAY, _jtRawNavRAY, _betaWAD, _coverageWAD, _jtEffectiveNavRAY);
     }
 
     /// @inheritdoc IRDM
     function jtYieldShare(
-        uint256 _stRawNAV,
-        uint256 _jtRawNAV,
+        uint256 _stRawNavRAY,
+        uint256 _jtRawNavRAY,
         uint256 _betaWAD,
         uint256 _coverageWAD,
-        uint256 _jtEffectiveNAV
+        uint256 _jtEffectiveNavRAY
     )
         external
         pure
         returns (uint256)
     {
-        return _computeJTYieldShare(_stRawNAV, _jtRawNAV, _betaWAD, _coverageWAD, _jtEffectiveNAV);
+        return _computeJTYieldShare(_stRawNavRAY, _jtRawNavRAY, _betaWAD, _coverageWAD, _jtEffectiveNavRAY);
     }
 
     /// @dev Pure helper to compute the instantaneous JT yield share based on the static curve's output
     function _computeJTYieldShare(
-        uint256 _stRawNAV,
-        uint256 _jtRawNAV,
+        uint256 _stRawNavRAY,
+        uint256 _jtRawNavRAY,
         uint256 _betaWAD,
         uint256 _coverageWAD,
-        uint256 _jtEffectiveNAV
+        uint256 _jtEffectiveNavRAY
     )
         internal
         pure
@@ -90,18 +91,19 @@ contract StaticCurveRDM is IRDM {
          * At and above 100% utilization, JT yield allocation is set to 100% of ST yield, as the market is exactly or undercollateralized
          */
         // Compute the utilization of the market
-        uint256 utilization = UtilsLib.computeUtilization(_stRawNAV, _jtRawNAV, _betaWAD, _coverageWAD, _jtEffectiveNAV);
+        uint256 utilizationWAD = UtilsLib.computeUtilization(_stRawNavRAY, _jtRawNavRAY, _betaWAD, _coverageWAD, _jtEffectiveNavRAY);
 
         // Compute R(U), rounding in favor the senior tranche
-        if (utilization >= ConstantsLib.WAD) {
+        if (utilizationWAD >= ConstantsLib.WAD) {
             // If utilization is greater than or equal to 1, apply the third leg of R(U)
             return ConstantsLib.WAD;
-        } else if (utilization >= TARGET_UTILIZATION) {
+        } else if (utilizationWAD >= TARGET_UTILIZATION_WAD) {
             // If utilization is at or above the kink (target) but less than 1, apply the second leg of R(U)
-            return SLOPE_GTE_TARGET_UTIL.mulDiv((utilization - TARGET_UTILIZATION), ConstantsLib.WAD, Math.Rounding.Floor) + BASE_RATE_GTE_TARGET_UTIL;
+            return SLOPE_GTE_TARGET_UTIL_WAD.mulDiv((utilizationWAD - TARGET_UTILIZATION_WAD), ConstantsLib.WAD, Math.Rounding.Floor)
+                + BASE_RATE_GTE_TARGET_UTIL_WAD;
         } else {
             // If utilization is below the kink (target), apply the first leg of R(U)
-            return SLOPE_LT_TARGET_UTIL.mulDiv(utilization, ConstantsLib.WAD, Math.Rounding.Floor);
+            return SLOPE_LT_TARGET_UTIL_WAD.mulDiv(utilizationWAD, ConstantsLib.WAD, Math.Rounding.Floor);
         }
     }
 }

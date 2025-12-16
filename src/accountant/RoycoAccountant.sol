@@ -84,18 +84,18 @@ contract RoycoAccountant is Initializable, IRoycoAccountant {
     function postOpSyncTrancheNAVs(uint256 _stRawNavRAY, uint256 _jtRawNavRAY, Operation _op) public override(IRoycoAccountant) onlyRoycoKernel {
         // Get the storage pointer to the base kernel state
         RoycoAccountantState storage $ = RoycoAccountantStorageLib._getRoycoAccountantStorage();
-        if (_op == Operation.ST_DEPOSIT) {
-            // Compute the delta in the raw NAV of the senior tranche: deposits must increase NAV
+        if (_op == Operation.ST_INCREASE_NAV) {
+            // Compute the delta in the raw NAV of the senior tranche
             int256 deltaST = _computeRawNAVDelta(_stRawNavRAY, $.lastSTRawNavRAY);
-            require(deltaST > 0, INVALID_POST_OP_STATE(_op));
+            require(deltaST >= 0, INVALID_POST_OP_STATE(_op));
             // Update the post-operation raw NAV ST checkpoint
             $.lastSTRawNavRAY = _stRawNavRAY;
             // Apply the deposit to the senior tranche's effective NAV
             $.lastSTEffectiveNavRAY += uint256(deltaST);
-        } else if (_op == Operation.JT_DEPOSIT) {
-            // Compute the delta in the raw NAV of the junior tranche: deposits must increase NAV
+        } else if (_op == Operation.JT_INCREASE_NAV) {
+            // Compute the delta in the raw NAV of the junior tranche
             int256 deltaJT = _computeRawNAVDelta(_jtRawNavRAY, $.lastJTRawNavRAY);
-            require(deltaJT > 0, INVALID_POST_OP_STATE(_op));
+            require(deltaJT >= 0, INVALID_POST_OP_STATE(_op));
             // Update the post-operation raw NAV ST checkpoint
             $.lastJTRawNavRAY = _jtRawNavRAY;
             // Apply the deposit to the junior tranche's effective NAV
@@ -110,7 +110,7 @@ contract RoycoAccountant is Initializable, IRoycoAccountant {
             $.lastSTRawNavRAY = _stRawNavRAY;
             $.lastJTRawNavRAY = _jtRawNavRAY;
 
-            if (_op == Operation.ST_WITHDRAW) {
+            if (_op == Operation.ST_DECREASE_NAV) {
                 // ST withdrawals must decrease ST NAV and leave JT NAV decreased or unchanged (coverage realization)
                 // Or they must leave ST NAV unchanged and decrease JT NAV (pure coverage realization)
                 require((deltaST < 0 && deltaJT <= 0) || (deltaST == 0 && deltaJT < 0), INVALID_POST_OP_STATE(_op));
@@ -133,9 +133,9 @@ contract RoycoAccountant is Initializable, IRoycoAccountant {
                 if (jtCoverageDebtRAY != 0) {
                     $.lastJTCoverageDebtRAY = jtCoverageDebtRAY.mulDiv($.lastSTEffectiveNavRAY, preWithdrawalSTEffectiveNAV, Math.Rounding.Ceil);
                 }
-            } else if (_op == Operation.JT_WITHDRAW) {
-                // JT withdrawals must decrease JT NAV and leave ST NAV decreased or unchanged (yield claiming)
-                require(deltaJT < 0 && deltaST <= 0, INVALID_POST_OP_STATE(_op));
+            } else if (_op == Operation.JT_DECREASE_NAV) {
+                // JT withdrawals must decrease JT NAV (or leave unchanged) and leave ST NAV decreased or unchanged (yield claiming)
+                require(deltaJT <= 0 && deltaST <= 0, INVALID_POST_OP_STATE(_op));
                 // Junior withdrew: The NAV deltas include the discrete withdrawal amount in addition to any assets (yield + debt repayments) pulled from ST to JT
                 // JT LPs cannot settle debts on withdrawal since they don't have discretion on when coverage applied to ST (stCoverageDebtRAY) and uncovered ST losses (jtCoverageDebtRAY) can be realized
                 // If ST delta was negative, the actual amount withdrawn by JT was the delta in JT raw NAV and the assets claimed from ST

@@ -6,9 +6,9 @@ import { RoycoAuth } from "../../../auth/RoycoAuth.sol";
 import { RoycoRoles } from "../../../auth/RoycoRoles.sol";
 import { IAsyncJTWithdrawalKernel } from "../../../interfaces/kernel/IAsyncJTWithdrawalKernel.sol";
 import { IRoycoKernel } from "../../../interfaces/kernel/IRoycoKernel.sol";
-import { ConstantsLib } from "../../../libraries/ConstantsLib.sol";
 import { RequestRedeemSharesBehavior } from "../../../libraries/Types.sol";
-import { Operation, RoycoKernel, SyncedNAVsPacketRAY } from "../RoycoKernel.sol";
+import { ConstantsLib, UtilsLib } from "../../../libraries/UtilsLib.sol";
+import { Operation, RoycoKernel, SyncedNAVsPacket } from "../RoycoKernel.sol";
 
 /// @title BaseAsyncJTRedemptionDelayKernel
 /// @notice Abstract base contract for the junior tranche redemption delay kernel
@@ -77,7 +77,8 @@ abstract contract BaseAsyncJTRedemptionDelayKernel is IAsyncJTWithdrawalKernel, 
         whenNotPaused
         returns (uint256 requestId)
     {
-        uint256 jtEffectiveNAV = _preOpSyncTrancheNAVs().jtEffectiveNAV;
+        // Execute a preop sync on NAV accounting
+        (SyncedNAVsPacket memory packet,,) = _preOpSyncTrancheNAVs();
         BaseAsyncJTRedemptionDelayKernelState storage $ = _getBaseAsyncJTRedemptionDelayKernelState();
 
         Redemption storage redemption = $.redemptions[_controller];
@@ -87,13 +88,16 @@ abstract contract BaseAsyncJTRedemptionDelayKernel is IAsyncJTWithdrawalKernel, 
         requestId = ConstantsLib.ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID;
 
         // Compute the redemption value at request
-        uint256 redemptionValueAtRequest = _redemptionValue(jtEffectiveNAV, _shares, _totalShares);
+        uint256 redemptionValueAtRequest = _redemptionValue(packet.jtEffectiveNAV, _shares, _totalShares);
 
         // Add the shares to the total shares to withdraw
         // If an existing redemption request exists, it's redemption delay is extended by the new redemption delay
         redemption.totalJTSharesToRedeem += _shares;
         redemption.redemptionValueAtRequest += redemptionValueAtRequest;
         redemption.redemptionAllowedAtTimestamp = block.timestamp + $.redemptionDelaySeconds;
+
+        // Execute a post-op sync on NAV accounting and enforce the market's coverage requirement
+        _postOpSyncTrancheNAVsAndEnforceCoverage(Operation.JT_DECREASE_NAV);
     }
 
     /// @inheritdoc IAsyncJTWithdrawalKernel

@@ -23,11 +23,11 @@ interface IRoycoKernel {
     function ST_REQUEST_REDEEM_SHARES_BEHAVIOR() external pure returns (RequestRedeemSharesBehavior);
     function JT_REQUEST_REDEEM_SHARES_BEHAVIOR() external pure returns (RequestRedeemSharesBehavior);
 
-    function ST_DEPOSIT_EXECUTION_MODEL() external pure returns (ExecutionModel);
-    function ST_WITHDRAWAL_EXECUTION_MODEL() external pure returns (ExecutionModel);
+    function ST_INCREASE_NAV_EXECUTION_MODEL() external pure returns (ExecutionModel);
+    function ST_DECREASE_NAVAL_EXECUTION_MODEL() external pure returns (ExecutionModel);
 
-    function JT_DEPOSIT_EXECUTION_MODEL() external pure returns (ExecutionModel);
-    function JT_WITHDRAWAL_EXECUTION_MODEL() external pure returns (ExecutionModel);
+    function JT_INCREASE_NAV_EXECUTION_MODEL() external pure returns (ExecutionModel);
+    function JT_DECREASE_NAVAL_EXECUTION_MODEL() external pure returns (ExecutionModel);
 
     function getSTRawNAV() external view returns (uint256);
     function getJTRawNAV() external view returns (uint256);

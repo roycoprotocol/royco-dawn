@@ -70,7 +70,7 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
 
         // Compute the scaling factor that will scale each tranche's asset quantities to RAY precision
         // These will be used to interface with the accountant and the tranches
-        // All accounting is done in RAY precision and all tranche operations are done on the base asset's native precision
+        // All accounting is done in RAY precision and all tranche operations are done in the base asset's precision
         uint96 stScaleFactorToRAY = uint96(10 ** (ConstantsLib.RAY_DECIMALS - stDecimals));
         uint96 jtScaleFactorToRAY = uint96(10 ** (ConstantsLib.RAY_DECIMALS - jtDecimals));
 
@@ -121,16 +121,16 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
     /**
      * @notice Synchronizes and persists the raw and effective NAVs of both tranches
      * @dev Only executes a pre-op sync because there is no operation being executed in the same call as this sync
-     * @return packet The synced NAV packet containing all mark to market accounting data scaled to RAY precision
+     * @return packet The synced NAV packet containing all mark to market accounting data scaled to tranche base asset precisions
      */
     function syncTrancheNAVs() external override(IRoycoKernel) onlyRole(RoycoRoles.SYNC_ROLE) whenNotPaused returns (SyncedNAVsPacket memory packet) {
-        return _preOpSyncTrancheNAVs();
+        (packet,,) = _preOpSyncTrancheNAVs();
     }
 
     /**
      * @notice Previews a synchronization of the raw and effective NAVs of both tranches
      * @dev Does not mutate any state
-     * @return packet The synced NAV packet containing all mark to market accounting data scaled to RAY precision
+     * @return packet The synced NAV packet containing all mark to market accounting data scaled to tranche base asset precisions
      */
     function previewSyncTrancheNAVs() public view override(IRoycoKernel) returns (SyncedNAVsPacket memory packet) {
         // Get each tranche's raw NAV scaled to RAY precision
@@ -141,11 +141,15 @@ abstract contract RoycoKernel is IRoycoKernel, UUPSUpgradeable, RoycoAuth {
     /**
      * @notice Invokes the accountant to do a pre-operation (deposit and withdrawal) NAV sync
      * @dev Should be called on every NAV mutating user operation
-     * @return packet The synced NAV packet containing all mark to market accounting data scaled to RAY precision
+     * @return packet The synced NAV packet containing all mark to market accounting data scaled to tranche base asset precisions
+     * @return stScaleFactorToRAY The scaling factor used to convert ST asset quantities to RAY precision
+     * @return jtScaleFactorToRAY The scaling factor used to convert JT asset quantities to RAY precision
      */
-    function _preOpSyncTrancheNAVs() internal returns (SyncedNAVsPacket memory packet) {
+    function _preOpSyncTrancheNAVs() internal returns (SyncedNAVsPacket memory packet, uint96 stScaleFactorToRAY, uint96 jtScaleFactorToRAY) {
         // Get each tranche's raw NAV scaled to RAY precision
-        (uint256 stRawNavRAY, uint256 jtRawNavRAY, uint96 stScaleFactorToRAY, uint96 jtScaleFactorToRAY) = _getTrancheRawNAVsRAY();
+        uint256 stRawNavRAY;
+        uint256 jtRawNavRAY;
+        (stRawNavRAY, jtRawNavRAY, stScaleFactorToRAY, jtScaleFactorToRAY) = _getTrancheRawNAVsRAY();
         // Execute the pre-op sync via the accountant
         packet = UtilsLib.scaleSyncedNAVsPacketFromRAY(_accountant().preOpSyncTrancheNAVs(stRawNavRAY, jtRawNavRAY), stScaleFactorToRAY, jtScaleFactorToRAY);
         // Collect any protocol fees accrued

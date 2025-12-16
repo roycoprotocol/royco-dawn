@@ -61,11 +61,11 @@ library RoycoTrancheStorageLib {
         $.REQUEST_REDEEM_SHARES_ST_BEHAVIOR = IRoycoKernel(_kernel).ST_REQUEST_REDEEM_SHARES_BEHAVIOR();
         $.REQUEST_REDEEM_SHARES_JT_BEHAVIOR = IRoycoKernel(_kernel).JT_REQUEST_REDEEM_SHARES_BEHAVIOR();
         if (_trancheType == TrancheType.SENIOR) {
-            $.DEPOSIT_EXECUTION_MODEL = IRoycoKernel(_kernel).ST_DEPOSIT_EXECUTION_MODEL();
-            $.WITHDRAW_EXECUTION_MODEL = IRoycoKernel(_kernel).ST_WITHDRAWAL_EXECUTION_MODEL();
+            $.DEPOSIT_EXECUTION_MODEL = IRoycoKernel(_kernel).ST_INCREASE_NAV_EXECUTION_MODEL();
+            $.WITHDRAW_EXECUTION_MODEL = IRoycoKernel(_kernel).ST_DECREASE_NAVAL_EXECUTION_MODEL();
         } else {
-            $.DEPOSIT_EXECUTION_MODEL = IRoycoKernel(_kernel).JT_DEPOSIT_EXECUTION_MODEL();
-            $.WITHDRAW_EXECUTION_MODEL = IRoycoKernel(_kernel).JT_WITHDRAWAL_EXECUTION_MODEL();
+            $.DEPOSIT_EXECUTION_MODEL = IRoycoKernel(_kernel).JT_INCREASE_NAV_EXECUTION_MODEL();
+            $.WITHDRAW_EXECUTION_MODEL = IRoycoKernel(_kernel).JT_DECREASE_NAVAL_EXECUTION_MODEL();
         }
     }
 }

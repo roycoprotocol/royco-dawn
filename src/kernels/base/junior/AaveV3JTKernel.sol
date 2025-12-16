@@ -8,7 +8,7 @@ import { IPoolAddressesProvider } from "../../../interfaces/aave/IPoolAddressesP
 import { IPoolDataProvider } from "../../../interfaces/aave/IPoolDataProvider.sol";
 import { ExecutionModel, IRoycoKernel } from "../../../interfaces/kernel/IRoycoKernel.sol";
 import { AaveV3KernelState, AaveV3KernelStorageLib } from "../../../libraries/kernels/AaveV3KernelStorageLib.sol";
-import { Operation, RoycoKernel, SyncedNAVsPacketRAY } from "../RoycoKernel.sol";
+import { Operation, RoycoKernel, SyncedNAVsPacket, UtilsLib } from "../RoycoKernel.sol";
 import { BaseAsyncJTRedemptionDelayKernel } from "./BaseAsyncJTRedemptionDelayKernel.sol";
 
 abstract contract AaveV3JTKernel is RoycoKernel, BaseAsyncJTRedemptionDelayKernel {
@@ -16,10 +16,10 @@ abstract contract AaveV3JTKernel is RoycoKernel, BaseAsyncJTRedemptionDelayKerne
     using Math for uint256;
 
     /// @inheritdoc IRoycoKernel
-    ExecutionModel public constant JT_DEPOSIT_EXECUTION_MODEL = ExecutionModel.SYNC;
+    ExecutionModel public constant JT_INCREASE_NAV_EXECUTION_MODEL = ExecutionModel.SYNC;
 
     /// @inheritdoc IRoycoKernel
-    ExecutionModel public constant JT_WITHDRAWAL_EXECUTION_MODEL = ExecutionModel.ASYNC;
+    ExecutionModel public constant JT_DECREASE_NAVAL_EXECUTION_MODEL = ExecutionModel.ASYNC;
 
     /// @notice Thrown when the JT base asset is not a supported reserve token in the Aave V3 Pool
     error UNSUPPORTED_RESERVE_TOKEN();
@@ -62,15 +62,18 @@ abstract contract AaveV3JTKernel is RoycoKernel, BaseAsyncJTRedemptionDelayKerne
         whenNotPaused
         returns (uint256 valueAllocated, uint256 effectiveNAVToMintAt)
     {
-        // Execute a pre-op sync on NAV accounting
+        // Execute a preop sync on NAV accounting
+        (SyncedNAVsPacket memory packet,, uint96 jtScaleFactorToRAY) = _preOpSyncTrancheNAVs();
+
+        // The specified assets will be lent to the pool and the effective NAV to mint shares at is the result of the pre-op sync (pre-deposit)
         valueAllocated = _assets;
-        effectiveNAVToMintAt = (_preOpSyncTrancheNAVs()).stEffectiveNAV;
+        effectiveNAVToMintAt = packet.jtEffectiveNAV;
 
         // Max approval already given to the pool on initialization
         IPool(AaveV3KernelStorageLib._getAaveV3KernelStorage().pool).supply(_asset, _assets, address(this), 0);
 
         // Execute a post-op sync on NAV accounting
-        _postOpSyncTrancheNAVs(Operation.JT_DEPOSIT);
+        _postOpSyncTrancheNAVs(Operation.JT_INCREASE_NAV);
     }
 
     /// @inheritdoc IRoycoKernel
@@ -86,22 +89,29 @@ abstract contract AaveV3JTKernel is RoycoKernel, BaseAsyncJTRedemptionDelayKerne
         onlyJuniorTranche
         returns (uint256 assetsWithdrawn)
     {
-        SyncedNAVsPacketRAY memory packet = _preOpSyncTrancheNAVs();
+        // Execute a preop sync on NAV accounting
+        (SyncedNAVsPacket memory packet, uint96 stScaleFactorToRAY, uint96 jtScaleFactorToRAY) = _preOpSyncTrancheNAVs();
+
         require(_shares <= _jtClaimableRedeemRequest(_controller), INSUFFICIENT_CLAIMABLE_SHARES(_shares, _jtClaimableRedeemRequest(_controller)));
         // Calculate the value of the shares to claim and update the controller's redemption request
         assetsWithdrawn = _processClaimableRedeemRequest(_controller, packet.jtEffectiveNAV, _shares, _totalShares);
 
         // The difference between the JT effective NAV and raw NAV is the amount of assets it is owed from ST raw NAV
-        uint256 totalJTClaimOnSTAssets = Math.saturatingSub(packet.jtEffectiveNAV, packet.jtRawNAV);
+        uint256 totalJTClaimOnSTAssetsInJTPrecision = Math.saturatingSub(packet.jtEffectiveNAV, packet.jtRawNAV);
         // Compute and claim the assets that need to be pulled from ST for this withdrawal, rounding in favor of the senior tranche
-        uint256 stAssetsToWithdraw = _shares.mulDiv(totalJTClaimOnSTAssets, _totalShares, Math.Rounding.Floor);
-        if (stAssetsToWithdraw != 0) _claimJuniorAssetsFromSenior(_asset, stAssetsToWithdraw, _receiver);
+        uint256 stAssetsToClaimInJTPrecision = _shares.mulDiv(totalJTClaimOnSTAssetsInJTPrecision, _totalShares, Math.Rounding.Floor);
+        // If there any ST assets to claim
+        if (stAssetsToClaimInJTPrecision != 0) {
+            // Scale to ST's precision and claim them from ST
+            uint256 stAssetsToClaim = UtilsLib.scaleFromRAY(UtilsLib.scaleToRAY(stAssetsToClaimInJTPrecision, jtScaleFactorToRAY), stScaleFactorToRAY);
+            _claimJuniorAssetsFromSenior(_asset, stAssetsToClaim, _receiver);
+        }
 
         // Facilitate the remainder of the withdrawal from JT exposure
-        IPool(AaveV3KernelStorageLib._getAaveV3KernelStorage().pool).withdraw(_asset, (assetsWithdrawn - stAssetsToWithdraw), _receiver);
+        IPool(AaveV3KernelStorageLib._getAaveV3KernelStorage().pool).withdraw(_asset, (assetsWithdrawn - stAssetsToClaimInJTPrecision), _receiver);
 
         // Execute a post-op sync on NAV accounting and enforce the market's coverage requirement
-        _postOpSyncTrancheNAVsAndEnforceCoverage(Operation.JT_WITHDRAW);
+        _postOpSyncTrancheNAVsAndEnforceCoverage(Operation.JT_DECREASE_NAV);
     }
 
     /// @inheritdoc RoycoKernel

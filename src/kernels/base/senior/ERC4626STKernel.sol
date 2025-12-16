@@ -8,17 +8,17 @@ import { ExecutionModel, IRoycoKernel } from "../../../interfaces/kernel/IRoycoK
 import { RoycoKernelState, RoycoKernelStorageLib } from "../../../libraries/RoycoKernelStorageLib.sol";
 import { RequestRedeemSharesBehavior } from "../../../libraries/Types.sol";
 import { ERC4626STKernelStorageLib } from "../../../libraries/kernels/ERC4626STKernelStorageLib.sol";
-import { Operation, RoycoKernel, SyncedNAVsPacketRAY } from "../RoycoKernel.sol";
+import { Operation, RoycoKernel, SyncedNAVsPacket } from "../RoycoKernel.sol";
 
 abstract contract ERC4626STKernel is RoycoKernel {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
     /// @inheritdoc IRoycoKernel
-    ExecutionModel public constant ST_DEPOSIT_EXECUTION_MODEL = ExecutionModel.SYNC;
+    ExecutionModel public constant ST_INCREASE_NAV_EXECUTION_MODEL = ExecutionModel.SYNC;
 
     /// @inheritdoc IRoycoKernel
-    ExecutionModel public constant ST_WITHDRAWAL_EXECUTION_MODEL = ExecutionModel.SYNC;
+    ExecutionModel public constant ST_DECREASE_NAVAL_EXECUTION_MODEL = ExecutionModel.SYNC;
 
     /// @inheritdoc IRoycoKernel
     RequestRedeemSharesBehavior public constant ST_REQUEST_REDEEM_SHARES_BEHAVIOR = RequestRedeemSharesBehavior.BURN_ON_REDEEM;
@@ -61,9 +61,11 @@ abstract contract ERC4626STKernel is RoycoKernel {
         whenNotPaused
         returns (uint256 valueAllocated, uint256 effectiveNAVToMintAt)
     {
-        // The effective NAV to mint at is the effective NAV of the tranche before the deposit is made, ie. the NAV at which the shares will be minted
-        // This is the NAV returned by the pre-op sync
-        effectiveNAVToMintAt = (_preOpSyncTrancheNAVs()).stEffectiveNAV;
+        // Execute a preop sync on NAV accounting
+        (SyncedNAVsPacket memory packet, uint96 stScaleFactorToRAY,) = _preOpSyncTrancheNAVs();
+
+        // The effective NAV to mint shares at is the result of the pre-op sync (pre-deposit)
+        effectiveNAVToMintAt = packet.stEffectiveNAV;
 
         // Deposit the assets into the underlying investment vault
         IERC4626(ERC4626STKernelStorageLib._getERC4626STKernelStorage().vault).deposit(_assets, address(this));
@@ -72,7 +74,7 @@ abstract contract ERC4626STKernel is RoycoKernel {
         valueAllocated = _convertAssetsToValue(_assets);
 
         // Execute a post-op sync on NAV accounting and enforce the market's coverage requirement
-        _postOpSyncTrancheNAVsAndEnforceCoverage(Operation.ST_DEPOSIT);
+        _postOpSyncTrancheNAVsAndEnforceCoverage(Operation.ST_INCREASE_NAV);
     }
 
     /// @inheritdoc IRoycoKernel
@@ -89,13 +91,14 @@ abstract contract ERC4626STKernel is RoycoKernel {
         whenNotPaused
         returns (uint256 assetsWithdrawn)
     {
-        // Execute a pre-op sync on NAV accounting
-        SyncedNAVsPacketRAY memory packet = _preOpSyncTrancheNAVs();
+        // Execute a preop sync on NAV accounting
+        (SyncedNAVsPacket memory packet,,) = _preOpSyncTrancheNAVs();
 
         // Compute the assets expected to be received on withdrawal based on the ST's effective NAV
         assetsWithdrawn = _shares.mulDiv(packet.stEffectiveNAV, _totalShares, Math.Rounding.Floor);
 
         // ST's coverage debt post-sync is the total applied coverage by JT to ST
+        // Applied coverage is already in the JT base asset's precision
         uint256 totalAppliedCoverage = packet.stCoverageDebt;
         // Compute and claim the assets that need to pulled from JT for this withdrawal, rounding in favor of ST
         uint256 jtAssetsToWithdraw = Math.min(_shares.mulDiv(totalAppliedCoverage, _totalShares, Math.Rounding.Ceil), totalAppliedCoverage);
@@ -106,7 +109,7 @@ abstract contract ERC4626STKernel is RoycoKernel {
         IERC4626(ERC4626STKernelStorageLib._getERC4626STKernelStorage().vault).withdraw((assetsWithdrawn - jtAssetsToWithdraw), _receiver, address(this));
 
         // Execute a post-op sync on NAV accounting
-        _postOpSyncTrancheNAVs(Operation.ST_WITHDRAW);
+        _postOpSyncTrancheNAVs(Operation.ST_DECREASE_NAV);
     }
 
     /**

@@ -59,24 +59,16 @@ struct SyncedNAVsPacketRAY {
 /**
  * @title Operation
  * @dev Defines the operation being executed by the user
- * @custom:type ST_DEPOSIT Depositing assets into the senior tranche
- * @custom:type ST_WITHDRAW Withdrawing assets from the senior tranche
- * @custom:type JT_DEPOSIT Depositing assets into the junior tranche
- * @custom:type JT_WITHDRAW Withdrawing assets from the junior tranche
- * @custom:type ST_REQUEST_DEPOSIT Requesting a deposit for the senior tranche
- * @custom:type ST_REQUEST_REDEEM Requesting a redemption for the senior tranche
- * @custom:type JT_REQUEST_DEPOSIT Requesting a deposit for the junior tranche
- * @custom:type JT_REQUEST_REDEEM Requesting a redemption for the junior tranche
+ * @custom:type ST_INCREASE_NAV - Depositing assets into the senior tranche NAV
+ * @custom:type ST_DECREASE_NAV - Withdrawing assets from the senior tranche NAV
+ * @custom:type JT_INCREASE_NAV - Depositing assets into the junior tranche NAV
+ * @custom:type JT_DECREASE_NAV - Withdrawing assets from the junior tranche NAV
  */
 enum Operation {
-    ST_DEPOSIT,
-    ST_WITHDRAW,
-    ST_REQUEST_DEPOSIT,
-    ST_REQUEST_REDEEM,
-    JT_DEPOSIT,
-    JT_WITHDRAW,
-    JT_REQUEST_DEPOSIT,
-    JT_REQUEST_REDEEM
+    ST_INCREASE_NAV,
+    ST_DECREASE_NAV,
+    JT_INCREASE_NAV,
+    JT_DECREASE_NAV
 }
 
 /// @title Action

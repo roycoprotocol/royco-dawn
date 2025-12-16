@@ -62,7 +62,7 @@ abstract contract ERC4626STKernel is RoycoKernel {
         returns (uint256 valueAllocated, uint256 effectiveNAVToMintAt)
     {
         // Execute a preop sync on NAV accounting
-        (SyncedNAVsPacket memory packet, uint96 stScaleFactorToRAY,) = _preOpSyncTrancheNAVs();
+        (SyncedNAVsPacket memory packet,,) = _preOpSyncTrancheNAVs();
 
         // The effective NAV to mint shares at is the result of the pre-op sync (pre-deposit)
         effectiveNAVToMintAt = packet.stEffectiveNAV;

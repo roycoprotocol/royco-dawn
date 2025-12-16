@@ -63,7 +63,7 @@ abstract contract AaveV3JTKernel is RoycoKernel, BaseAsyncJTRedemptionDelayKerne
         returns (uint256 valueAllocated, uint256 effectiveNAVToMintAt)
     {
         // Execute a preop sync on NAV accounting
-        (SyncedNAVsPacket memory packet,, uint96 jtScaleFactorToRAY) = _preOpSyncTrancheNAVs();
+        (SyncedNAVsPacket memory packet,,) = _preOpSyncTrancheNAVs();
 
         // The specified assets will be lent to the pool and the effective NAV to mint shares at is the result of the pre-op sync (pre-deposit)
         valueAllocated = _assets;

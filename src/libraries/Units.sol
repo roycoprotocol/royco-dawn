@@ -3,132 +3,71 @@ pragma solidity ^0.8.28;
 
 import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
-/// @dev The unit of measurement for NAV values
-/// @dev This unit is expected to expressed in the same asset (USD, EUR, BTC, etc) and precision (RAY, WAD, etc.) for the ST and JT tranches of a Royco market
+/// @notice Common unit of account for Royco NAV values (e.g., USD, BTC) used consistently across tranches
+/// @dev `NAV_UNIT` must be expressed in the same underlying unit and precision for both ST and JT within a market
 type NAV_UNIT is uint256;
 
-/// @dev The unit of measurement for tranche assets
+/// @notice Unit for tranche asset amounts (native token units for a specific tranche)
 type TRANCHE_UNIT is uint256;
 
 /// @title UnitsMathLib
-/// @notice Math library wrapper for Royco's units of measurement
+/// @notice Typed math helpers for Royco units (NAV_UNIT and TRANCHE_UNIT)
+/// @dev Wraps OpenZeppelin Math helpers and preserves unit typing on return values
 library UnitsMathLib {
-    /**
-     * @notice Computes the minimum of two NAV unit denominated quantities
-     * @param _a A NAV unit denominated quantity
-     * @param _b A NAV unit denominated quantity
-     * @return The minimum of _a and _b in NAV units
-     */
+    /// @notice Returns the minimum of two NAV-denominated quantities.
     function min(NAV_UNIT _a, NAV_UNIT _b) internal pure returns (NAV_UNIT) {
         return toNAVUnits(Math.min(toUint256(_a), toUint256(_b)));
     }
 
-    /**
-     * @notice Computes the minimum of two tranche unit denominated quantities
-     * @param _a A tranche unit denominated quantity
-     * @param _b A tranche unit denominated quantity
-     * @return The minimum of _a and _b in tranche units
-     */
+    /// @notice Returns the minimum of two tranche-denominated quantities.
     function min(TRANCHE_UNIT _a, TRANCHE_UNIT _b) internal pure returns (TRANCHE_UNIT) {
         return toTrancheUnits(Math.min(toUint256(_a), toUint256(_b)));
     }
 
-    /**
-     * @notice Computes the signed delta between two NAV unit denominated quantities
-     * @param _a The NAV unit denominated minuend of the subtraction
-     * @param _b The NAV unit denominated subtrahend of the subtraction
-     * @return The signed difference between _a and _b
-     */
+    /// @notice Returns the signed delta `_a - _b` for NAV-denominated quantities.
     function computeNAVDelta(NAV_UNIT _a, NAV_UNIT _b) internal pure returns (int256) {
-        return (int256(toUint256(_a)) - int256(toUint256(_b)));
+        return (toInt256(_a) - toInt256(_b));
     }
 
-    /**
-     * @notice Computes the difference between two NAV unit denominated quantities, clipped to 0
-     * @param _a The NAV unit denominated minuend of the subtraction
-     * @param _b The NAV unit denominated subtrahend of the subtraction
-     * @return The difference between _a and _b, clipped to 0
-     */
+    /// @notice Returns `max(_a - _b, 0)` for NAV-denominated quantities.
     function saturatingSub(NAV_UNIT _a, NAV_UNIT _b) internal pure returns (NAV_UNIT) {
         return toNAVUnits(Math.saturatingSub(toUint256(_a), toUint256(_b)));
     }
 
-    /**
-     * @notice Multiplies two NAV unit denominated quantities and divides by a third NAV unit denominated quantity, rounding according to the specified rounding mode
-     * @param _a The NAV unit denominated multiplicand of the multiplication
-     * @param _b The NAV unit denominated multiplier of the multiplication
-     * @param _c The NAV unit denominated divisor of the division
-     * @param _rounding The rounding mode to use
-     * @return The result of the multiplication followed by division
-     */
+    /// @notice Returns `(_a * _b) / _c` for NAV-denominated quantities with explicit rounding.
     function mulDiv(NAV_UNIT _a, NAV_UNIT _b, NAV_UNIT _c, Math.Rounding _rounding) internal pure returns (NAV_UNIT) {
         return toNAVUnits(Math.mulDiv(toUint256(_a), toUint256(_b), toUint256(_c), _rounding));
     }
 
-    /**
-     * @notice Multiplies a NAV unit denominated quantity by a uint256 and divides by another uint256, rounding according to the specified rounding mode
-     * @param _a The NAV unit denominated multiplicand of the multiplication
-     * @param _b The uint256 multiplier of the multiplication
-     * @param _c The uint256 divisor of the division
-     * @param _rounding The rounding mode to use
-     * @return The result of the multiplication followed by division
-     */
+    /// @notice Returns `(_a * _b) / _c` where `_a` is NAV-denominated and `_b/_c` are scalars, with explicit rounding.
     function mulDiv(NAV_UNIT _a, uint256 _b, uint256 _c, Math.Rounding _rounding) internal pure returns (NAV_UNIT) {
         return toNAVUnits(Math.mulDiv(toUint256(_a), _b, _c, _rounding));
     }
 
-    /**
-     * @notice Multiplies a NAV unit denominated quantity by a uint256 and divides by another NAV unit denominated quantity, rounding according to the specified rounding mode
-     * @param _a The NAV unit denominated multiplicand of the multiplication
-     * @param _b The uint256 multiplier of the multiplication
-     * @param _c The NAV unit denominated divisor of the division
-     * @param _rounding The rounding mode to use
-     * @return The result of the multiplication followed by division
-     */
+    /// @notice Returns `(_a * _b) / _c` where `_a/_c` are NAV-denominated and `_b` is a scalar, with explicit rounding.
     function mulDiv(NAV_UNIT _a, uint256 _b, NAV_UNIT _c, Math.Rounding _rounding) internal pure returns (NAV_UNIT) {
         return toNAVUnits(Math.mulDiv(toUint256(_a), _b, toUint256(_c), _rounding));
     }
 
-    /**
-     * @notice Multiplies two tranche unit denominated quantities and divides by a third tranche unit denominated quantity, rounding according to the specified rounding mode
-     * @param _a The first tranche unit denominated quantity
-     * @param _b The second tranche unit denominated quantity
-     * @param _c The third tranche unit denominated quantity
-     * @param _rounding The rounding mode to use
-     * @return The result of the multiplication followed by division
-     */
+    /// @notice Returns `(_a * _b) / _c` for tranche-denominated quantities with explicit rounding.
     function mulDiv(TRANCHE_UNIT _a, TRANCHE_UNIT _b, TRANCHE_UNIT _c, Math.Rounding _rounding) internal pure returns (TRANCHE_UNIT) {
         return toTrancheUnits(Math.mulDiv(toUint256(_a), toUint256(_b), toUint256(_c), _rounding));
     }
 
-    /**
-     * @notice Multiplies a tranche unit denominated quantity with NAV unit denominated quantity and divides by a NAV unit denominated quantity, rounding according to the specified rounding mode
-     * @param _a The tranche unit denominated multiplicand of the multiplication
-     * @param _b The NAV unit denominated multiplier of the multiplication
-     * @param _c The NAV unit denominated divisor of the division
-     * @param _rounding The rounding mode to use
-     * @return The result of the multiplication followed by division
-     */
+    /// @notice Returns `(_a * _b) / _c` where `_a` is tranche-denominated and `_b/_c` are NAV-denominated, with explicit rounding.
     function mulDiv(TRANCHE_UNIT _a, NAV_UNIT _b, NAV_UNIT _c, Math.Rounding _rounding) internal pure returns (TRANCHE_UNIT) {
         return toTrancheUnits(Math.mulDiv(toUint256(_a), toUint256(_b), toUint256(_c), _rounding));
     }
 
-    /**
-     * @notice Multiplies a NAV unit denominated quantity by a uint256 and divides by another uint256, rounding according to the specified rounding mode
-     * @param _a The tranche unit denominated multiplicand of the multiplication
-     * @param _b The uint256 multiplier of the multiplication
-     * @param _c The uint256 divisor of the division
-     * @param _rounding The rounding mode to use
-     * @return The result of the multiplication followed by division
-     */
+    /// @notice Returns `(_a * _b) / _c` where `_a` is tranche-denominated and `_b/_c` are scalars, with explicit rounding.
     function mulDiv(TRANCHE_UNIT _a, uint256 _b, uint256 _c, Math.Rounding _rounding) internal pure returns (TRANCHE_UNIT) {
         return toTrancheUnits(Math.mulDiv(toUint256(_a), _b, _c, _rounding));
     }
 }
 
-/// ----------------------
-/// NAV_UNIT Helpers
-/// ----------------------
+/// -----------------------------------------------------------------------
+/// Global NAV_UNIT Helpers
+/// -----------------------------------------------------------------------
 
 function toNAVUnits(uint256 _assets) pure returns (NAV_UNIT) {
     return NAV_UNIT.wrap(_assets);
@@ -140,6 +79,10 @@ function toNAVUnits(int256 _assets) pure returns (NAV_UNIT) {
 
 function toUint256(NAV_UNIT _units) pure returns (uint256) {
     return NAV_UNIT.unwrap(_units);
+}
+
+function toInt256(NAV_UNIT _units) pure returns (int256) {
+    return int256(NAV_UNIT.unwrap(_units));
 }
 
 function addNAVUnits(NAV_UNIT _a, NAV_UNIT _b) pure returns (NAV_UNIT) {
@@ -195,9 +138,9 @@ using {
     notEqualsNAVUnits as !=
 } for NAV_UNIT global;
 
-/// ----------------------
-/// TRANCHE_UNIT Helpers
-/// ----------------------
+/// -----------------------------------------------------------------------
+/// Global TRANCHE_UNIT Helpers
+/// -----------------------------------------------------------------------
 
 function toTrancheUnits(uint256 _assets) pure returns (TRANCHE_UNIT) {
     return TRANCHE_UNIT.wrap(_assets);

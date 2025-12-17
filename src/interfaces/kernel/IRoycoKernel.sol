@@ -5,13 +5,14 @@ import { RoycoKernelState } from "../../libraries/RoycoKernelStorageLib.sol";
 import { ExecutionModel, RequestRedeemSharesBehavior, SyncedAccountingState, TrancheAssetClaims } from "../../libraries/Types.sol";
 import { TrancheType } from "../../libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT } from "../../libraries/Units.sol";
+import { IRoycoQuoter } from "./IRoycoQuoter.sol";
 
 /**
  * @title IRoycoKernel
  * @notice Interface for the Royco kernel contract
  * @dev The kernel contract is responsible for defining the execution model and logic of the Senior and Junior tranches of a given Royco market
  */
-interface IRoycoKernel {
+interface IRoycoKernel is IRoycoQuoter {
     /// @notice Thrown when any of the required initialization params are null
     error NULL_ADDRESS();
 
@@ -82,34 +83,6 @@ interface IRoycoKernel {
      * @return claims The distribution of the junior tranche's claim of assets across the senior and junior tranches, denominated in the respective tranches' tranche units
      */
     function getJTAssetClaims() external view returns (TrancheAssetClaims memory claims);
-
-    /**
-     * @notice Converts the specified ST assets denominated in its tranche units to the kernel's NAV units
-     * @param _stAssets The ST assets denominated in tranche units to convert to the kernel's NAV units
-     * @return navUnits The specified ST assets denominated in its tranche units converted to the kernel's NAV units
-     */
-    function stConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _stAssets) external view returns (NAV_UNIT navUnits);
-
-    /**
-     * @notice Converts the specified JT assets denominated in its tranche units to the kernel's NAV units
-     * @param _jtAssets The JT assets denominated in tranche units to convert to the kernel's NAV units
-     * @return navUnits The specified JT assets denominated in its tranche units converted to the kernel's NAV units
-     */
-    function jtConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _jtAssets) external view returns (NAV_UNIT navUnits);
-
-    /**
-     * @notice Converts the specified assets denominated in the kernel's NAV units to assets denominated in ST's tranche units
-     * @param _navAssets The NAV of the assets denominated in the kernel's NAV units to convert to assets denominated in ST's tranche units
-     * @return The specified NAV of the assets denominated in the kernel's NAV units converted to assets denominated in ST's tranche units
-     */
-    function stConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) external view returns (TRANCHE_UNIT);
-
-    /**
-     * @notice Converts the specified assets denominated in the kernel's NAV units to assets denominated in JT's tranche units
-     * @param _navAssets The NAV of the assets denominated in the kernel's NAV units to convert to assets denominated in JT's tranche units
-     * @return The specified NAV of the assets denominated in the kernel's NAV units converted to assets denominated in JT's tranche units
-     */
-    function jtConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) external view returns (TRANCHE_UNIT);
 
     /**
      * @notice Synchronizes and persists the raw and effective NAVs of both tranches

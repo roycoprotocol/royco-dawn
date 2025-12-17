@@ -12,6 +12,9 @@ TRANCHE_UNIT constant ZERO_TRANCHE_UNITS = TRANCHE_UNIT.wrap(0);
 /// @dev Constant for the WAD scaling factor
 uint256 constant WAD = 1e18;
 
+/// @dev Constant for the number of decimals of precision a WAD denominated quantity has
+uint256 constant WAD_DECIMALS = 18;
+
 /// @dev Constant for the RAY scaling factor
 uint256 constant RAY = 1e27;
 

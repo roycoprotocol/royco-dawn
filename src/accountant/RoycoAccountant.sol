@@ -109,6 +109,8 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
             // Compute the delta in the raw NAV of the junior tranche
             int256 deltaJT = UnitsMathLib.computeNAVDelta(_jtRawNAV, $.lastJTRawNAV);
             require(deltaJT >= 0, INVALID_POST_OP_STATE(_op));
+            // New JT deposits do not go towards paying off existing JT coverage debt (subsidizing old losses)
+            // They are treated as an addition to the future loss-absorption buffer
             // Update the post-operation raw NAV ST checkpoint
             $.lastJTRawNAV = _jtRawNAV;
             // Apply the deposit to the junior tranche's effective NAV

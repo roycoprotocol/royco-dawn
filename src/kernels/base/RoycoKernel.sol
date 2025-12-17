@@ -380,11 +380,25 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
     function _maxJTWithdrawalGlobally(address _owner) internal view virtual returns (TRANCHE_UNIT);
 
     /**
+     * @notice Previews the amount of ST assets that would be redeemed for a given amount of ST assets
+     * @param _stAssets The ST assets denominated in its tranche units to redeem
+     * @return redeemedSTAssets The amount of ST assets that would be redeemed for the given amount of ST assets
+     */
+    function _previewWithdrawSTAssets(TRANCHE_UNIT _stAssets) internal view virtual returns (TRANCHE_UNIT redeemedSTAssets);
+
+    /**
      * @notice Withdraws ST assets to the specified receiver
      * @param _stAssets The ST assets denominated in its tranche units to withdraw to the receiver
      * @param _receiver The receiver of the ST assets
      */
     function _withdrawSTAssets(TRANCHE_UNIT _stAssets, address _receiver) internal virtual;
+
+    /**
+     * @notice Previews the amount of JT assets that would be redeemed for a given amount of JT assets
+     * @param _jtAssets The JT assets denominated in its tranche units to redeem
+     * @return redeemedJTAssets The amount of JT assets that would be redeemed for the given amount of JT assets
+     */
+    function _previewWithdrawJTAssets(TRANCHE_UNIT _jtAssets) internal view virtual returns (TRANCHE_UNIT redeemedJTAssets);
 
     /**
      * @notice Withdraws JT assets to the specified receiver

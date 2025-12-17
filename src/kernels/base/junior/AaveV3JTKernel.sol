@@ -196,4 +196,9 @@ abstract contract AaveV3JTKernel is RoycoKernel, BaseAsyncJTRedemptionDelayKerne
         IPool(AaveV3KernelStorageLib._getAaveV3KernelStorage().pool)
             .withdraw(RoycoKernelStorageLib._getRoycoKernelStorage().jtAsset, toUint256(_jtAssets), _receiver);
     }
+
+    /// @inheritdoc RoycoKernel
+    function _previewWithdrawJTAssets(TRANCHE_UNIT _jtAssets) internal view override(RoycoKernel) returns (TRANCHE_UNIT redeemedJTAssets) {
+        return _jtAssets;
+    }
 }

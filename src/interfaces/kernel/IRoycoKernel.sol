@@ -171,10 +171,9 @@ interface IRoycoKernel {
      * @dev The kernel may decide to simulate the redemption and revert internally with the result
      * @dev Should revert if redemptions are asynchronous
      * @param _shares The number of shares to redeem
-     * @return claims The distribution of assets that would be transferred to the receiver on redemption, denominated in the respective tranches' tranche units
-     * @return totalTrancheShares The total number of shares that exist in the senior tranche after minting any protocol fee shares post-sync
+     * @return userClaim The distribution of assets that would be transferred to the receiver on redemption, denominated in the respective tranches' tranche units
      */
-    function stPreviewRedeem(uint256 _shares) external view returns (TrancheAssetClaims memory claims, uint256 totalTrancheShares);
+    function stPreviewRedeem(uint256 _shares) external view returns (TrancheAssetClaims memory userClaim);
 
     /**
      * @notice Processes the redemption of a specified number of shares from the senior tranche
@@ -215,10 +214,9 @@ interface IRoycoKernel {
      * @dev The kernel may decide to simulate the redemption and revert internally with the result
      * @dev Should revert if redemptions are asynchronous
      * @param _shares The number of shares to redeem
-     * @return claims The distribution of assets that would be transferred to the receiver on redemption, denominated in the respective tranches' tranche units
-     * @return totalTrancheShares The total number of shares that exist in the junior tranche after minting any protocol fee shares post-sync
+     * @return userClaim The distribution of assets that would be transferred to the receiver on redemption, denominated in the respective tranches' tranche units
      */
-    function jtPreviewRedeem(uint256 _shares) external view returns (TrancheAssetClaims memory claims, uint256 totalTrancheShares);
+    function jtPreviewRedeem(uint256 _shares) external view returns (TrancheAssetClaims memory userClaim);
 
     /**
      * @notice Processes the deposit of a specified amount of assets into the junior tranche

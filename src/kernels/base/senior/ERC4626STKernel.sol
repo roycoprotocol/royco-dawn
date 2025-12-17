@@ -6,10 +6,11 @@ import { IERC20, SafeERC20 } from "../../../../lib/openzeppelin-contracts/contra
 import { Math } from "../../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import { ExecutionModel, IRoycoKernel, RequestRedeemSharesBehavior } from "../../../interfaces/kernel/IRoycoKernel.sol";
 import { ZERO_TRANCHE_UNITS } from "../../../libraries/Constants.sol";
+import { TrancheAssetClaims } from "../../../libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toTrancheUnits, toUint256 } from "../../../libraries/Units.sol";
 import { UtilsLib } from "../../../libraries/UtilsLib.sol";
 import { ERC4626STKernelStorageLib } from "../../../libraries/kernels/ERC4626STKernelStorageLib.sol";
-import { Operation, RoycoKernel, TrancheAssetClaims, TrancheType } from "../RoycoKernel.sol";
+import { Operation, RoycoKernel, TrancheType } from "../RoycoKernel.sol";
 
 abstract contract ERC4626STKernel is RoycoKernel {
     using SafeERC20 for IERC20;
@@ -82,11 +83,15 @@ abstract contract ERC4626STKernel is RoycoKernel {
     }
 
     /// @inheritdoc IRoycoKernel
-    function stPreviewRedeem(uint256 _shares) external view override onlySeniorTranche returns (TrancheAssetClaims memory claims, uint256 totalTrancheShares) {
-        // Preview the redemption by converting the shares to assets and returning the assets that would be redeemed
-        TrancheAssetClaims memory totalClaims;
-        (, totalClaims, totalTrancheShares) = previewSyncTrancheAccounting(TrancheType.SENIOR);
-        claims = UtilsLib.scaleTrancheAssetsClaim(totalClaims, _shares, totalTrancheShares);
+    function stPreviewRedeem(uint256 _shares) external view override onlySeniorTranche returns (TrancheAssetClaims memory userClaim) {
+        // Get the total claim of ST on the ST and JT assets, and scale it to the number of shares being redeemed
+        (, TrancheAssetClaims memory totalClaims, uint256 totalTrancheShares) = previewSyncTrancheAccounting(TrancheType.SENIOR);
+        TrancheAssetClaims memory scaledClaims = UtilsLib.scaleTrancheAssetsClaim(totalClaims, _shares, totalTrancheShares);
+
+        // Preview the amount of ST assets that would be redeemed for the given amount of shares
+        userClaim.stAssets = _previewWithdrawSTAssets(scaledClaims.stAssets);
+        userClaim.jtAssets = _previewWithdrawJTAssets(scaledClaims.jtAssets);
+        userClaim.effectiveNAV = _stConvertTrancheUnitsToNAVUnits(userClaim.stAssets) + _jtConvertTrancheUnitsToNAVUnits(userClaim.jtAssets);
     }
 
     /// @inheritdoc IRoycoKernel
@@ -140,5 +145,16 @@ abstract contract ERC4626STKernel is RoycoKernel {
     /// @inheritdoc RoycoKernel
     function _withdrawSTAssets(TRANCHE_UNIT _stAssets, address _receiver) internal override(RoycoKernel) {
         IERC4626(ERC4626STKernelStorageLib._getERC4626STKernelStorage().vault).withdraw(toUint256(_stAssets), _receiver, address(this));
+    }
+
+    /// @inheritdoc RoycoKernel
+    function _previewWithdrawSTAssets(TRANCHE_UNIT _stAssets) internal view override(RoycoKernel) returns (TRANCHE_UNIT redeemedSTAssets) {
+        IERC4626 vault = IERC4626(ERC4626STKernelStorageLib._getERC4626STKernelStorage().vault);
+
+        // Convert the ST assets to underlying shares
+        uint256 underlyingShares = vault.convertToShares(toUint256(_stAssets));
+
+        // Preview the amount of ST assets that would be redeemed for the given amount of underlying shares
+        redeemedSTAssets = toTrancheUnits(vault.previewRedeem(underlyingShares));
     }
 }

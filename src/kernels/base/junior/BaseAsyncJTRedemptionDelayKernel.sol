@@ -71,7 +71,7 @@ abstract contract BaseAsyncJTRedemptionDelayKernel is IAsyncJTWithdrawalKernel, 
     }
 
     /// @inheritdoc IRoycoKernel
-    function jtPreviewRedeem(uint256) external view virtual override onlyJuniorTranche returns (TrancheAssetClaims memory, uint256) {
+    function jtPreviewRedeem(uint256) external view virtual override onlyJuniorTranche returns (TrancheAssetClaims memory) {
         revert PREVIEW_REDEEM_DISABLED_FOR_ASYNC_REDEMPTION();
     }
 

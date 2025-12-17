@@ -203,10 +203,7 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
         executionIsSync(Action.WITHDRAW)
         returns (TrancheAssetClaims memory claims)
     {
-        (TrancheAssetClaims memory trancheClaims, uint256 trancheTotalShares) = TRANCHE_TYPE() == TrancheType.SENIOR
-            ? IRoycoKernel(kernel()).stPreviewRedeem(_shares)
-            : IRoycoKernel(kernel()).jtPreviewRedeem(_shares);
-        claims = UtilsLib.scaleTrancheAssetsClaim(trancheClaims, _shares, trancheTotalShares);
+        claims = (TRANCHE_TYPE() == TrancheType.SENIOR ? IRoycoKernel(kernel()).stPreviewRedeem(_shares) : IRoycoKernel(kernel()).jtPreviewRedeem(_shares));
     }
 
     /// @inheritdoc IRoycoVaultTranche

@@ -25,79 +25,102 @@ interface IRoycoVaultTranche is IERC165, IRoycoAsyncVault, IRoycoAsyncCancellabl
      */
     event MintProtocolFeeShares(address indexed protocolFeeRecipient, uint256 mintedProtocolFeeShares, uint256 totalTrancheShares);
 
-    /// @notice Returns the raw net asset value of the tranche's invested assets
-    /// @dev Excludes yield splits, coverage applications, etc.
-    /// @dev The NAV is expressed in the tranche's base asset
-    /// @return nav The raw net asset value of the tranche's invested assets
+    /**
+     * @notice Returns the raw net asset value of the tranche's invested assets
+     * @dev Excludes yield splits, coverage applications, etc.
+     * @dev The NAV is expressed in the tranche's base asset
+     * @return nav The raw net asset value of the tranche's invested assets
+     */
     function getRawNAV() external view returns (NAV_UNIT nav);
 
-    /// @notice Returns the address of the kernel contract handling strategy logic
+    /**
+     * @notice Returns the address of the kernel contract handling strategy logic
+     */
     function kernel() external view returns (address);
 
-    /// @notice Returns the identifier of the Royco market this tranche is linked to
+    /**
+     * @notice Returns the identifier of the Royco market this tranche is linked to
+     */
     function marketId() external view returns (bytes32);
 
-    /// @notice Returns the total effective assets in the tranche's NAV units
-    /// @dev Includes yield splits, coverage applications, etc.
-    /// @dev The NAV is expressed in the tranche's base asset
-    /// @return claims The breakdown of assets that represent the value of the tranche's shares
+    /**
+     * @notice Returns the total effective assets in the tranche's NAV units
+     * @dev Includes yield splits, coverage applications, etc.
+     * @dev The NAV is expressed in the tranche's base asset
+     * @return claims The breakdown of assets that represent the value of the tranche's shares
+     */
     function totalAssets() external view returns (TrancheAssetClaims memory claims);
 
-    /// @notice Returns the maximum amount of assets that can be deposited into the tranche
-    /// @dev The assets are expressed in the tranche's base asset
-    /// @param _receiver The address to receive the deposited assets
-    /// @return assets The maximum amount of assets that can be deposited into the tranche
+    /**
+     * @notice Returns the maximum amount of assets that can be deposited into the tranche
+     * @dev The assets are expressed in the tranche's base asset
+     * @param _receiver The address to receive the deposited assets
+     * @return assets The maximum amount of assets that can be deposited into the tranche
+     */
     function maxDeposit(address _receiver) external view returns (TRANCHE_UNIT assets);
 
-    /// @notice Returns the maximum amount of shares that can be redeemed from the tranche
-    /// @dev The shares are expressed in the tranche's base asset
-    /// @param _owner The address to redeem the shares from
-    /// @return shares The maximum amount of shares that can be redeemed from the tranche
+    /**
+     * @notice Returns the maximum amount of shares that can be redeemed from the tranche
+     * @dev The shares are expressed in the tranche's base asset
+     * @param _owner The address to redeem the shares from
+     * @return shares The maximum amount of shares that can be redeemed from the tranche
+     */
     function maxRedeem(address _owner) external view returns (uint256 shares);
 
-    /// @notice Returns the number of shares that would be minted for a given amount of assets
-    /// @dev The assets are expressed in the tranche's base asset
-    /// @dev Disabled if deposit execution is asynchronous
-    /// @dev Intentionally defined as a non-view function to allow for the tranche to simulate the deposit without actually depositing the assets
-    /// @param _assets The amount of assets to preview the deposit for
-    /// @return shares The number of shares that would be minted for a given amount of assets
-
+    /**
+     * @notice Returns the number of shares that would be minted for a given amount of assets
+     * @dev The assets are expressed in the tranche's base asset
+     * @dev Disabled if deposit execution is asynchronous
+     * @dev Intentionally defined as a non-view function to allow for the tranche to simulate the deposit without actually depositing the assets
+     * @param _assets The amount of assets to preview the deposit for
+     * @return shares The number of shares that would be minted for a given amount of assets
+     */
     function previewDeposit(TRANCHE_UNIT _assets) external returns (uint256 shares);
 
-    /// @notice Returns the number of shares that would be minted for a given amount of assets
-    /// @dev The assets are expressed in the tranche's base asset
-    /// @param _assets The amount of assets to convert to shares
-    /// @return shares The number of shares that would be minted for a given amount of assets
+    /**
+     * @notice Returns the number of shares that would be minted for a given amount of assets
+     * @dev The assets are expressed in the tranche's base asset
+     * @param _assets The amount of assets to convert to shares
+     * @return shares The number of shares that would be minted for a given amount of assets
+     */
     function convertToShares(TRANCHE_UNIT _assets) external view returns (uint256 shares);
 
-    /// @notice Returns the breakdown of assets that the shares have a claim on
-    /// @dev The shares are expressed in the tranche's base asset
-    /// @dev Disabled if redemption execution is asynchronous
-    /// @dev Intentionally defined as a non-view function to allow for the tranche to simulate the redemption without actually redeeming the shares
-    /// @param _shares The number of shares to convert to claims
-    /// @return claims The breakdown of assets that the shares have a claim on
+    /**
+     * @notice Returns the breakdown of assets that the shares have a claim on
+     * @dev The shares are expressed in the tranche's base asset
+     * @dev Disabled if redemption execution is asynchronous
+     * @dev Intentionally defined as a non-view function to allow for the tranche to simulate the redemption without actually redeeming the shares
+     * @param _shares The number of shares to convert to claims
+     * @return claims The breakdown of assets that the shares have a claim on
+     */
     function previewRedeem(uint256 _shares) external returns (TrancheAssetClaims memory claims);
 
-    /// @notice Returns the breakdown of assets that the shares have a claim on
-    /// @dev The shares are expressed in the tranche's base asset
-    /// @param _shares The number of shares to convert to assets
-    /// @return claims The breakdown of assets that the shares have a claim on
+    /**
+     * @notice Returns the breakdown of assets that the shares have a claim on
+     * @dev The shares are expressed in the tranche's base asset
+     * @param _shares The number of shares to convert to assets
+     * @return claims The breakdown of assets that the shares have a claim on
+     */
     function convertToAssets(uint256 _shares) external view returns (TrancheAssetClaims memory claims);
 
-    /// @notice Mints tranche shares to the receiver
-    /// @dev The assets are expressed in the tranche's base asset
-    /// @param _assets The amount of assets to mint
-    /// @param _receiver The address to mint the shares to
-    /// @param _controller The controller of the request
-    /// @return shares The number of shares that were minted
+    /**
+     * @notice Mints tranche shares to the receiver
+     * @dev The assets are expressed in the tranche's base asset
+     * @param _assets The amount of assets to mint
+     * @param _receiver The address to mint the shares to
+     * @param _controller The controller of the request
+     * @return shares The number of shares that were minted
+     */
     function deposit(TRANCHE_UNIT _assets, address _receiver, address _controller) external returns (uint256 shares);
 
-    /// @notice Redeems tranche shares from the owner
-    /// @dev The shares are expressed in the tranche's base asset
-    /// @param _shares The number of shares to redeem
-    /// @param _receiver The address to redeem the shares to
-    /// @param _controller The controller of the request
-    /// @return claims The breakdown of assets that the redeemed shares have a claim on
+    /**
+     * @notice Redeems tranche shares from the owner
+     * @dev The shares are expressed in the tranche's base asset
+     * @param _shares The number of shares to redeem
+     * @param _receiver The address to redeem the shares to
+     * @param _controller The controller of the request
+     * @return claims The breakdown of assets that the redeemed shares have a claim on
+     */
     function redeem(uint256 _shares, address _receiver, address _controller) external returns (TrancheAssetClaims memory claims);
 
     /**
@@ -133,7 +156,9 @@ interface IRoycoVaultTranche is IERC165, IRoycoAsyncVault, IRoycoAsyncCancellabl
         external
         returns (uint256 mintedProtocolFeeShares, uint256 totalTrancheShares);
 
-    /// @notice Returns the address of the tranche's deposit asset
-    /// @return asset The address of the tranche's deposit asset
+    /**
+     * @notice Returns the address of the tranche's deposit asset
+     * @return asset The address of the tranche's deposit asset
+     */
     function asset() external view returns (address asset);
 }

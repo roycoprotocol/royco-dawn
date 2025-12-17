@@ -2,8 +2,6 @@
 pragma solidity ^0.8.28;
 
 import { ERC20Upgradeable, IERC20, IERC20Metadata } from "../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import { ERC20PausableUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
-import { ERC20PermitUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import { IAccessControlEnumerable } from "../../lib/openzeppelin-contracts/contracts/access/extensions/IAccessControlEnumerable.sol";
 import { SafeERC20 } from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
@@ -25,7 +23,7 @@ import { UtilsLib } from "../libraries/UtilsLib.sol";
  * @title RoycoVaultTranche
  * @notice Abstract base contract implementing core functionality for Royco tranches
  */
-abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20PausableUpgradeable, ERC20PermitUpgradeable {
+abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Upgradeable {
     using Math for uint256;
     using SafeERC20 for IERC20;
 
@@ -110,8 +108,6 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
     {
         // Initialize the parent contracts
         __ERC20_init_unchained(_trancheParams.name, _trancheParams.symbol);
-        __ERC20Pausable_init();
-        __ERC20Permit_init(_trancheParams.name);
         __RoycoBase_init(_initialAuthority);
 
         // Initialize the Royco Tranche state
@@ -781,10 +777,5 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
 
     function _withVirtualAssets(NAV_UNIT _assets) internal pure returns (NAV_UNIT) {
         return _assets + toNAVUnits(uint256(1));
-    }
-
-    /// @inheritdoc ERC20PausableUpgradeable
-    function _update(address _from, address _to, uint256 _value) internal override(ERC20PausableUpgradeable, ERC20Upgradeable) whenNotPaused {
-        super._update(_from, _to, _value);
     }
 }

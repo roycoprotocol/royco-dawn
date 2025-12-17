@@ -147,14 +147,13 @@ interface IRoycoKernel {
 
     /**
      * @notice Previews the deposit of a specified amount of assets into the senior tranche
-     * @dev Intentionally defined as a non-view function to allow for the kernel to simulate the deposit without actually depositing the assets
      * @dev The kernel may decide to simulate the deposit and revert internally with the result
      * @dev Should revert if deposits are asynchronous
      * @param _assets The amount of assets to deposit, denominated in the senior tranche's tranche units
      * @return valueAllocated The value of the assets deposited, denominated in the kernel's NAV units
      * @return navToMintAt The NAV at which the shares will be minted, exclusive of valueAllocated
      */
-    function stPreviewDeposit(TRANCHE_UNIT _assets) external returns (NAV_UNIT valueAllocated, NAV_UNIT navToMintAt);
+    function stPreviewDeposit(TRANCHE_UNIT _assets) external view returns (NAV_UNIT valueAllocated, NAV_UNIT navToMintAt);
 
     /**
      * @notice Processes the deposit of a specified amount of assets into the senior tranche
@@ -169,14 +168,13 @@ interface IRoycoKernel {
 
     /**
      * @notice Previews the redemption of a specified number of shares from the senior tranche
-     * @dev Intentionally defined as a non-view function to allow for the kernel to simulate the redemption without actually redeeming the shares
      * @dev The kernel may decide to simulate the redemption and revert internally with the result
      * @dev Should revert if redemptions are asynchronous
      * @param _shares The number of shares to redeem
      * @return claims The distribution of assets that would be transferred to the receiver on redemption, denominated in the respective tranches' tranche units
      * @return totalTrancheShares The total number of shares that exist in the senior tranche after minting any protocol fee shares post-sync
      */
-    function stPreviewRedeem(uint256 _shares) external returns (TrancheAssetClaims memory claims, uint256 totalTrancheShares);
+    function stPreviewRedeem(uint256 _shares) external view returns (TrancheAssetClaims memory claims, uint256 totalTrancheShares);
 
     /**
      * @notice Processes the redemption of a specified number of shares from the senior tranche
@@ -204,25 +202,23 @@ interface IRoycoKernel {
 
     /**
      * @notice Previews the deposit of a specified amount of assets into the junior tranche
-     * @dev Intentionally defined as a non-view function to allow for the kernel to simulate the deposit without actually depositing the assets
      * @dev The kernel may decide to simulate the deposit and revert internally with the result
      * @dev Should revert if deposits are asynchronous
      * @param _assets The amount of assets to deposit, denominated in the junior tranche's tranche units
      * @return valueAllocated The value of the assets deposited, denominated in the kernel's NAV units
      * @return navToMintAt The NAV at which the shares will be minted, exclusive of valueAllocated
      */
-    function jtPreviewDeposit(TRANCHE_UNIT _assets) external returns (NAV_UNIT valueAllocated, NAV_UNIT navToMintAt);
+    function jtPreviewDeposit(TRANCHE_UNIT _assets) external view returns (NAV_UNIT valueAllocated, NAV_UNIT navToMintAt);
 
     /**
      * @notice Previews the redemption of a specified number of shares from the junior tranche
-     * @dev Intentionally defined as a non-view function to allow for the kernel to simulate the redemption without actually redeeming the shares
      * @dev The kernel may decide to simulate the redemption and revert internally with the result
      * @dev Should revert if redemptions are asynchronous
      * @param _shares The number of shares to redeem
      * @return claims The distribution of assets that would be transferred to the receiver on redemption, denominated in the respective tranches' tranche units
      * @return totalTrancheShares The total number of shares that exist in the junior tranche after minting any protocol fee shares post-sync
      */
-    function jtPreviewRedeem(uint256 _shares) external returns (TrancheAssetClaims memory claims, uint256 totalTrancheShares);
+    function jtPreviewRedeem(uint256 _shares) external view returns (TrancheAssetClaims memory claims, uint256 totalTrancheShares);
 
     /**
      * @notice Processes the deposit of a specified amount of assets into the junior tranche

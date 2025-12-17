@@ -173,7 +173,7 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Upgra
     }
 
     /// @inheritdoc IRoycoVaultTranche
-    function previewDeposit(TRANCHE_UNIT _assets) external virtual override(IRoycoVaultTranche) executionIsSync(Action.DEPOSIT) returns (uint256 shares) {
+    function previewDeposit(TRANCHE_UNIT _assets) external view virtual override(IRoycoVaultTranche) executionIsSync(Action.DEPOSIT) returns (uint256 shares) {
         (NAV_UNIT navAssets, NAV_UNIT effectiveNAVToMintAt) =
             (TRANCHE_TYPE() == TrancheType.SENIOR ? IRoycoKernel(kernel()).stPreviewDeposit(_assets) : IRoycoKernel(kernel()).jtPreviewDeposit(_assets));
         shares = _convertToShares(navAssets, totalSupply(), effectiveNAVToMintAt, Math.Rounding.Floor);
@@ -199,7 +199,10 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Upgra
         executionIsSync(Action.WITHDRAW)
         returns (TrancheAssetClaims memory claims)
     {
-        claims = convertToAssets(_shares);
+        (TrancheAssetClaims memory trancheClaims, uint256 trancheTotalShares) = TRANCHE_TYPE() == TrancheType.SENIOR
+            ? IRoycoKernel(kernel()).stPreviewRedeem(_shares)
+            : IRoycoKernel(kernel()).jtPreviewRedeem(_shares);
+        claims = UtilsLib.scaleTrancheAssetsClaim(trancheClaims, _shares, trancheTotalShares);
     }
 
     /// @inheritdoc IRoycoVaultTranche

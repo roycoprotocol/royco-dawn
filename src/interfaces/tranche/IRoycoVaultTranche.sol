@@ -71,11 +71,10 @@ interface IRoycoVaultTranche is IERC165, IRoycoAsyncVault, IRoycoAsyncCancellabl
      * @notice Returns the number of shares that would be minted for a given amount of assets
      * @dev The assets are expressed in the tranche's base asset
      * @dev Disabled if deposit execution is asynchronous
-     * @dev Intentionally defined as a non-view function to allow for the tranche to simulate the deposit without actually depositing the assets
      * @param _assets The amount of assets to preview the deposit for
      * @return shares The number of shares that would be minted for a given amount of assets
      */
-    function previewDeposit(TRANCHE_UNIT _assets) external returns (uint256 shares);
+    function previewDeposit(TRANCHE_UNIT _assets) external view returns (uint256 shares);
 
     /**
      * @notice Returns the number of shares that would be minted for a given amount of assets
@@ -89,11 +88,10 @@ interface IRoycoVaultTranche is IERC165, IRoycoAsyncVault, IRoycoAsyncCancellabl
      * @notice Returns the breakdown of assets that the shares have a claim on
      * @dev The shares are expressed in the tranche's base asset
      * @dev Disabled if redemption execution is asynchronous
-     * @dev Intentionally defined as a non-view function to allow for the tranche to simulate the redemption without actually redeeming the shares
      * @param _shares The number of shares to convert to claims
      * @return claims The breakdown of assets that the shares have a claim on
      */
-    function previewRedeem(uint256 _shares) external returns (TrancheAssetClaims memory claims);
+    function previewRedeem(uint256 _shares) external view returns (TrancheAssetClaims memory claims);
 
     /**
      * @notice Returns the breakdown of assets that the shares have a claim on

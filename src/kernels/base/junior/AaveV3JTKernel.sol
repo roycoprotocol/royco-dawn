@@ -53,7 +53,7 @@ abstract contract AaveV3JTKernel is RoycoKernel, BaseAsyncJTRedemptionDelayKerne
     /// @inheritdoc IRoycoKernel
     function jtPreviewDeposit(TRANCHE_UNIT _assets) external view override onlyJuniorTranche returns (NAV_UNIT valueAllocated, NAV_UNIT navToMintAt) {
         // Preview the deposit by converting the assets to NAV units and returning the NAV at which the shares will be minted
-        valueAllocated = jtConvertTrancheUnitsToNAVUnits(_assets);
+        valueAllocated = _jtConvertTrancheUnitsToNAVUnits(_assets);
         navToMintAt = (_accountant().previewSyncTrancheAccounting(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV())).jtEffectiveNAV;
     }
 
@@ -70,7 +70,7 @@ abstract contract AaveV3JTKernel is RoycoKernel, BaseAsyncJTRedemptionDelayKerne
         returns (NAV_UNIT valueAllocated, NAV_UNIT navToMintAt)
     {
         // Execute a pre-op sync on accounting
-        valueAllocated = jtConvertTrancheUnitsToNAVUnits(_assets);
+        valueAllocated = _jtConvertTrancheUnitsToNAVUnits(_assets);
         navToMintAt = (_preOpSyncTrancheAccounting()).jtEffectiveNAV;
 
         // Max approval already given to the pool on initialization
@@ -116,9 +116,10 @@ abstract contract AaveV3JTKernel is RoycoKernel, BaseAsyncJTRedemptionDelayKerne
     }
 
     /// @inheritdoc RoycoKernel
-    function _withdrawJTAssets(TRANCHE_UNIT _jtAssets, address _receiver) internal override(RoycoKernel) {
-        IPool(AaveV3KernelStorageLib._getAaveV3KernelStorage().pool)
-            .withdraw(RoycoKernelStorageLib._getRoycoKernelStorage().jtAsset, toUint256(_jtAssets), _receiver);
+    function _getJuniorTrancheRawNAV() internal view override(RoycoKernel) returns (NAV_UNIT) {
+        // The tranche's balance of the AToken is the total assets it is owed from the Aave pool
+        /// @dev This does not treat illiquidity in the Aave pool as a loss: we assume that total lent will be withdrawable at some point
+        return _jtConvertTrancheUnitsToNAVUnits(toTrancheUnits(IERC20(AaveV3KernelStorageLib._getAaveV3KernelStorage().aToken).balanceOf(address(this))));
     }
 
     /// @inheritdoc RoycoKernel
@@ -188,5 +189,11 @@ abstract contract AaveV3JTKernel is RoycoKernel, BaseAsyncJTRedemptionDelayKerne
 
         // Return the minimum of the assets lent by the JT and the total idle/unborrowed reserve assets (currently withdrawable from the pool)
         return toTrancheUnits(IERC20(asset).balanceOf($.aToken));
+    }
+
+    /// @inheritdoc RoycoKernel
+    function _withdrawJTAssets(TRANCHE_UNIT _jtAssets, address _receiver) internal override(RoycoKernel) {
+        IPool(AaveV3KernelStorageLib._getAaveV3KernelStorage().pool)
+            .withdraw(RoycoKernelStorageLib._getRoycoKernelStorage().jtAsset, toUint256(_jtAssets), _receiver);
     }
 }

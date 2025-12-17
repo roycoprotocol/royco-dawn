@@ -3,18 +3,18 @@ pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import { Initializable } from "../../../../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
-import { IRoycoQuoter } from "../../../interfaces/kernel/IRoycoQuoter.sol";
 import { WAD_DECIMALS } from "../../../libraries/Constants.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toNAVUnits, toTrancheUnits, toUint256 } from "../../../libraries/Units.sol";
+import { RoycoKernel } from "../RoycoKernel.sol";
 
 /**
- * @title RoycoInKindAssetsQuoter
+ * @title InKindAssetsQuoter
  * @notice Quoter for markets where both tranches use the different unit precision and the NAV is expressed in tranche units with normalized precision
  * @dev Supported use-cases include:
  *      - ST and JT use in kind assets that have different precisions
  *        For example, USDC and USDS (USD pegged assets with 6 and 18 decimals of precision respectively)
  */
-abstract contract RoycoInKindAssetsQuoter is Initializable, IRoycoQuoter {
+abstract contract InKindAssetsQuoter is Initializable, RoycoKernel {
     /// @notice Thrown when the senior or junior tranche asset has over WAD decimals of precision
     error UNSUPPORTED_DECIMALS();
 
@@ -37,7 +37,7 @@ abstract contract RoycoInKindAssetsQuoter is Initializable, IRoycoQuoter {
      * @param _stAsset The address of the base asset of the senior tranche
      * @param _jtAsset The address of the base asset of the junior tranche
      */
-    function __RoycoInKindAssetsQuoter_init_unchained(address _stAsset, address _jtAsset) internal onlyInitializing {
+    function __InKindAssetsQuoter_init_unchained(address _stAsset, address _jtAsset) internal onlyInitializing {
         // Get the decimals for each tranche's base asset and ensure they are less than or equal to WAD decimals of precision
         uint8 stDecimals = IERC20Metadata(_stAsset).decimals();
         uint8 jtDecimals = IERC20Metadata(_jtAsset).decimals();
@@ -54,27 +54,27 @@ abstract contract RoycoInKindAssetsQuoter is Initializable, IRoycoQuoter {
         $.jtScaleFactorToWAD = jtScaleFactorToWAD;
     }
 
-    /// @inheritdoc IRoycoQuoter
+    /// @inheritdoc RoycoKernel
     /// @dev Scale the ST asset quantity up to NAV units (WAD precision)
-    function stConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _stAssets) public view virtual override(IRoycoQuoter) returns (NAV_UNIT nav) {
+    function _stConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _stAssets) internal view override(RoycoKernel) returns (NAV_UNIT nav) {
         return toNAVUnits(toUint256(_stAssets) * _getInKindAssetsQuoterStorage().stScaleFactorToWAD);
     }
 
-    /// @inheritdoc IRoycoQuoter
+    /// @inheritdoc RoycoKernel
     /// @dev Scale the JT asset quantity up to NAV units (WAD precision)
-    function jtConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _jtAssets) public view virtual override(IRoycoQuoter) returns (NAV_UNIT nav) {
+    function _jtConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _jtAssets) internal view override(RoycoKernel) returns (NAV_UNIT nav) {
         return toNAVUnits(toUint256(_jtAssets) * _getInKindAssetsQuoterStorage().jtScaleFactorToWAD);
     }
 
-    /// @inheritdoc IRoycoQuoter
+    /// @inheritdoc RoycoKernel
     /// @dev Scale the NAV quantity (WAD precision) down to ST asset units, rounding down
-    function stConvertNAVUnitsToTrancheUnits(NAV_UNIT _nav) public view virtual override(IRoycoQuoter) returns (TRANCHE_UNIT stAssets) {
+    function _stConvertNAVUnitsToTrancheUnits(NAV_UNIT _nav) internal view override(RoycoKernel) returns (TRANCHE_UNIT stAssets) {
         return toTrancheUnits(toUint256(_nav) / _getInKindAssetsQuoterStorage().stScaleFactorToWAD);
     }
 
-    /// @inheritdoc IRoycoQuoter
+    /// @inheritdoc RoycoKernel
     /// @dev Scale the NAV quantity (WAD precision) down to JT asset units, rounding down
-    function jtConvertNAVUnitsToTrancheUnits(NAV_UNIT _nav) public view virtual override(IRoycoQuoter) returns (TRANCHE_UNIT jtAssets) {
+    function _jtConvertNAVUnitsToTrancheUnits(NAV_UNIT _nav) internal view override(RoycoKernel) returns (TRANCHE_UNIT jtAssets) {
         return toTrancheUnits(toUint256(_nav) / _getInKindAssetsQuoterStorage().jtScaleFactorToWAD);
     }
 

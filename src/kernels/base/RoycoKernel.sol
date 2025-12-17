@@ -68,11 +68,11 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
     /// @inheritdoc IRoycoKernel
     function stMaxAssetsDeposit(address _receiver) external view override(IRoycoKernel) returns (TRANCHE_UNIT) {
         NAV_UNIT stMaxAssetsDepositableNAV = _accountant().maxSTDepositGivenCoverage(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
-        return UnitsMathLib.min(_maxSTDepositGlobally(_receiver), stConvertNAVUnitsToTrancheUnits(stMaxAssetsDepositableNAV));
+        return UnitsMathLib.min(_maxSTDepositGlobally(_receiver), _stConvertNAVUnitsToTrancheUnits(stMaxAssetsDepositableNAV));
     }
 
     /// @inheritdoc IRoycoKernel
-    function stMaxWithdrawableNAV(address _owner) external view override(IRoycoKernel) returns (NAV_UNIT) {
+    function stMaxWithdrawableNAV(address) external view override(IRoycoKernel) returns (NAV_UNIT) {
         // TODO: account for liq constraints
         return _accountant().previewSyncTrancheAccounting(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV()).stEffectiveNAV;
     }
@@ -83,7 +83,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
     }
 
     /// @inheritdoc IRoycoKernel
-    function jtMaxWithdrawableNAV(address _owner) external view override(IRoycoKernel) returns (NAV_UNIT) {
+    function jtMaxWithdrawableNAV(address) external view override(IRoycoKernel) returns (NAV_UNIT) {
         // TODO: account for liq constraints
         return _accountant().maxJTWithdrawalGivenCoverage(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
     }
@@ -295,12 +295,12 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         returns (TrancheAssetClaims memory claims)
     {
         if (_trancheType == TrancheType.SENIOR) {
-            if (_stNAVClaimOnSelf != ZERO_NAV_UNITS) claims.stAssets = stConvertNAVUnitsToTrancheUnits(_stNAVClaimOnSelf);
-            if (_stNAVClaimOnJT != ZERO_NAV_UNITS) claims.jtAssets = jtConvertNAVUnitsToTrancheUnits(_stNAVClaimOnJT);
+            if (_stNAVClaimOnSelf != ZERO_NAV_UNITS) claims.stAssets = _stConvertNAVUnitsToTrancheUnits(_stNAVClaimOnSelf);
+            if (_stNAVClaimOnJT != ZERO_NAV_UNITS) claims.jtAssets = _jtConvertNAVUnitsToTrancheUnits(_stNAVClaimOnJT);
             claims.effectiveNAV = _stEffectiveNAV;
         } else {
-            if (_jtNAVClaimOnST != ZERO_NAV_UNITS) claims.stAssets = stConvertNAVUnitsToTrancheUnits(_jtNAVClaimOnST);
-            if (_jtNAVClaimOnSelf != ZERO_NAV_UNITS) claims.jtAssets = jtConvertNAVUnitsToTrancheUnits(_jtNAVClaimOnSelf);
+            if (_jtNAVClaimOnST != ZERO_NAV_UNITS) claims.stAssets = _stConvertNAVUnitsToTrancheUnits(_jtNAVClaimOnST);
+            if (_jtNAVClaimOnSelf != ZERO_NAV_UNITS) claims.jtAssets = _jtConvertNAVUnitsToTrancheUnits(_jtNAVClaimOnSelf);
             claims.effectiveNAV = _jtEffectiveNAV;
         }
     }
@@ -312,16 +312,24 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
     }
 
     /// @inheritdoc IRoycoKernel
-    function stConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _stAssets) public view virtual override(IRoycoKernel) returns (NAV_UNIT);
+    function stConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _stAssets) external view override(IRoycoKernel) returns (NAV_UNIT) {
+        return _stConvertTrancheUnitsToNAVUnits(_stAssets);
+    }
 
     /// @inheritdoc IRoycoKernel
-    function jtConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _jtAssets) public view virtual override(IRoycoKernel) returns (NAV_UNIT);
+    function jtConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _jtAssets) external view override(IRoycoKernel) returns (NAV_UNIT) {
+        return _jtConvertTrancheUnitsToNAVUnits(_jtAssets);
+    }
 
     /// @inheritdoc IRoycoKernel
-    function stConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) public view virtual override(IRoycoKernel) returns (TRANCHE_UNIT);
+    function stConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) external view override(IRoycoKernel) returns (TRANCHE_UNIT) {
+        return _stConvertNAVUnitsToTrancheUnits(_navAssets);
+    }
 
     /// @inheritdoc IRoycoKernel
-    function jtConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) public view virtual override(IRoycoKernel) returns (TRANCHE_UNIT);
+    function jtConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) external view override(IRoycoKernel) returns (TRANCHE_UNIT) {
+        return _jtConvertNAVUnitsToTrancheUnits(_navAssets);
+    }
 
     /// @notice Returns the raw net asset value of the senior tranche denominated in the NAV units (USD, BTC, etc.) for this kernel
     /// @return The pure net asset value of the senior tranche invested assets
@@ -330,6 +338,18 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
     /// @notice Returns the raw net asset value of the junior tranche denominated in the NAV units (USD, BTC, etc.) for this kernel
     /// @return The pure net asset value of the junior tranche invested assets
     function _getJuniorTrancheRawNAV() internal view virtual returns (NAV_UNIT);
+
+    /// @dev Internal helper used for internal unit converions and the external getters
+    function _stConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _stAssets) internal view virtual returns (NAV_UNIT);
+
+    /// @dev Internal helper used for internal unit converions and the external getters
+    function _jtConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _jtAssets) internal view virtual returns (NAV_UNIT);
+
+    /// @dev Internal helper used for internal unit converions and the external getters
+    function _stConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) internal view virtual returns (TRANCHE_UNIT);
+
+    /// @dev Internal helper used for internal unit converions and the external getters
+    function _jtConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) internal view virtual returns (TRANCHE_UNIT);
 
     /**
      * @notice Returns the maximum amount of assets that can be deposited into the senior tranche globally

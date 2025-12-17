@@ -8,12 +8,22 @@ import { IRoycoAsyncCancellableVault } from "./IRoycoAsyncCancellableVault.sol";
 import { IRoycoAsyncVault } from "./IRoycoAsyncVault.sol";
 
 interface IRoycoVaultTranche is IERC165, IRoycoAsyncVault, IRoycoAsyncCancellableVault {
-    /// @notice Emitted when a deposit is made
-    /// @param sender The address that made the deposit
-    /// @param owner The address that owns the shares
-    /// @param assets The amount of assets deposited
-    /// @param shares The amount of shares minted
+    /**
+     * @notice Emitted when a deposit is made
+     * @param sender The address that made the deposit
+     * @param owner The address that owns the shares
+     * @param assets The amount of assets deposited
+     * @param shares The amount of shares minted
+     */
     event Deposit(address indexed sender, address indexed owner, TRANCHE_UNIT assets, uint256 shares);
+
+    /**
+     * @notice Emitted when a protocol fee is minted to the protocol fee recipient
+     * @param protocolFeeRecipient The address that received the protocol fee shares
+     * @param mintedProtocolFeeShares The number of protocol fee shares that were minted
+     * @param totalTrancheShares The total number of shares that exist in the tranche after minting any protocol fee shares post-sync
+     */
+    event MintProtocolFeeShares(address indexed protocolFeeRecipient, uint256 mintedProtocolFeeShares, uint256 totalTrancheShares);
 
     /// @notice Returns the raw net asset value of the tranche's invested assets
     /// @dev Excludes yield splits, coverage applications, etc.
@@ -47,9 +57,12 @@ interface IRoycoVaultTranche is IERC165, IRoycoAsyncVault, IRoycoAsyncCancellabl
 
     /// @notice Returns the number of shares that would be minted for a given amount of assets
     /// @dev The assets are expressed in the tranche's base asset
+    /// @dev Disabled if deposit execution is asynchronous
+    /// @dev Intentionally defined as a non-view function to allow for the tranche to simulate the deposit without actually depositing the assets
     /// @param _assets The amount of assets to preview the deposit for
     /// @return shares The number of shares that would be minted for a given amount of assets
-    function previewDeposit(TRANCHE_UNIT _assets) external view returns (uint256 shares);
+
+    function previewDeposit(TRANCHE_UNIT _assets) external returns (uint256 shares);
 
     /// @notice Returns the number of shares that would be minted for a given amount of assets
     /// @dev The assets are expressed in the tranche's base asset
@@ -59,9 +72,11 @@ interface IRoycoVaultTranche is IERC165, IRoycoAsyncVault, IRoycoAsyncCancellabl
 
     /// @notice Returns the breakdown of assets that the shares have a claim on
     /// @dev The shares are expressed in the tranche's base asset
+    /// @dev Disabled if redemption execution is asynchronous
+    /// @dev Intentionally defined as a non-view function to allow for the tranche to simulate the redemption without actually redeeming the shares
     /// @param _shares The number of shares to convert to claims
     /// @return claims The breakdown of assets that the shares have a claim on
-    function previewRedeem(uint256 _shares) external view returns (TrancheAssetClaims memory claims);
+    function previewRedeem(uint256 _shares) external returns (TrancheAssetClaims memory claims);
 
     /// @notice Returns the breakdown of assets that the shares have a claim on
     /// @dev The shares are expressed in the tranche's base asset
@@ -86,11 +101,28 @@ interface IRoycoVaultTranche is IERC165, IRoycoAsyncVault, IRoycoAsyncCancellabl
     function redeem(uint256 _shares, address _receiver, address _controller) external returns (TrancheAssetClaims memory claims);
 
     /**
+     * @notice Previews the number of shares that would be minted to the protocol fee recipient to satisfy the ratio of total assets that the fee represents
+     * @dev The fee assets are expressed in the tranche's base asset
+     * @param _protocolFeeAssets The fee accrued for this tranche as a result of the pre-op sync
+     * @param _trancheTotalAssets The total effective assets controlled by this tranche as a result of the pre-op sync
+     * @return mintedProtocolFeeShares The number of protocol fee shares that would be minted to the protocol fee recipient
+     * @return totalTrancheShares The total number of shares that exist in the tranche after minting any protocol fee shares post-sync
+     */
+    function previewMintProtocolFeeShares(
+        NAV_UNIT _protocolFeeAssets,
+        NAV_UNIT _trancheTotalAssets
+    )
+        external
+        view
+        returns (uint256 mintedProtocolFeeShares, uint256 totalTrancheShares);
+
+    /**
      * @notice Mints tranche shares to the protocol fee recipient, representing ownership over the fee assets of the tranche
      * @dev Must be called by the tranche's kernel everytime protocol fees are accrued in its pre-op synchronization
      * @param _protocolFeeAssets The fee accrued for this tranche as a result of the pre-op sync
      * @param _protocolFeeRecipient The address to receive the freshly minted protocol fee shares
      * @param _trancheTotalAssets The total effective assets controlled by this tranche as a result of the pre-op sync
+     * @return mintedProtocolFeeShares The number of protocol fee shares that were minted to the protocol fee recipient
      * @return totalTrancheShares The total number of shares that exist in the tranche after minting any protocol fee shares post-sync
      */
     function mintProtocolFeeShares(
@@ -99,7 +131,7 @@ interface IRoycoVaultTranche is IERC165, IRoycoAsyncVault, IRoycoAsyncCancellabl
         address _protocolFeeRecipient
     )
         external
-        returns (uint256 totalTrancheShares);
+        returns (uint256 mintedProtocolFeeShares, uint256 totalTrancheShares);
 
     /// @notice Returns the address of the tranche's deposit asset
     /// @return asset The address of the tranche's deposit asset

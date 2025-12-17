@@ -7,8 +7,9 @@ import { Math } from "../../../../lib/openzeppelin-contracts/contracts/utils/mat
 import { ExecutionModel, IRoycoKernel, RequestRedeemSharesBehavior } from "../../../interfaces/kernel/IRoycoKernel.sol";
 import { ZERO_TRANCHE_UNITS } from "../../../libraries/Constants.sol";
 import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toTrancheUnits, toUint256 } from "../../../libraries/Units.sol";
+import { UtilsLib } from "../../../libraries/UtilsLib.sol";
 import { ERC4626STKernelStorageLib } from "../../../libraries/kernels/ERC4626STKernelStorageLib.sol";
-import { Operation, RoycoKernel, SyncedAccountingState, TrancheAssetClaims, TrancheType } from "../RoycoKernel.sol";
+import { Operation, RoycoKernel, TrancheAssetClaims, TrancheType } from "../RoycoKernel.sol";
 
 abstract contract ERC4626STKernel is RoycoKernel {
     using SafeERC20 for IERC20;
@@ -44,6 +45,20 @@ abstract contract ERC4626STKernel is RoycoKernel {
     }
 
     /// @inheritdoc IRoycoKernel
+    function stPreviewDeposit(TRANCHE_UNIT _assets) external view override onlySeniorTranche returns (NAV_UNIT valueAllocated, NAV_UNIT navToMintAt) {
+        IERC4626 vault = IERC4626(ERC4626STKernelStorageLib._getERC4626STKernelStorage().vault);
+
+        // Simulate the deposit of the assets into the underlying investment vault
+        uint256 underlyingVaultSharesAllocated = vault.previewDeposit(toUint256(_assets));
+
+        // Convert the underlying vault shares to tranche units. This value may differ from _assets if a fee is applied to the deposit.
+        TRANCHE_UNIT allocatedInTrancheUnits = toTrancheUnits(vault.convertToAssets(underlyingVaultSharesAllocated));
+
+        valueAllocated = stConvertTrancheUnitsToNAVUnits(allocatedInTrancheUnits);
+        navToMintAt = (_accountant().previewSyncTrancheAccounting(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV())).stEffectiveNAV;
+    }
+
+    /// @inheritdoc IRoycoKernel
     function stDeposit(
         TRANCHE_UNIT _assets,
         address,
@@ -67,6 +82,14 @@ abstract contract ERC4626STKernel is RoycoKernel {
     }
 
     /// @inheritdoc IRoycoKernel
+    function stPreviewRedeem(uint256 _shares) external view override onlySeniorTranche returns (TrancheAssetClaims memory claims, uint256 totalTrancheShares) {
+        // Preview the redemption by converting the shares to assets and returning the assets that would be redeemed
+        TrancheAssetClaims memory totalClaims;
+        (, totalClaims, totalTrancheShares) = previewSyncTrancheAccounting(TrancheType.SENIOR);
+        claims = UtilsLib.scaleTrancheAssetsClaim(totalClaims, _shares, totalTrancheShares);
+    }
+
+    /// @inheritdoc IRoycoKernel
     function stRedeem(
         uint256 _shares,
         address,
@@ -81,13 +104,12 @@ abstract contract ERC4626STKernel is RoycoKernel {
         // Execute a pre-op sync on accounting
         uint256 totalTrancheShares;
         (, claims, totalTrancheShares) = _preOpSyncTrancheAccounting(TrancheType.SENIOR);
+        claims = UtilsLib.scaleTrancheAssetsClaim(claims, _shares, totalTrancheShares);
 
-        // Compute the JT assets to claim and withdraw them
-        claims.jtAssets = claims.jtAssets.mulDiv(_shares, totalTrancheShares, Math.Rounding.Floor);
+        // Withdraw the JT assets if non zero
         if (claims.jtAssets != ZERO_TRANCHE_UNITS) _withdrawJTAssets(claims.jtAssets, _receiver);
 
-        // Compute the ST assets to claim and withdraw them
-        claims.stAssets = claims.stAssets.mulDiv(_shares, totalTrancheShares, Math.Rounding.Floor);
+        // Withdraw the ST assets if non zero
         if (claims.stAssets != ZERO_TRANCHE_UNITS) _withdrawSTAssets(claims.stAssets, _receiver);
 
         // Execute a post-op sync on accounting

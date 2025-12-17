@@ -17,6 +17,7 @@ import { RoycoTrancheStorageLib } from "../libraries/RoycoTrancheStorageLib.sol"
 import { TrancheAssetClaims, TrancheType } from "../libraries/Types.sol";
 import { Action, SyncedAccountingState, TrancheDeploymentParams } from "../libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toNAVUnits, toTrancheUnits, toUint256 } from "../libraries/Units.sol";
+import { UtilsLib } from "../libraries/UtilsLib.sol";
 
 /// @title RoycoVaultTranche
 /// @notice Abstract base contract implementing core functionality for Royco tranches
@@ -158,9 +159,10 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Upgra
     }
 
     /// @inheritdoc IRoycoVaultTranche
-    /// @dev Disabled if deposit execution is asynchronous as per ERC7540
-    function previewDeposit(TRANCHE_UNIT _assets) external view virtual override(IRoycoVaultTranche) executionIsSync(Action.DEPOSIT) returns (uint256 shares) {
-        shares = convertToShares(_assets);
+    function previewDeposit(TRANCHE_UNIT _assets) external virtual override(IRoycoVaultTranche) executionIsSync(Action.DEPOSIT) returns (uint256 shares) {
+        (NAV_UNIT navAssets, NAV_UNIT effectiveNAVToMintAt) =
+            (TRANCHE_TYPE() == TrancheType.SENIOR ? IRoycoKernel(kernel()).stPreviewDeposit(_assets) : IRoycoKernel(kernel()).jtPreviewDeposit(_assets));
+        shares = _convertToShares(navAssets, totalSupply(), effectiveNAVToMintAt, Math.Rounding.Floor);
     }
 
     /// @inheritdoc IRoycoVaultTranche
@@ -190,7 +192,7 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Upgra
     function convertToAssets(uint256 _shares) public view virtual override(IRoycoVaultTranche) returns (TrancheAssetClaims memory claims) {
         // Get the post-sync tranche state: applying NAV reconciliation.
         (TrancheAssetClaims memory trancheClaims, uint256 trancheTotalShares) = _previewPostSyncTrancheState();
-        return _convertToClaim(_shares, trancheTotalShares, trancheClaims, Math.Rounding.Floor);
+        return UtilsLib.scaleTrancheAssetsClaim(trancheClaims, _shares, trancheTotalShares);
     }
 
     /// @inheritdoc IRoycoAsyncVault
@@ -610,6 +612,27 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Upgra
     }
 
     /// @inheritdoc IRoycoVaultTranche
+    function previewMintProtocolFeeShares(
+        NAV_UNIT _protocolFeeAssets,
+        NAV_UNIT _trancheTotalAssets
+    )
+        public
+        view
+        virtual
+        override(IRoycoVaultTranche)
+        returns (uint256 mintedProtocolFeeShares, uint256 totalTrancheShares)
+    {
+        // Compute the shares to be minted to the protocol fee recipient to satisfy the ratio of total assets that the fee represents
+        // Subtract fee assets from total tranche assets because fees are included in total tranche assets
+        // Round in favor of the tranche
+        uint256 totalShares = totalSupply();
+        mintedProtocolFeeShares = _convertToShares(_protocolFeeAssets, totalShares, (_trancheTotalAssets - _protocolFeeAssets), Math.Rounding.Floor);
+
+        // The total tranche shares include the protocol fee shares and virtual shares
+        totalTrancheShares = _withVirtualShares(totalShares + mintedProtocolFeeShares);
+    }
+
+    /// @inheritdoc IRoycoVaultTranche
     function mintProtocolFeeShares(
         NAV_UNIT _protocolFeeAssets,
         NAV_UNIT _trancheTotalAssets,
@@ -618,23 +641,14 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Upgra
         external
         virtual
         override(IRoycoVaultTranche)
-        returns (uint256 totalTrancheShares)
+        returns (uint256 mintedProtocolFeeShares, uint256 totalTrancheShares)
     {
         require(msg.sender == kernel(), ONLY_KERNEL());
 
-        // Compute the shares to be minted to the protocol fee recipient to satisfy the ratio of total assets that the fee represents
-        // Subtract fee assets from total tranche assets because fees are included in total tranche assets
-        // Round in favor of the tranche
-        uint256 totalShares = totalSupply();
-
-        uint256 protocolFeeSharesToMint = _convertToShares(_protocolFeeAssets, totalShares, (_trancheTotalAssets - _protocolFeeAssets), Math.Rounding.Floor);
-
-        if (protocolFeeSharesToMint != 0) {
-            _mint(_protocolFeeRecipient, protocolFeeSharesToMint);
-            totalShares += protocolFeeSharesToMint;
+        (mintedProtocolFeeShares, totalTrancheShares) = previewMintProtocolFeeShares(_protocolFeeAssets, _trancheTotalAssets);
+        if (mintedProtocolFeeShares != 0) {
+            _mint(_protocolFeeRecipient, mintedProtocolFeeShares);
         }
-
-        totalTrancheShares = _withVirtualShares(totalShares);
     }
 
     /// @inheritdoc IERC20Metadata
@@ -680,24 +694,7 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Upgra
         // Get the post-sync state of the kernel for the tranche
         IRoycoKernel kernel_ = IRoycoKernel(kernel());
         SyncedAccountingState memory state;
-        (state, trancheClaims) = kernel_.previewSyncTrancheAccounting(TRANCHE_TYPE());
-        NAV_UNIT protocolFeeAssetsAccrued;
-        if (TRANCHE_TYPE() == TrancheType.SENIOR) {
-            protocolFeeAssetsAccrued = state.stProtocolFeeAccrued;
-        } else {
-            protocolFeeAssetsAccrued = state.jtProtocolFeeAccrued;
-        }
-
-        // Convert the fee assets accrued to shares
-        trancheTotalShares = totalSupply();
-        // If fees were accrued, fee shares will be minted
-        if (protocolFeeAssetsAccrued != ZERO_NAV_UNITS) {
-            // Simulate minting the fee shares and add them to the tranche's total shares
-            // Deduct protocol fee assets accrued from the total assets since fees are included in total assets
-            trancheTotalShares += _convertToShares(
-                protocolFeeAssetsAccrued, trancheTotalShares, (trancheClaims.effectiveNAV - protocolFeeAssetsAccrued), Math.Rounding.Floor
-            );
-        }
+        (state, trancheClaims, trancheTotalShares) = kernel_.previewSyncTrancheAccounting(TRANCHE_TYPE());
     }
 
     /// @dev Returns the amount of shares that have a claim on the specified amount of tranche controlled assets
@@ -708,29 +705,6 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Upgra
     /// @return shares The number of shares that have a claim on the specified amount of tranche controlled assets
     function _convertToShares(NAV_UNIT _assets, uint256 _totalSupply, NAV_UNIT _totalAssets, Math.Rounding _rounding) internal view returns (uint256 shares) {
         return toUint256(_assets).mulDiv(_withVirtualShares(_totalSupply), toUint256(_withVirtualAssets(_totalAssets)), _rounding);
-    }
-
-    /// @dev Returns the amount of tranche controlled assets that the specified shares have a claim on
-    /// @param _shares The number of shares to convert
-    /// @param _totalSupply The total supply of tranche shares (including marginally minted fee shares)
-    /// @param _totalAssets The breakdown of total tranche controlled assets
-    /// @param _rounding The rounding mode to use
-    /// @return claims The breakdown of assets that the shares have a claim on
-    function _convertToClaim(
-        uint256 _shares,
-        uint256 _totalSupply,
-        TrancheAssetClaims memory _totalAssets,
-        Math.Rounding _rounding
-    )
-        internal
-        view
-        returns (TrancheAssetClaims memory claims)
-    {
-        IRoycoKernel kernel_ = IRoycoKernel(kernel());
-
-        claims.effectiveNAV = toNAVUnits(_shares.mulDiv(toUint256(_withVirtualAssets(_totalAssets.effectiveNAV)), _withVirtualShares(_totalSupply), _rounding));
-        claims.stAssets = toTrancheUnits(_shares.mulDiv(toUint256(_totalAssets.stAssets), _withVirtualShares(_totalSupply), _rounding));
-        claims.jtAssets = toTrancheUnits(_shares.mulDiv(toUint256(_totalAssets.jtAssets), _withVirtualShares(_totalSupply), _rounding));
     }
 
     /// @dev Returns if the specified action employs a synchronous execution model

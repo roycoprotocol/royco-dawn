@@ -8,7 +8,6 @@ import { ZERO_NAV_UNITS } from "../../libraries/Constants.sol";
 import { RoycoKernelInitParams, RoycoKernelState, RoycoKernelStorageLib } from "../../libraries/RoycoKernelStorageLib.sol";
 import { SyncedAccountingState, TrancheAssetClaims, TrancheType } from "../../libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib } from "../../libraries/Units.sol";
-import { Math } from "../../libraries/UtilsLib.sol";
 import { IRoycoAccountant, Operation } from "./../../interfaces/IRoycoAccountant.sol";
 
 /**
@@ -43,15 +42,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
      * @param _jtAsset The address of the asset that JT is denominated in: constitutes the JT's tranche units (type and precision)
      * @param _initialAuthority The initial authority for the base kernel
      */
-    function __RoycoKernel_init(
-        RoycoKernelInitParams memory _params,
-        address _stAsset,
-        address _jtAsset,
-        address _initialAuthority
-    )
-        internal
-        onlyInitializing
-    {
+    function __RoycoKernel_init(RoycoKernelInitParams memory _params, address _stAsset, address _jtAsset, address _initialAuthority) internal onlyInitializing {
         __RoycoBase_init(_initialAuthority);
         __RoycoKernel_init_unchained(_params, _stAsset, _jtAsset);
     }
@@ -109,12 +100,12 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
 
     /// @inheritdoc IRoycoKernel
     function getJTAssetClaims() external view override(IRoycoKernel) returns (TrancheAssetClaims memory claims) {
-        (, claims) = previewSyncTrancheAccounting(TrancheType.JUNIOR);
+        (, claims,) = previewSyncTrancheAccounting(TrancheType.JUNIOR);
     }
 
     /// @inheritdoc IRoycoKernel
     function getSTAssetClaims() external view override(IRoycoKernel) returns (TrancheAssetClaims memory claims) {
-        (, claims) = previewSyncTrancheAccounting(TrancheType.SENIOR);
+        (, claims,) = previewSyncTrancheAccounting(TrancheType.SENIOR);
     }
 
     /// @inheritdoc IRoycoKernel
@@ -133,7 +124,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         public
         view
         override(IRoycoKernel)
-        returns (SyncedAccountingState memory state, TrancheAssetClaims memory claims)
+        returns (SyncedAccountingState memory state, TrancheAssetClaims memory claims, uint256 totalTrancheShares)
     {
         // Preview an accounting sync via the accountant
         state = _accountant().previewSyncTrancheAccounting(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
@@ -145,6 +136,14 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         claims = _marshalTrancheAssetClaims(
             _trancheType, state.stEffectiveNAV, state.jtEffectiveNAV, stNAVClaimOnSelf, stNAVClaimOnJT, jtNAVClaimOnSelf, jtNAVClaimOnST
         );
+
+        // Preview the total tranche shares after minting any protocol fee shares post-sync
+        RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
+        if (_trancheType == TrancheType.SENIOR) {
+            (, totalTrancheShares) = IRoycoVaultTranche($.seniorTranche).previewMintProtocolFeeShares(state.stProtocolFeeAccrued, state.stEffectiveNAV);
+        } else {
+            (, totalTrancheShares) = IRoycoVaultTranche($.juniorTranche).previewMintProtocolFeeShares(state.jtProtocolFeeAccrued, state.jtEffectiveNAV);
+        }
     }
 
     /**
@@ -169,12 +168,12 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         uint256 jtTotalTrancheSharesAfterMintingFees;
         // If ST fees were accrued or we need to get total shares for ST, mint ST protocol fee shares to the protocol fee recipient
         if (state.stProtocolFeeAccrued != ZERO_NAV_UNITS || _trancheType == TrancheType.SENIOR) {
-            stTotalTrancheSharesAfterMintingFees =
+            (, stTotalTrancheSharesAfterMintingFees) =
                 IRoycoVaultTranche($.seniorTranche).mintProtocolFeeShares(state.stProtocolFeeAccrued, state.stEffectiveNAV, protocolFeeRecipient);
         }
         // If JT fees were accrued or we need to get total shares for JT, mint JT protocol fee shares to the protocol fee recipient
         if (state.jtProtocolFeeAccrued != ZERO_NAV_UNITS || _trancheType == TrancheType.JUNIOR) {
-            jtTotalTrancheSharesAfterMintingFees =
+            (, jtTotalTrancheSharesAfterMintingFees) =
                 IRoycoVaultTranche($.juniorTranche).mintProtocolFeeShares(state.jtProtocolFeeAccrued, state.jtEffectiveNAV, protocolFeeRecipient);
         }
 

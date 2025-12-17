@@ -7,12 +7,8 @@ import { ERC20Mock } from "../../lib/openzeppelin-contracts/contracts/mocks/toke
 import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { RoycoFactory } from "../../src/RoycoFactory.sol";
 import { RoycoAccountant } from "../../src/accountant/RoycoAccountant.sol";
-import { RoycoAuth } from "../../src/auth/RoycoAuth.sol";
 import { RoycoRoles } from "../../src/auth/RoycoRoles.sol";
-import { IRoycoKernel } from "../../src/interfaces/kernel/IRoycoKernel.sol";
 import { RoycoKernel } from "../../src/kernels/base/RoycoKernel.sol";
-import { RoycoAccountantInitParams } from "../../src/libraries/RoycoAccountantStorageLib.sol";
-import { RoycoKernelInitParams } from "../../src/libraries/RoycoKernelStorageLib.sol";
 import { TrancheAssetClaims, TrancheType } from "../../src/libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toUint256 } from "../../src/libraries/Units.sol";
 import { StaticCurveRDM } from "../../src/rdm/StaticCurveRDM.sol";
@@ -237,9 +233,8 @@ contract BaseTest is Test, RoycoRoles, Assertions {
     }
 
     /// @notice Sets up roles for a kernel
-    /// @param _kernel The kernel address
     /// @param _kernelAdmin The kernel admin address
-    function _setUpKernelRoles(address _kernel, address _kernelAdmin) internal prankModifier(OWNER_ADDRESS) {
+    function _setUpKernelRoles(address _kernelAdmin) internal prankModifier(OWNER_ADDRESS) {
         FACTORY.grantRole(RoycoRoles.KERNEL_ADMIN_ROLE, _kernelAdmin, 0);
     }
 

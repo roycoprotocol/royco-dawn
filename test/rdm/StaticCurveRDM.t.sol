@@ -6,7 +6,6 @@ import { ZERO_NAV_UNITS } from "../../src/libraries/Constants.sol";
 import { WAD } from "../../src/libraries/Constants.sol";
 import { NAV_UNIT, toNAVUnits } from "../../src/libraries/Units.sol";
 import { UtilsLib } from "../../src/libraries/UtilsLib.sol";
-import { StaticCurveRDM } from "../../src/rdm/StaticCurveRDM.sol";
 import { BaseTest } from "../base/BaseTest.sol";
 
 contract StaticCurveRDMTest is BaseTest {

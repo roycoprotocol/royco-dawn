@@ -51,6 +51,13 @@ abstract contract AaveV3JTKernel is RoycoKernel, BaseAsyncJTRedemptionDelayKerne
     }
 
     /// @inheritdoc IRoycoKernel
+    function jtPreviewDeposit(TRANCHE_UNIT _assets) external view override onlyJuniorTranche returns (NAV_UNIT valueAllocated, NAV_UNIT navToMintAt) {
+        // Preview the deposit by converting the assets to NAV units and returning the NAV at which the shares will be minted
+        valueAllocated = jtConvertTrancheUnitsToNAVUnits(_assets);
+        navToMintAt = (_accountant().previewSyncTrancheAccounting(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV())).jtEffectiveNAV;
+    }
+
+    /// @inheritdoc IRoycoKernel
     function jtDeposit(
         TRANCHE_UNIT _assets,
         address,
@@ -67,9 +74,8 @@ abstract contract AaveV3JTKernel is RoycoKernel, BaseAsyncJTRedemptionDelayKerne
         navToMintAt = (_preOpSyncTrancheAccounting()).jtEffectiveNAV;
 
         // Max approval already given to the pool on initialization
-        IPool(AaveV3KernelStorageLib._getAaveV3KernelStorage().pool).supply(
-            RoycoKernelStorageLib._getRoycoKernelStorage().jtAsset, toUint256(_assets), address(this), 0
-        );
+        IPool(AaveV3KernelStorageLib._getAaveV3KernelStorage().pool)
+            .supply(RoycoKernelStorageLib._getRoycoKernelStorage().jtAsset, toUint256(_assets), address(this), 0);
 
         // Execute a post-op sync on accounting
         _postOpSyncTrancheAccounting(Operation.JT_INCREASE_NAV);
@@ -111,9 +117,8 @@ abstract contract AaveV3JTKernel is RoycoKernel, BaseAsyncJTRedemptionDelayKerne
 
     /// @inheritdoc RoycoKernel
     function _withdrawJTAssets(TRANCHE_UNIT _jtAssets, address _receiver) internal override(RoycoKernel) {
-        IPool(AaveV3KernelStorageLib._getAaveV3KernelStorage().pool).withdraw(
-            RoycoKernelStorageLib._getRoycoKernelStorage().jtAsset, toUint256(_jtAssets), _receiver
-        );
+        IPool(AaveV3KernelStorageLib._getAaveV3KernelStorage().pool)
+            .withdraw(RoycoKernelStorageLib._getRoycoKernelStorage().jtAsset, toUint256(_jtAssets), _receiver);
     }
 
     /// @inheritdoc RoycoKernel

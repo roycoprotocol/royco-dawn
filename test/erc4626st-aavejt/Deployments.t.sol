@@ -8,8 +8,6 @@ import { ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "../../src/libraries/Constant
 import { RoycoAccountantInitParams, RoycoAccountantState } from "../../src/libraries/RoycoAccountantStorageLib.sol";
 import { RoycoKernelInitParams, RoycoKernelState } from "../../src/libraries/RoycoKernelStorageLib.sol";
 import { IRoycoAccountant, IRoycoKernel, MarketDeploymentParams, TrancheDeploymentParams } from "../../src/libraries/Types.sol";
-import { toNAVUnits, toTrancheUnits } from "../../src/libraries/Units.sol";
-import { USDC_ERC4626_AaveV3JT_Kernel } from "../mock/USDC_ERC4626_AaveV3JT_Kernel.sol";
 import { MainnetForkWithAaveTestBase } from "./base/MainnetForkWithAaveBaseTest.sol";
 
 contract DeploymentsTest is MainnetForkWithAaveTestBase {

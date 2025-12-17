@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import { AccessManagedUpgradeable } from "../lib/openzeppelin-contracts-upgradeable/contracts/access/manager/AccessManagedUpgradeable.sol";
 import { AccessManager } from "../lib/openzeppelin-contracts/contracts/access/manager/AccessManager.sol";
-import { IERC4626 } from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import { ERC1967Proxy } from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { UUPSUpgradeable } from "../lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { Create2 } from "../lib/openzeppelin-contracts/contracts/utils/Create2.sol";
@@ -14,10 +13,8 @@ import { IRoycoKernel } from "./interfaces/kernel/IRoycoKernel.sol";
 import { IRoycoAsyncCancellableVault } from "./interfaces/tranche/IRoycoAsyncCancellableVault.sol";
 import { IRoycoAsyncVault } from "./interfaces/tranche/IRoycoAsyncVault.sol";
 import { IRoycoVaultTranche } from "./interfaces/tranche/IRoycoVaultTranche.sol";
-import { TrancheDeploymentParams } from "./libraries/Types.sol";
+import { BaseAsyncJTRedemptionDelayKernel } from "./kernels/base/junior/BaseAsyncJTRedemptionDelayKernel.sol";
 import { DeployedContracts, MarketDeploymentParams } from "./libraries/Types.sol";
-import { RoycoJT } from "./tranches/RoycoJT.sol";
-import { RoycoST } from "./tranches/RoycoST.sol";
 
 /// @title RoycoFactory
 /// @notice Factory contract for deploying Royco tranches (ST and JT) and their associated kernel using ERC1967 proxies
@@ -202,6 +199,7 @@ contract RoycoFactory is AccessManager, RoycoRoles {
         _setTargetFunctionRole(address(_deployedContracts.kernel), IRoycoAuth.pause.selector, PAUSER_ROLE);
         _setTargetFunctionRole(address(_deployedContracts.kernel), IRoycoAuth.unpause.selector, PAUSER_ROLE);
         _setTargetFunctionRole(address(_deployedContracts.kernel), IRoycoKernel.syncTrancheAccounting.selector, SYNC_ROLE);
+        _setTargetFunctionRole(address(_deployedContracts.kernel), BaseAsyncJTRedemptionDelayKernel.setRedemptionDelay.selector, KERNEL_ADMIN_ROLE);
 
         // Configure the roles for the senior tranche
         _configureRolesForTranche(_deployedContracts.seniorTranche);

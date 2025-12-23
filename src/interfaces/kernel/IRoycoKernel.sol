@@ -11,6 +11,21 @@ import { NAV_UNIT, TRANCHE_UNIT } from "../../libraries/Units.sol";
  * @dev The kernel contract is responsible for defining the execution model and logic of the Senior and Junior tranches of a given Royco market
  */
 interface IRoycoKernel {
+    /**
+     * @notice Emitted when a JT LP requests to redeem shares
+     * @param requestId The request ID for this request (always 0 for JT redemptions)
+     * @param totalJTSharesToRedeem The total shares requested to be redeemed in the request
+     * @param claimableAtTimestamp The timestamp at which this request will become claimable
+     */
+    event JTRedeemRequest(uint256 requestId, uint256 totalJTSharesToRedeem, uint256 claimableAtTimestamp);
+
+    /**
+     * @notice Emitted when a JT LP redeems claimable shares
+     * @param requestId The request ID for this request (always 0 for JT redemptions)
+     * @param sharesRedeemed The shares redeemed for this request ID
+     */
+    event JTRedeem(uint256 requestId, uint256 sharesRedeemed);
+
     /// @notice Emitted when the protocol fee recipient is updated
     /// @param protocolFeeRecipient The new protocol fee recipient
     event ProtocolFeeRecipientUpdated(address protocolFeeRecipient);

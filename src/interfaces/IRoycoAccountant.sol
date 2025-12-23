@@ -69,7 +69,7 @@ interface IRoycoAccountant {
      * @param twJTYieldShareAccruedWAD The time-weighted JT yield share accrued since the last yield distribution
      * @param accrualTimestamp The timestamp of this JT yield share accrual
      */
-    event JuniorTrancheYieldShareAccrued(uint256 jtYieldShareWAD, uint192 twJTYieldShareAccruedWAD, uint256 accrualTimestamp);
+    event JuniorTrancheYieldShareAccrued(uint256 jtYieldShareWAD, uint256 twJTYieldShareAccruedWAD, uint32 accrualTimestamp);
 
     /**
      * @notice Emitted when a pre-operation tranche accounting synchronization is executed

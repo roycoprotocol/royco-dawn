@@ -546,7 +546,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         twJTYieldShareAccruedWAD = $.twJTYieldShareAccruedWAD += uint192(jtYieldShareWAD * elapsed);
         $.lastAccrualTimestamp = uint32(block.timestamp);
 
-        emit JuniorTrancheYieldShareAccrued(jtYieldShareWAD, twJTYieldShareAccruedWAD, block.timestamp);
+        emit JuniorTrancheYieldShareAccrued(jtYieldShareWAD, twJTYieldShareAccruedWAD, uint32(block.timestamp));
     }
 
     /**

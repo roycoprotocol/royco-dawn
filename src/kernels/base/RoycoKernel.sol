@@ -336,12 +336,14 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
 
         // Add the shares to the total shares to redeem in the controller's current redemption request
         // If an existing redemption request exists, it's redemption delay is refreshed based on the current time
-        request.totalJTSharesToRedeem += _shares;
+        uint256 totalJTSharesToRedeem = request.totalJTSharesToRedeem += _shares;
         request.redemptionValueAtRequestTime = request.redemptionValueAtRequestTime + redemptionValueAtRequestTime;
-        request.claimableAtTimestamp = uint32(block.timestamp + $.jtRedemptionDelayInSeconds);
+        uint32 claimableAtTimestamp = request.claimableAtTimestamp = uint32(block.timestamp + $.jtRedemptionDelayInSeconds);
 
-        // Redeem Requests are purely controller-discriminated, so the request ID is 0
-        requestId = ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID;
+        emit JTRedeemRequest(ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, totalJTSharesToRedeem, claimableAtTimestamp);
+
+        // JT Redeem Requests are purely controller-discriminated, so the request ID is always 0
+        return ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID;
     }
 
     /// @inheritdoc IRoycoKernel
@@ -509,6 +511,8 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
 
         // Execute a post-op sync on accounting and enforce the market's coverage requirement
         _postOpSyncTrancheAccountingAndEnforceCoverage(Operation.JT_DECREASE_NAV);
+
+        emit JTRedeem(ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, _shares);
     }
 
     // =============================

@@ -17,14 +17,14 @@ interface IRoycoKernel {
      * @param totalJTSharesToRedeem The total shares requested to be redeemed in the request
      * @param claimableAtTimestamp The timestamp at which this request will become claimable
      */
-    event JTRedeemRequest(uint256 requestId, uint256 totalJTSharesToRedeem, uint256 claimableAtTimestamp);
+    event JuniorTrancheRedeemRequest(uint256 requestId, uint256 totalJTSharesToRedeem, uint256 claimableAtTimestamp);
 
     /**
      * @notice Emitted when a JT LP redeems claimable shares
      * @param requestId The request ID for this request (always 0 for JT redemptions)
      * @param sharesRedeemed The shares redeemed for this request ID
      */
-    event JTRedeem(uint256 requestId, uint256 sharesRedeemed);
+    event JuniorTrancheRedeem(uint256 requestId, uint256 sharesRedeemed);
 
     /// @notice Emitted when the protocol fee recipient is updated
     /// @param protocolFeeRecipient The new protocol fee recipient

@@ -340,7 +340,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         request.redemptionValueAtRequestTime = request.redemptionValueAtRequestTime + redemptionValueAtRequestTime;
         uint32 claimableAtTimestamp = request.claimableAtTimestamp = uint32(block.timestamp + $.jtRedemptionDelayInSeconds);
 
-        emit JTRedeemRequest(ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, totalJTSharesToRedeem, claimableAtTimestamp);
+        emit JuniorTrancheRedeemRequest(ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, totalJTSharesToRedeem, claimableAtTimestamp);
 
         // JT Redeem Requests are purely controller-discriminated, so the request ID is always 0
         return ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID;
@@ -512,7 +512,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         // Execute a post-op sync on accounting and enforce the market's coverage requirement
         _postOpSyncTrancheAccountingAndEnforceCoverage(Operation.JT_DECREASE_NAV);
 
-        emit JTRedeem(ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, _shares);
+        emit JuniorTrancheRedeem(ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, _shares);
     }
 
     // =============================

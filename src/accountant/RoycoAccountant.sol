@@ -132,6 +132,8 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         $.lastJTEffectiveNAV = state.jtEffectiveNAV;
         $.lastSTCoverageDebt = state.stCoverageDebt;
         $.lastJTCoverageDebt = state.jtCoverageDebt;
+
+        emit PreOpTrancheAccountingSynced(state);
     }
 
     /// @inheritdoc IRoycoAccountant
@@ -230,6 +232,8 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         });
         // Enforce the NAV conservation invariant
         require((_stRawNAV + _jtRawNAV) == (state.stEffectiveNAV + state.jtEffectiveNAV), NAV_CONSERVATION_VIOLATION());
+
+        emit PostOpTrancheAccountingSynced(_op, state);
     }
 
     /// @inheritdoc IRoycoAccountant

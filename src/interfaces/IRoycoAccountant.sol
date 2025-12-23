@@ -71,6 +71,19 @@ interface IRoycoAccountant {
      */
     event JuniorTrancheYieldShareAccrued(uint256 jtYieldShareWAD, uint192 twJTYieldShareAccruedWAD, uint256 accrualTimestamp);
 
+    /**
+     * @notice Emitted when a pre-operation tranche accounting synchronization is executed
+     * @param resultingState The resulting market state after synchronizing the tranche accounting
+     */
+    event PreOpTrancheAccountingSynced(SyncedAccountingState resultingState);
+
+    /**
+     * @notice Emitted when a post-operation tranche accounting synchronization is executed
+     * @param op The operation executed right before this accounting synchronization
+     * @param resultingState The resulting market state after synchronizing the tranche accounting
+     */
+    event PostOpTrancheAccountingSynced(Operation op, SyncedAccountingState resultingState);
+
     /// @notice Thrown when the caller of the function is not the accountant's configured Royco Kernel
     error ONLY_ROYCO_KERNEL();
 

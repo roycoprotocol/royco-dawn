@@ -527,7 +527,9 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         // Get the last update timestamp
         uint256 lastUpdate = $.lastAccrualTimestamp;
         if (lastUpdate == 0) {
+            // Initialize the checkpoint timestamps if this is the first accrual
             $.lastAccrualTimestamp = uint32(block.timestamp);
+            $.lastDistributionTimestamp = uint32(block.timestamp);
             return 0;
         }
 

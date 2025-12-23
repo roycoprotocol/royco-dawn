@@ -100,7 +100,6 @@ contract ERC4626_ST_ERC4626_JT_InKindAssets_Kernel is ERC4626_ST_Kernel, ERC4626
         // Get the maximum withdrawable assets for both tranches combined
         // Scale the max withdrawable assets by the percentage claims JT has on each tranche
         TRANCHE_UNIT totalMaxWithdrawableAssets = _jtMaxWithdrawableGlobally(_owner);
-
         stMaxWithdrawableNAV = UnitsMathLib.min(
             stConvertTrancheUnitsToNAVUnits(totalMaxWithdrawableAssets.mulDiv(claimOnStNAV, jtTotalClaimsNAV, Math.Rounding.Floor)), stClaimableGivenCoverage
         );

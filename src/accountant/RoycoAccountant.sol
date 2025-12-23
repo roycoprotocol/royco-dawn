@@ -514,9 +514,9 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
     /**
      * @notice Accrues the JT yield share since the last yield distribution
      * @dev Gets the instantaneous JT yield share and accumulates it over the time elapsed since the last accrual
-     * @return The updated time-weighted JT yield share since the last yield distribution
+     * @return twJTYieldShareAccruedWAD The updated time-weighted JT yield share since the last yield distribution
      */
-    function _accrueJTYieldShare() internal returns (uint192) {
+    function _accrueJTYieldShare() internal returns (uint192 twJTYieldShareAccruedWAD) {
         // Get the storage pointer to the base kernel state
         RoycoAccountantState storage $ = _getRoycoAccountantStorage();
 
@@ -538,9 +538,11 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         if (jtYieldShareWAD > WAD) jtYieldShareWAD = WAD;
 
         // Accrue the time-weighted yield share accrued to JT since the last tranche interaction
-        $.lastAccrualTimestamp = uint32(block.timestamp);
         /// forge-lint: disable-next-item(unsafe-typecast)
-        return ($.twJTYieldShareAccruedWAD += uint192(jtYieldShareWAD * elapsed));
+        twJTYieldShareAccruedWAD = $.twJTYieldShareAccruedWAD += uint192(jtYieldShareWAD * elapsed);
+        $.lastAccrualTimestamp = uint32(block.timestamp);
+
+        emit JuniorTrancheYieldShareAccrued(jtYieldShareWAD, twJTYieldShareAccruedWAD, block.timestamp);
     }
 
     /**

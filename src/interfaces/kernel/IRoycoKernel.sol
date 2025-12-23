@@ -12,9 +12,11 @@ import { NAV_UNIT, TRANCHE_UNIT } from "../../libraries/Units.sol";
  */
 interface IRoycoKernel {
     /// @notice Emitted when the protocol fee recipient is updated
+    /// @param protocolFeeRecipient The new protocol fee recipient
     event ProtocolFeeRecipientUpdated(address protocolFeeRecipient);
 
-    /// @notice Emitted when the redemption delay is updated
+    /// @notice Emitted when the junior tranche redemption delay is updated
+    /// @param jtRedemptionDelayInSeconds The new junior tranche redemption delay in seconds
     event JuniorTrancheRedemptionDelayUpdated(uint24 jtRedemptionDelayInSeconds);
 
     /// @notice Thrown when any of the required initialization params are null

@@ -63,6 +63,14 @@ interface IRoycoAccountant {
         uint32 lastDistributionTimestamp;
     }
 
+    /**
+     * @notice Emitted when JT's share of ST yield is accrued based on the market's utilization since the last accrual
+     * @param jtYieldShareWAD JT's instantaneous yield share (RDM output) based on utilization since the last accrual
+     * @param twJTYieldShareAccruedWAD The time-weighted JT yield share accrued since the last yield distribution
+     * @param accrualTimestamp The timestamp of this JT yield share accrual
+     */
+    event JuniorTrancheYieldShareAccrued(uint256 jtYieldShareWAD, uint192 twJTYieldShareAccruedWAD, uint256 accrualTimestamp);
+
     /// @notice Thrown when the caller of the function is not the accountant's configured Royco Kernel
     error ONLY_ROYCO_KERNEL();
 

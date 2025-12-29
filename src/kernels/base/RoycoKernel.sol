@@ -343,7 +343,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
 
         // JT Redeem Requests are purely controller-discriminated, so the request ID is always 0
         requestId = ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID;
-        metadata = abi.encode(request.claimableAtTimestamp).format(ActionMetadataFormat.ACTION_REQUEST_REDEM__FORMAT_REDEEM_CLAIMABLE_AT_TIMESTAMP);
+        metadata = abi.encode(request.claimableAtTimestamp).format(ActionMetadataFormat.ACTION_REQUEST_REDEEM__FORMAT_REDEEM_CLAIMABLE_AT_TIMESTAMP);
     }
 
     /// @inheritdoc IRoycoKernel

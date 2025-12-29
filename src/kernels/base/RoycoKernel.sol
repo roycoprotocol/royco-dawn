@@ -343,7 +343,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
 
         // JT Redeem Requests are purely controller-discriminated, so the request ID is always 0
         requestId = ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID;
-        metadata = abi.encode(request.claimableAtTimestamp).format(ActionMetadataFormat.REDEMPTION_CLAIMABLE_AT_TIMESTAMP);
+        metadata = abi.encode(claimableAtTimestamp).format(ActionMetadataFormat.REDEMPTION_CLAIMABLE_AT_TIMESTAMP);
     }
 
     /// @inheritdoc IRoycoKernel
@@ -472,7 +472,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         override(IRoycoKernel)
         whenNotPaused
         onlyJuniorTranche
-        returns (AssetClaims memory userAssetClaims, bytes memory metadata)
+        returns (AssetClaims memory userAssetClaims, bytes memory)
     {
         // Execute a pre-op sync on accounting
         SyncedAccountingState memory state;
@@ -512,12 +512,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         // Execute a post-op sync on accounting and enforce the market's coverage requirement
         _postOpSyncTrancheAccountingAndEnforceCoverage(Operation.JT_DECREASE_NAV);
 
-        // Marshal the metadata for the redemption request
-        uint256[] memory requestIds = new uint256[](1);
-        requestIds[0] = ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID;
-        uint256[] memory requestSharesProcessed = new uint256[](1);
-        requestSharesProcessed[0] = _shares;
-        metadata = abi.encode(requestIds, requestSharesProcessed).format(ActionMetadataFormat.REQUEST_IDS_AND_REQUEST_SHARES_PROCESSED);
+        return (userAssetClaims, "");
     }
 
     // =============================

@@ -2,10 +2,6 @@
 pragma solidity ^0.8.28;
 
 /**
- * @title DeployScript
- * @notice Deployment script for Royco protocol using CREATE2 for deterministic addresses
- * @dev This script deploys implementations and factory using CREATE2, then deploys a market via the factory
- *
  * Required Environment Variables:
  * - DEPLOYER_PRIVATE_KEY: Private key of the deployer (should be factory admin)
  * - FACTORY_ADMIN: Address that will be the factory admin
@@ -22,18 +18,17 @@ pragma solidity ^0.8.28;
  * - COVERAGE_WAD: Coverage requirement in WAD
  * - BETA_WAD: Beta parameter in WAD
  * - JT_REDEMPTION_DELAY_SECONDS: Redemption delay for junior tranche in seconds
- *
- * Optional Environment Variables:
- * - MARKET_ID: Market ID (if not provided, will generate from timestamp)
+ * - MARKET_ID: Market ID (bytes32, hex format)
+ * - FACTORY_OWNER_ADDRESS: Address to transfer factory ownership to after deployment
  * - PAUSER_ADDRESS: Address with pauser role
  * - UPGRADER_ADDRESS: Address with upgrader role
  * - DEPOSIT_ROLE_ADDRESS: Address with deposit role
  * - REDEEM_ROLE_ADDRESS: Address with redeem role
  * - SYNC_ROLE_ADDRESS: Address with sync role
  * - KERNEL_ADMIN_ROLE_ADDRESS: Address with kernel admin role
- * - DEBUG: Set to true for debug logging
  */
 
+import { IAccessManager } from "../lib/openzeppelin-contracts/contracts/access/manager/IAccessManager.sol";
 import { RoycoFactory } from "../src/RoycoFactory.sol";
 import { RoycoAccountant } from "../src/accountant/RoycoAccountant.sol";
 import { RoycoRoles } from "../src/auth/RoycoRoles.sol";
@@ -55,12 +50,13 @@ import { Script } from "lib/forge-std/src/Script.sol";
 import { console2 } from "lib/forge-std/src/console2.sol";
 
 contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
-    // Deployment salts for CREATE2 (defined inline for determinism)
+    // Deployment salts for CREATE2
     bytes32 constant ACCOUNTANT_IMPL_SALT = keccak256("RoycoAccountant_Implementation_v1");
     bytes32 constant KERNEL_IMPL_SALT = keccak256("ERC4626_ST_AaveV3_JT_IdenticalAssets_Kernel_Implementation_v1");
     bytes32 constant ST_TRANCHE_IMPL_SALT = keccak256("RoycoST_Implementation_v1");
     bytes32 constant JT_TRANCHE_IMPL_SALT = keccak256("RoycoJT_Implementation_v1");
     bytes32 constant RDM_SALT = keccak256("StaticCurveRDM_v1");
+    bytes32 constant FACTORY_SALT_BASE = keccak256("RoycoFactory_v1");
     bytes32 constant MARKET_DEPLOYMENT_SALT = keccak256("RoycoMarket_Deployment_v1");
 
     function run() external {
@@ -76,20 +72,11 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
         StaticCurveRDM rdm = _deployRDM();
         RoycoFactory factory = _deployFactory();
 
-        // Ensure deployer is authorized (factory admin should be authorized by default)
-        address factoryAdmin = vm.envAddress("FACTORY_ADMIN");
-        address deployerAddress = vm.addr(deployerPrivateKey);
-
-        if (deployerAddress != factoryAdmin) {
-            console2.log("Warning: Deployer is not the factory admin. Authorizing deployer...");
-            // Note: This requires the factory admin to authorize the deployer first
-            // Or use the factory admin's private key for deployment
-            console2.log("Deployer address:", deployerAddress);
-            console2.log("Factory admin address:", factoryAdmin);
-        }
-
         // Deploy market using factory
         _deployMarket(factory, accountantImpl, kernelImpl, stTrancheImpl, jtTrancheImpl, address(rdm));
+
+        // Transfer factory ownership to new admin if provided
+        _transferFactoryOwnership(factory, deployerPrivateKey);
 
         vm.stopBroadcast();
     }
@@ -156,11 +143,9 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
 
     function _deployFactory() internal returns (RoycoFactory) {
         address factoryAdmin = vm.envAddress("FACTORY_ADMIN");
-        // Factory salt includes admin address to allow different factories per admin
-        bytes32 salt = keccak256(abi.encodePacked("RoycoFactory_v1", factoryAdmin));
         bytes memory creationCode = abi.encodePacked(type(RoycoFactory).creationCode, abi.encode(factoryAdmin));
 
-        (address addr, bool alreadyDeployed) = deployWithSanityChecks(salt, creationCode, false);
+        (address addr, bool alreadyDeployed) = deployWithSanityChecks(FACTORY_SALT_BASE, creationCode, false);
         if (alreadyDeployed) {
             console2.log("Factory already deployed at:", addr);
         } else {
@@ -180,7 +165,7 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
         internal
     {
         // Read configuration from environment variables
-        bytes32 marketId = vm.envOr("MARKET_ID", keccak256(abi.encodePacked("RoycoMarket", block.timestamp)));
+        bytes32 marketId = vm.envBytes32("MARKET_ID");
 
         // Precompute expected proxy addresses using inline salt
         bytes32 salt = MARKET_DEPLOYMENT_SALT;
@@ -332,13 +317,13 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
         view
         returns (RolesConfiguration[] memory roles)
     {
-        // Get role addresses from environment (with defaults)
-        address pauser = vm.envOr("PAUSER_ADDRESS", address(0));
-        address upgrader = vm.envOr("UPGRADER_ADDRESS", address(0));
-        address depositRole = vm.envOr("DEPOSIT_ROLE_ADDRESS", address(0));
-        address redeemRole = vm.envOr("REDEEM_ROLE_ADDRESS", address(0));
-        address syncRole = vm.envOr("SYNC_ROLE_ADDRESS", address(0));
-        address kernelAdmin = vm.envOr("KERNEL_ADMIN_ROLE_ADDRESS", address(0));
+        // Get role addresses from environment
+        address pauser = vm.envAddress("PAUSER_ADDRESS");
+        address upgrader = vm.envAddress("UPGRADER_ADDRESS");
+        address depositRole = vm.envAddress("DEPOSIT_ROLE_ADDRESS");
+        address redeemRole = vm.envAddress("REDEEM_ROLE_ADDRESS");
+        address syncRole = vm.envAddress("SYNC_ROLE_ADDRESS");
+        address kernelAdmin = vm.envAddress("KERNEL_ADMIN_ROLE_ADDRESS");
 
         // Count how many role configurations we need
         uint256 roleCount = 4; // ST, JT, Kernel, Accountant
@@ -418,5 +403,36 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
         accountantRoleValues[5] = PAUSER_ROLE;
 
         roles[index++] = RolesConfiguration({ target: accountant, selectors: accountantSelectors, roles: accountantRoleValues });
+    }
+
+    function _transferFactoryOwnership(RoycoFactory factory, uint256 deployerPrivateKey) internal {
+        address newAdmin = vm.envAddress("FACTORY_OWNER_ADDRESS");
+
+        address deployerAddress = vm.addr(deployerPrivateKey);
+
+        // Check if deployer is already the admin
+        (bool isDeployerAdmin,) = IAccessManager(address(factory)).hasRole(0, deployerAddress);
+        if (!isDeployerAdmin) {
+            revert("Deployer is not factory admin, cannot transfer ownership");
+        }
+
+        // Check if new admin is already admin
+        (bool isNewAdminAdmin,) = IAccessManager(address(factory)).hasRole(0, newAdmin);
+        if (isNewAdminAdmin) {
+            console2.log("New admin already has ADMIN_ROLE, skipping transfer");
+            return;
+        }
+
+        console2.log("Transferring factory ownership to:", newAdmin);
+
+        // Grant ADMIN_ROLE to new admin (execution delay = 0 for immediate effect)
+        IAccessManager(address(factory)).grantRole(0, newAdmin, 0);
+
+        console2.log("Factory ownership transferred successfully");
+        console2.log("New factory admin:", newAdmin);
+
+        // Revoke deployer's admin role
+        IAccessManager(address(factory)).revokeRole(0, deployerAddress);
+        console2.log("Deployer admin role revoked");
     }
 }

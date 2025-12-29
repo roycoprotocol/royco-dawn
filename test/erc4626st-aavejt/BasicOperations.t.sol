@@ -357,11 +357,11 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
 
             // Request the redeem
             vm.prank(jtDepositor);
-            assertEq(
-                JT.requestRedeem(sharesToWithdraw, jtDepositor, jtDepositor),
-                ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID,
-                "Request ID should be the ERC-7540 controller discriminated request ID"
-            );
+            {
+                (uint256 requestId, uint256 claimableAtTimestamp) = JT.requestRedeem(sharesToWithdraw, jtDepositor, jtDepositor);
+                assertEq(requestId, ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, "Request ID should be the ERC-7540 controller discriminated request ID");
+                assertEq(claimableAtTimestamp, vm.getBlockTimestamp() + JT_REDEMPTION_DELAY_SECONDS, "Claimable at timestamp should be the redemption delay");
+            }
 
             // Verify that the pending redeem request is equal to the shares to withdraw
             assertEq(
@@ -395,7 +395,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
 
             // Claim the redeem
             vm.prank(jtDepositor);
-            AssetClaims memory redeemResult = JT.redeem(sharesToWithdraw, jtDepositor, jtDepositor);
+            (AssetClaims memory redeemResult,,) = JT.redeem(sharesToWithdraw, jtDepositor, jtDepositor);
 
             // Verify that the redeem result is the correct amount
             assertApproxEqAbs(
@@ -449,11 +449,10 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
 
             // Request the redeem
             vm.prank(jtDepositor);
-            assertEq(
-                JT.requestRedeem(sharesToWithdrawForThisRequest, jtDepositor, jtDepositor),
-                ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID,
-                "Request ID should be the ERC-7540 controller discriminated request ID"
-            );
+            {
+                (uint256 requestId, uint256 claimableAtTimestamp) = JT.requestRedeem(sharesToWithdrawForThisRequest, jtDepositor, jtDepositor);
+                assertEq(requestId, ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, "Request ID should be the ERC-7540 controller discriminated request ID");
+            }
 
             // Wait for the redemption delay
             vm.warp(vm.getBlockTimestamp() + 20);
@@ -476,7 +475,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
 
         // Claim the redeem
         vm.prank(jtDepositor);
-        AssetClaims memory redeemResult = JT.redeem(shares, jtDepositor, jtDepositor);
+        (AssetClaims memory redeemResult,,) = JT.redeem(shares, jtDepositor, jtDepositor);
 
         // Verify that the redeem result is the correct amount
         assertApproxEqAbs(
@@ -536,11 +535,10 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
 
         // Request the redeem
         vm.prank(jtDepositor);
-        assertEq(
-            JT.requestRedeem(sharesToWithdraw, jtDepositor, jtDepositor),
-            ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID,
-            "Request ID should be the ERC-7540 controller discriminated request ID"
-        );
+        {
+            (uint256 requestId, uint256 claimableAtTimestamp) = JT.requestRedeem(sharesToWithdraw, jtDepositor, jtDepositor);
+            assertEq(requestId, ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, "Request ID should be the ERC-7540 controller discriminated request ID");
+        }
 
         // Verify that shares were locked (transferred to the tranche contract) since JT uses BURN_ON_CLAIM_REDEEM
         assertEq(JT.balanceOf(jtDepositor), initialDepositorShares + shares - sharesToWithdraw, "Depositor should have shares reduced by withdrawal amount");
@@ -700,11 +698,10 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
 
         // Step 5: JT requests withdrawal (async), waits for delay, then redeems
         vm.prank(jtDepositor);
-        assertEq(
-            JT.requestRedeem(jtMaxRedeemAfterSTRedeem, jtDepositor, jtDepositor),
-            ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID,
-            "Request ID should be the ERC-7540 controller discriminated request ID"
-        );
+        {
+            (uint256 requestId, uint256 claimableAtTimestamp) = JT.requestRedeem(jtMaxRedeemAfterSTRedeem, jtDepositor, jtDepositor);
+            assertEq(requestId, ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, "Request ID should be the ERC-7540 controller discriminated request ID");
+        }
 
         // Wait for the redemption delay
         vm.warp(vm.getBlockTimestamp() + JT_REDEMPTION_DELAY_SECONDS);
@@ -719,7 +716,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
         // Claim the redeem
         uint256 jtDepositorBalanceBeforeRedeem = USDC.balanceOf(jtDepositor);
         vm.prank(jtDepositor);
-        AssetClaims memory jtRedeemResult = JT.redeem(jtMaxRedeemAfterSTRedeem, jtDepositor, jtDepositor);
+        (AssetClaims memory jtRedeemResult,,) = JT.redeem(jtMaxRedeemAfterSTRedeem, jtDepositor, jtDepositor);
 
         // Verify JT received assets
         assertApproxEqRel(

@@ -12,21 +12,6 @@ import { NAV_UNIT, TRANCHE_UNIT } from "../../libraries/Units.sol";
  */
 interface IRoycoKernel {
     /**
-     * @notice Emitted when a JT LP requests to redeem shares
-     * @param requestId The request ID for this request (always 0 for JT redemptions)
-     * @param totalJTSharesToRedeem The total shares requested to be redeemed in the request
-     * @param claimableAtTimestamp The timestamp at which this request will become claimable
-     */
-    event JuniorTrancheRedeemRequest(uint256 requestId, uint256 totalJTSharesToRedeem, uint256 claimableAtTimestamp);
-
-    /**
-     * @notice Emitted when a JT LP redeems claimable shares
-     * @param requestId The request ID for this request (always 0 for JT redemptions)
-     * @param sharesRedeemed The shares redeemed for this request ID
-     */
-    event JuniorTrancheRedeem(uint256 requestId, uint256 sharesRedeemed);
-
-    /**
      * @notice Emitted when the protocol fee recipient is updated
      * @param protocolFeeRecipient The new protocol fee recipient
      */
@@ -206,8 +191,16 @@ interface IRoycoKernel {
      * @param _controller The controller that is allowed to operate the redemption
      * @param _receiver The address that is receiving the assets
      * @return claims The distribution of assets that were transferred to the receiver on redemption, denominated in the respective tranches' tranche units
+     * @return requestIds The request IDs of the redemption requests that were processed. If ST withdrawal is SYNC, this will be an empty array.
+     * @return requestSharesProcessed The amounts of shares that were processed for each redemption request. If ST withdrawal is SYNC, this will be an empty array.
      */
-    function stRedeem(uint256 _shares, address _controller, address _receiver) external returns (AssetClaims memory claims);
+    function stRedeem(
+        uint256 _shares,
+        address _controller,
+        address _receiver
+    )
+        external
+        returns (AssetClaims memory claims, uint256[] memory requestIds, uint256[] memory requestSharesProcessed);
 
     /**
      * @notice Returns the maximum amount of assets that can be deposited into the junior tranche
@@ -265,8 +258,9 @@ interface IRoycoKernel {
      * @param _shares The amount of shares of the junior tranche being requested to be redeemed
      * @param _controller The controller that is allowed to operate the lifecycle of the request.
      * @return requestId The request ID of this withdrawal request
+     * @return claimableAtTimestamp The timestamp at which this request will become claimable
      */
-    function jtRequestRedeem(address _caller, uint256 _shares, address _controller) external returns (uint256 requestId);
+    function jtRequestRedeem(address _caller, uint256 _shares, address _controller) external returns (uint256 requestId, uint256 claimableAtTimestamp);
 
     /**
      * @notice Returns the amount of assets pending redemption for a specific controller
@@ -326,8 +320,16 @@ interface IRoycoKernel {
      * @param _controller The controller that is allowed to operate the redemption
      * @param _receiver The address that is receiving the assets
      * @return claims The distribution of assets that were transferred to the receiver on redemption, denominated in the respective tranches' tranche units
+     * @return requestIds The request IDs of the redemption requests that were processed
+     * @return requestSharesProcessed The amounts of shares that were processed for each redemption request
      */
-    function jtRedeem(uint256 _shares, address _controller, address _receiver) external returns (AssetClaims memory claims);
+    function jtRedeem(
+        uint256 _shares,
+        address _controller,
+        address _receiver
+    )
+        external
+        returns (AssetClaims memory claims, uint256[] memory requestIds, uint256[] memory requestSharesProcessed);
 
     /**
      * @notice Sets the new protocol fee recipient

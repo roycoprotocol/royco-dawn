@@ -258,7 +258,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         override(IRoycoKernel)
         whenNotPaused
         onlySeniorTranche
-        returns (AssetClaims memory userAssetClaims)
+        returns (AssetClaims memory userAssetClaims, uint256[] memory, uint256[] memory)
     {
         // Execute a pre-op sync on accounting
         uint256 totalTrancheShares;
@@ -320,7 +320,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         override(IRoycoKernel)
         whenNotPaused
         onlyJuniorTranche
-        returns (uint256 requestId)
+        returns (uint256 requestId, uint256 claimableAtTimestamp)
     {
         // Execute a pre-op sync on accounting
         (SyncedAccountingState memory state,, uint256 totalTrancheShares) = _preOpSyncTrancheAccounting(TrancheType.JUNIOR);
@@ -336,14 +336,12 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
 
         // Add the shares to the total shares to redeem in the controller's current redemption request
         // If an existing redemption request exists, it's redemption delay is refreshed based on the current time
-        uint256 totalJTSharesToRedeem = request.totalJTSharesToRedeem += _shares;
+        request.totalJTSharesToRedeem += _shares;
         request.redemptionValueAtRequestTime = request.redemptionValueAtRequestTime + redemptionValueAtRequestTime;
-        uint32 claimableAtTimestamp = request.claimableAtTimestamp = uint32(block.timestamp + $.jtRedemptionDelayInSeconds);
-
-        emit JuniorTrancheRedeemRequest(ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, totalJTSharesToRedeem, claimableAtTimestamp);
+        claimableAtTimestamp = request.claimableAtTimestamp = uint32(block.timestamp + $.jtRedemptionDelayInSeconds);
 
         // JT Redeem Requests are purely controller-discriminated, so the request ID is always 0
-        return ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID;
+        return (ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, claimableAtTimestamp);
     }
 
     /// @inheritdoc IRoycoKernel
@@ -472,7 +470,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         override(IRoycoKernel)
         whenNotPaused
         onlyJuniorTranche
-        returns (AssetClaims memory userAssetClaims)
+        returns (AssetClaims memory userAssetClaims, uint256[] memory requestIds, uint256[] memory requestSharesProcessed)
     {
         // Execute a pre-op sync on accounting
         SyncedAccountingState memory state;
@@ -512,7 +510,11 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         // Execute a post-op sync on accounting and enforce the market's coverage requirement
         _postOpSyncTrancheAccountingAndEnforceCoverage(Operation.JT_DECREASE_NAV);
 
-        emit JuniorTrancheRedeem(ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, _shares);
+        // Return the request IDs and shares processed for the redemption request
+        requestIds = new uint256[](1);
+        requestIds[0] = ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID;
+        requestSharesProcessed = new uint256[](1);
+        requestSharesProcessed[0] = _shares;
     }
 
     // =============================

@@ -22,9 +22,11 @@ interface IRoycoVaultTranche is IERC165, IRoycoAsyncVault, IRoycoAsyncCancellabl
      * @param sender The address that made the redemption
      * @param receiver The address of the receiver of the redeemed assets
      * @param claims A struct representing the assets received on redemption and their value at the time of redemption in NAV units
-     * @param shares The amount of shares redeemed
+     * @param shares The total amount of shares redeemed
+     * @param requestIds The request IDs of the redemption requests that were processed
+     * @param requestSharesProcessed The amounts of shares that were processed for each redemption request
      */
-    event Redeem(address indexed sender, address indexed receiver, AssetClaims claims, uint256 shares);
+    event Redeem(address indexed sender, address indexed receiver, AssetClaims claims, uint256 shares, uint256[] requestIds, uint256[] requestSharesProcessed);
 
     /**
      * @notice Emitted when protocol fee shares are minted to the protocol fee recipient
@@ -127,8 +129,16 @@ interface IRoycoVaultTranche is IERC165, IRoycoAsyncVault, IRoycoAsyncCancellabl
      * @param _receiver The address to redeem the shares to
      * @param _controller The controller of the request
      * @return claims The breakdown of assets that the redeemed shares have a claim on
+     * @return requestIds The request IDs of the redemption requests that were processed
+     * @return requestSharesProcessed The amounts of shares that were processed for each redemption request
      */
-    function redeem(uint256 _shares, address _receiver, address _controller) external returns (AssetClaims memory claims);
+    function redeem(
+        uint256 _shares,
+        address _receiver,
+        address _controller
+    )
+        external
+        returns (AssetClaims memory claims, uint256[] memory requestIds, uint256[] memory requestSharesProcessed);
 
     /**
      * @notice Previews the number of shares that would be minted to the protocol fee recipient to satisfy the ratio of total assets that the fee represents

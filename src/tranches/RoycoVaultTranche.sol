@@ -241,7 +241,7 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
         restricted
         whenNotPaused
         onlyCallerOrOperator(_controller)
-        returns (uint256 shares)
+        returns (uint256 shares, bytes memory metadata)
     {
         require(_assets != toTrancheUnits(0), MUST_DEPOSIT_NON_ZERO_ASSETS());
 
@@ -254,8 +254,9 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
         }
 
         // Deposit the assets into the underlying investment opportunity and get the fraction of total assets allocated
-        (NAV_UNIT valueAllocated, NAV_UNIT effectiveNAVToMintAt) =
+        (NAV_UNIT valueAllocated, NAV_UNIT effectiveNAVToMintAt, bytes memory _metadata) =
             (TRANCHE_TYPE() == TrancheType.SENIOR ? kernel_.stDeposit(_assets, _controller, _receiver) : kernel_.jtDeposit(_assets, _controller, _receiver));
+        metadata = _metadata;
 
         // effectiveNAVToMint at can be zero initially when the tranche is deployed
         require(valueAllocated != ZERO_NAV_UNITS, INVALID_VALUE_ALLOCATED());
@@ -268,7 +269,7 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
         // Mint the shares to the receiver
         _mint(_receiver, shares);
 
-        emit Deposit(msg.sender, _receiver, _assets, shares);
+        emit Deposit(msg.sender, _receiver, _assets, shares, metadata);
     }
 
     /// @inheritdoc IRoycoAsyncVault
@@ -283,13 +284,13 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
         restricted
         onlyCallerOrOperator(_controller)
         whenNotPaused
-        returns (AssetClaims memory claims, uint256[] memory requestIds, uint256[] memory requestSharesProcessed)
+        returns (AssetClaims memory claims, bytes memory metadata)
     {
         require(_shares != 0, MUST_REQUEST_NON_ZERO_SHARES());
 
         // Process the withdrawal from the underlying investment opportunity
         // It is expected that the kernel transfers the assets directly to the receiver
-        (claims, requestIds, requestSharesProcessed) =
+        (claims, metadata) =
         (TRANCHE_TYPE() == TrancheType.SENIOR
                 ? IRoycoKernel(kernel()).stRedeem(_shares, _controller, _receiver)
                 : IRoycoKernel(kernel()).jtRedeem(_shares, _controller, _receiver));
@@ -298,7 +299,7 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
         // Shares must be burned after the kernel processes the redemption since the kernel has a causal dependency on the pre-burn and post-sync total share supply
         _redeem(msg.sender, _controller, _shares);
 
-        emit Redeem(msg.sender, _receiver, claims, _shares, requestIds, requestSharesProcessed);
+        emit Redeem(msg.sender, _receiver, claims, _shares, metadata);
     }
 
     // =============================
@@ -334,7 +335,7 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
         whenNotPaused
         onlyCallerOrOperator(_owner)
         executionIsAsync(Action.DEPOSIT)
-        returns (uint256 requestId)
+        returns (uint256 requestId, bytes memory metadata)
     {
         address kernel_ = kernel();
 
@@ -342,12 +343,12 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
         IERC20(asset()).safeTransferFrom(_owner, kernel_, toUint256(_assets));
 
         // Queue the deposit request and get the request ID from the kernel
-        requestId =
+        (requestId, metadata) =
         (TRANCHE_TYPE() == TrancheType.SENIOR
                 ? IAsyncSTDepositKernel(kernel_).stRequestDeposit(msg.sender, _assets, _controller)
                 : IAsyncJTDepositKernel(kernel_).jtRequestDeposit(msg.sender, _assets, _controller));
 
-        emit DepositRequest(_controller, _owner, requestId, msg.sender, _assets);
+        emit DepositRequest(_controller, _owner, requestId, msg.sender, _assets, metadata);
     }
 
     /// @inheritdoc IRoycoAsyncVault
@@ -401,7 +402,7 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
         restricted
         whenNotPaused
         executionIsAsync(Action.WITHDRAW)
-        returns (uint256 requestId, uint256 claimableAtTimestamp)
+        returns (uint256 requestId, bytes memory metadata)
     {
         // Must be requesting to redeem a non-zero number of shares
         require(_shares != 0, MUST_REQUEST_NON_ZERO_SHARES());
@@ -412,7 +413,7 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
         }
 
         // Queue the redemption request and get the request ID from the kernel
-        (requestId, claimableAtTimestamp) =
+        (requestId, metadata) =
         (TRANCHE_TYPE() == TrancheType.SENIOR
                 ? IAsyncSTWithdrawalKernel(kernel()).stRequestRedeem(msg.sender, _shares, _controller)
                 : IRoycoKernel(kernel()).jtRequestRedeem(msg.sender, _shares, _controller));
@@ -426,7 +427,7 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
             _burn(_owner, _shares);
         }
 
-        emit RedeemRequest(_controller, _owner, requestId, msg.sender, _shares, claimableAtTimestamp);
+        emit RedeemRequest(_controller, _owner, requestId, msg.sender, _shares, metadata);
     }
 
     /// @inheritdoc IRoycoAsyncVault

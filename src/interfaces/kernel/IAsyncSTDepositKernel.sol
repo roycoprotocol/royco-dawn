@@ -17,8 +17,9 @@ interface IAsyncSTDepositKernel {
      * @param _assets The amount of the asset to deposit into the underlying investment opportunity
      * @param _controller The controller that is allowed to operate the lifecycle of this deposit request
      * @return requestId The request ID of this deposit request
+     * @return metadata The format prefixed metadata of the deposit request or empty bytes if no metadata is shared
      */
-    function stRequestDeposit(address _caller, TRANCHE_UNIT _assets, address _controller) external returns (uint256 requestId);
+    function stRequestDeposit(address _caller, TRANCHE_UNIT _assets, address _controller) external returns (uint256 requestId, bytes memory metadata);
 
     /**
      * @notice Returns the amount of assets pending deposit for a specified controller

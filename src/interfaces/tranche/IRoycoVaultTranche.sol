@@ -14,8 +14,9 @@ interface IRoycoVaultTranche is IERC165, IRoycoAsyncVault, IRoycoAsyncCancellabl
      * @param owner The address that owns the shares
      * @param assets The amount of assets deposited
      * @param shares The amount of shares minted
+     * @param metadata The format prefixed metadata of the deposit or empty bytes if no metadata is shared
      */
-    event Deposit(address indexed sender, address indexed owner, TRANCHE_UNIT assets, uint256 shares);
+    event Deposit(address indexed sender, address indexed owner, TRANCHE_UNIT assets, uint256 shares, bytes metadata);
 
     /**
      * @notice Emitted when a redemption is made
@@ -23,10 +24,9 @@ interface IRoycoVaultTranche is IERC165, IRoycoAsyncVault, IRoycoAsyncCancellabl
      * @param receiver The address of the receiver of the redeemed assets
      * @param claims A struct representing the assets received on redemption and their value at the time of redemption in NAV units
      * @param shares The total amount of shares redeemed
-     * @param requestIds The request IDs of the redemption requests that were processed
-     * @param requestSharesProcessed The amounts of shares that were processed for each redemption request
+     * @param metadata The format prefixed metadata of the redemption or empty bytes if no metadata is shared
      */
-    event Redeem(address indexed sender, address indexed receiver, AssetClaims claims, uint256 shares, uint256[] requestIds, uint256[] requestSharesProcessed);
+    event Redeem(address indexed sender, address indexed receiver, AssetClaims claims, uint256 shares, bytes metadata);
 
     /**
      * @notice Emitted when protocol fee shares are minted to the protocol fee recipient
@@ -119,8 +119,9 @@ interface IRoycoVaultTranche is IERC165, IRoycoAsyncVault, IRoycoAsyncCancellabl
      * @param _receiver The address to mint the shares to
      * @param _controller The controller of the request
      * @return shares The number of shares that were minted
+     * @return metadata The format prefixed metadata of the deposit or empty bytes if no metadata is shared
      */
-    function deposit(TRANCHE_UNIT _assets, address _receiver, address _controller) external returns (uint256 shares);
+    function deposit(TRANCHE_UNIT _assets, address _receiver, address _controller) external returns (uint256 shares, bytes memory metadata);
 
     /**
      * @notice Redeems tranche shares from the owner
@@ -129,16 +130,9 @@ interface IRoycoVaultTranche is IERC165, IRoycoAsyncVault, IRoycoAsyncCancellabl
      * @param _receiver The address to redeem the shares to
      * @param _controller The controller of the request
      * @return claims The breakdown of assets that the redeemed shares have a claim on
-     * @return requestIds The request IDs of the redemption requests that were processed
-     * @return requestSharesProcessed The amounts of shares that were processed for each redemption request
+     * @return metadata The format prefixed metadata of the redemption or empty bytes if no metadata is shared
      */
-    function redeem(
-        uint256 _shares,
-        address _receiver,
-        address _controller
-    )
-        external
-        returns (AssetClaims memory claims, uint256[] memory requestIds, uint256[] memory requestSharesProcessed);
+    function redeem(uint256 _shares, address _receiver, address _controller) external returns (AssetClaims memory claims, bytes memory metadata);
 
     /**
      * @notice Previews the number of shares that would be minted to the protocol fee recipient to satisfy the ratio of total assets that the fee represents

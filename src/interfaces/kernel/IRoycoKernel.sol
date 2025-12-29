@@ -181,8 +181,15 @@ interface IRoycoKernel {
      * @param _receiver The address that is receiving the shares
      * @return valueAllocated The value of the assets deposited, denominated in the kernel's NAV units
      * @return navToMintAt The NAV at which the shares will be minted, exclusive of valueAllocated
+     * @return metadata The format prefixed metadata of the deposit
      */
-    function stDeposit(TRANCHE_UNIT _assets, address _caller, address _receiver) external returns (NAV_UNIT valueAllocated, NAV_UNIT navToMintAt);
+    function stDeposit(
+        TRANCHE_UNIT _assets,
+        address _caller,
+        address _receiver
+    )
+        external
+        returns (NAV_UNIT valueAllocated, NAV_UNIT navToMintAt, bytes memory metadata);
 
     /**
      * @notice Processes the redemption of a specified number of shares from the senior tranche
@@ -191,16 +198,9 @@ interface IRoycoKernel {
      * @param _controller The controller that is allowed to operate the redemption
      * @param _receiver The address that is receiving the assets
      * @return claims The distribution of assets that were transferred to the receiver on redemption, denominated in the respective tranches' tranche units
-     * @return requestIds The request IDs of the redemption requests that were processed. If ST withdrawal is SYNC, this will be an empty array.
-     * @return requestSharesProcessed The amounts of shares that were processed for each redemption request. If ST withdrawal is SYNC, this will be an empty array.
+     * @return metadata The format prefixed metadata of the redemption
      */
-    function stRedeem(
-        uint256 _shares,
-        address _controller,
-        address _receiver
-    )
-        external
-        returns (AssetClaims memory claims, uint256[] memory requestIds, uint256[] memory requestSharesProcessed);
+    function stRedeem(uint256 _shares, address _controller, address _receiver) external returns (AssetClaims memory claims, bytes memory metadata);
 
     /**
      * @notice Returns the maximum amount of assets that can be deposited into the junior tranche
@@ -249,8 +249,15 @@ interface IRoycoKernel {
      * @param _receiver The address that is receiving the shares
      * @return valueAllocated The value of the assets deposited, denominated in the kernel's NAV units
      * @return navToMintAt The NAV at which the shares will be minted, exclusive of valueAllocated
+     * @return metadata The format prefixed metadata of the deposit
      */
-    function jtDeposit(TRANCHE_UNIT _assets, address _caller, address _receiver) external returns (NAV_UNIT valueAllocated, NAV_UNIT navToMintAt);
+    function jtDeposit(
+        TRANCHE_UNIT _assets,
+        address _caller,
+        address _receiver
+    )
+        external
+        returns (NAV_UNIT valueAllocated, NAV_UNIT navToMintAt, bytes memory metadata);
 
     /**
      * @notice Requests a redemption for a specified amount of shares from the underlying investment opportunity
@@ -258,9 +265,9 @@ interface IRoycoKernel {
      * @param _shares The amount of shares of the junior tranche being requested to be redeemed
      * @param _controller The controller that is allowed to operate the lifecycle of the request.
      * @return requestId The request ID of this withdrawal request
-     * @return claimableAtTimestamp The timestamp at which this request will become claimable
+     * @return metadata The format prefixed metadata of the redemption request or empty bytes if no metadata is shared
      */
-    function jtRequestRedeem(address _caller, uint256 _shares, address _controller) external returns (uint256 requestId, uint256 claimableAtTimestamp);
+    function jtRequestRedeem(address _caller, uint256 _shares, address _controller) external returns (uint256 requestId, bytes memory metadata);
 
     /**
      * @notice Returns the amount of assets pending redemption for a specific controller
@@ -320,16 +327,9 @@ interface IRoycoKernel {
      * @param _controller The controller that is allowed to operate the redemption
      * @param _receiver The address that is receiving the assets
      * @return claims The distribution of assets that were transferred to the receiver on redemption, denominated in the respective tranches' tranche units
-     * @return requestIds The request IDs of the redemption requests that were processed
-     * @return requestSharesProcessed The amounts of shares that were processed for each redemption request
+     * @return metadata The format prefixed metadata of the redemption or empty bytes if no metadata is shared
      */
-    function jtRedeem(
-        uint256 _shares,
-        address _controller,
-        address _receiver
-    )
-        external
-        returns (AssetClaims memory claims, uint256[] memory requestIds, uint256[] memory requestSharesProcessed);
+    function jtRedeem(uint256 _shares, address _controller, address _receiver) external returns (AssetClaims memory claims, bytes memory metadata);
 
     /**
      * @notice Sets the new protocol fee recipient

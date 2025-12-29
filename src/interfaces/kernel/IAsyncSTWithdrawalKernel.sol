@@ -14,9 +14,9 @@ interface IAsyncSTWithdrawalKernel {
      * @param _shares The amount of shares of the senior tranche being requested to be redeemed
      * @param _controller The controller that is allowed to operate the lifecycle of the request.
      * @return requestId The request ID of this withdrawal request
-     * @return claimableAtTimestamp The timestamp at which this request will become claimable
+     * @return metadata The format prefixed metadata of the redemption request
      */
-    function stRequestRedeem(address _caller, uint256 _shares, address _controller) external returns (uint256 requestId, uint256 claimableAtTimestamp);
+    function stRequestRedeem(address _caller, uint256 _shares, address _controller) external returns (uint256 requestId, bytes memory metadata);
 
     /**
      * @notice Returns the amount of assets pending redemption for a specific controller

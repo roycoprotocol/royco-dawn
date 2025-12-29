@@ -38,7 +38,7 @@ contract LossWaterfall is MainnetForkWithAaveTestBase {
 
         // Deposit into junior tranche
         vm.prank(depositor);
-        uint256 shares = JT.deposit(toTrancheUnits(_assets), depositor, depositor);
+        (uint256 shares,) = JT.deposit(toTrancheUnits(_assets), depositor, depositor);
         AssetClaims memory postDepositUserClaims = JT.convertToAssets(shares);
         (SyncedAccountingState memory postDepositState, AssetClaims memory postDepositTotalClaims,) = KERNEL.previewSyncTrancheAccounting(TrancheType.JUNIOR);
 
@@ -86,7 +86,7 @@ contract LossWaterfall is MainnetForkWithAaveTestBase {
 
         // Deposit into junior tranche
         vm.prank(depositor);
-        uint256 shares = JT.deposit(toTrancheUnits(_assets), depositor, depositor);
+        (uint256 shares,) = JT.deposit(toTrancheUnits(_assets), depositor, depositor);
         AssetClaims memory postDepositUserClaims = JT.convertToAssets(shares);
         (SyncedAccountingState memory postDepositState, AssetClaims memory postDepositTotalClaims,) = KERNEL.previewSyncTrancheAccounting(TrancheType.JUNIOR);
 
@@ -123,7 +123,7 @@ contract LossWaterfall is MainnetForkWithAaveTestBase {
         TRANCHE_UNIT depositAmount = expectedMaxDeposit.mulDiv(_stDepositPercentage, 100, Math.Rounding.Floor);
         vm.startPrank(stDepositor);
         USDC.approve(address(ST), toUint256(depositAmount));
-        uint256 shares = ST.deposit(depositAmount, stDepositor, stDepositor);
+        (uint256 shares,) = ST.deposit(depositAmount, stDepositor, stDepositor);
         vm.stopPrank();
         AssetClaims memory postDepositSTUserClaims = ST.convertToAssets(shares);
         (SyncedAccountingState memory postDepositState, AssetClaims memory postDepositSTTotalClaims,) = KERNEL.previewSyncTrancheAccounting(TrancheType.SENIOR);
@@ -172,7 +172,7 @@ contract LossWaterfall is MainnetForkWithAaveTestBase {
         TRANCHE_UNIT depositAmount = expectedMaxDeposit.mulDiv(_stDepositPercentage, 100, Math.Rounding.Floor);
         vm.startPrank(stDepositor);
         USDC.approve(address(ST), toUint256(depositAmount));
-        uint256 shares = ST.deposit(depositAmount, stDepositor, stDepositor);
+        (uint256 shares,) = ST.deposit(depositAmount, stDepositor, stDepositor);
         vm.stopPrank();
         AssetClaims memory postDepositSTUserClaims = ST.convertToAssets(shares);
         (SyncedAccountingState memory postDepositState, AssetClaims memory postDepositSTTotalClaims,) = KERNEL.previewSyncTrancheAccounting(TrancheType.SENIOR);

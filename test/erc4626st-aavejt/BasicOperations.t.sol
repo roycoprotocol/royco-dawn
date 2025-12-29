@@ -53,7 +53,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
 
         // Deposit into junior tranche
         vm.prank(depositor);
-        uint256 shares = JT.deposit(assets, depositor, depositor);
+        (uint256 shares,) = JT.deposit(assets, depositor, depositor);
         assertApproxEqRel(shares, expectedShares, AAVE_PREVIEW_DEPOSIT_RELATIVE_DELTA, "Shares minted should be equal to the previewed shares");
         _updateOnDeposit(jtState, assets, _toJTValue(assets), shares, TrancheType.JUNIOR);
 
@@ -115,7 +115,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
 
             // Deposit into the tranche
             vm.prank(provider.addr);
-            uint256 shares = JT.deposit(assets, provider.addr, provider.addr);
+            (uint256 shares,) = JT.deposit(assets, provider.addr, provider.addr);
             assertApproxEqRel(shares, expectedShares, AAVE_PREVIEW_DEPOSIT_RELATIVE_DELTA, "Shares minted should be equal to the previewed shares");
 
             // Verify that an equivalent amount of AUSDCs were minted
@@ -171,7 +171,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
         address jtDepositor = ALICE_ADDRESS;
         vm.startPrank(jtDepositor);
         USDC.approve(address(JT), _jtAssets);
-        uint256 shares = JT.deposit(jtAssets, jtDepositor, jtDepositor);
+        (uint256 shares,) = JT.deposit(jtAssets, jtDepositor, jtDepositor);
         vm.stopPrank();
 
         _updateOnDeposit(jtState, jtAssets, _toJTValue(jtAssets), shares, TrancheType.JUNIOR);
@@ -207,7 +207,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
         // Perform the deposit
         vm.startPrank(stDepositor);
         USDC.approve(address(ST), toUint256(depositAmount));
-        shares = ST.deposit(depositAmount, stDepositor, stDepositor);
+        (shares,) = ST.deposit(depositAmount, stDepositor, stDepositor);
         vm.stopPrank();
 
         // Assert that ST shares were minted to the user
@@ -277,7 +277,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
         // Perform the deposit
         vm.startPrank(stDepositor);
         USDC.approve(address(ST), toUint256(depositAmount));
-        shares = ST.deposit(depositAmount, stDepositor, stDepositor);
+        (shares,) = ST.deposit(depositAmount, stDepositor, stDepositor);
         vm.stopPrank();
 
         // Assert that ST shares were minted to the user
@@ -344,7 +344,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
         address jtDepositor = ALICE_ADDRESS;
         vm.startPrank(jtDepositor);
         USDC.approve(address(JT), _jtAssets);
-        uint256 shares = JT.deposit(jtAssets, jtDepositor, jtDepositor);
+        (uint256 shares,) = JT.deposit(jtAssets, jtDepositor, jtDepositor);
         vm.stopPrank();
 
         _updateOnDeposit(jtState, jtAssets, _toJTValue(jtAssets), shares, TrancheType.JUNIOR);
@@ -358,9 +358,8 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
             // Request the redeem
             vm.prank(jtDepositor);
             {
-                (uint256 requestId, uint256 claimableAtTimestamp) = JT.requestRedeem(sharesToWithdraw, jtDepositor, jtDepositor);
+                (uint256 requestId,) = JT.requestRedeem(sharesToWithdraw, jtDepositor, jtDepositor);
                 assertEq(requestId, ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, "Request ID should be the ERC-7540 controller discriminated request ID");
-                assertEq(claimableAtTimestamp, vm.getBlockTimestamp() + JT_REDEMPTION_DELAY_SECONDS, "Claimable at timestamp should be the redemption delay");
             }
 
             // Verify that the pending redeem request is equal to the shares to withdraw
@@ -395,7 +394,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
 
             // Claim the redeem
             vm.prank(jtDepositor);
-            (AssetClaims memory redeemResult,,) = JT.redeem(sharesToWithdraw, jtDepositor, jtDepositor);
+            (AssetClaims memory redeemResult,) = JT.redeem(sharesToWithdraw, jtDepositor, jtDepositor);
 
             // Verify that the redeem result is the correct amount
             assertApproxEqAbs(
@@ -431,7 +430,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
         address jtDepositor = ALICE_ADDRESS;
         vm.startPrank(jtDepositor);
         USDC.approve(address(JT), _jtAssets);
-        uint256 shares = JT.deposit(jtAssets, jtDepositor, jtDepositor);
+        (uint256 shares,) = JT.deposit(jtAssets, jtDepositor, jtDepositor);
         vm.stopPrank();
 
         _updateOnDeposit(jtState, jtAssets, _toJTValue(jtAssets), shares, TrancheType.JUNIOR);
@@ -450,7 +449,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
             // Request the redeem
             vm.prank(jtDepositor);
             {
-                (uint256 requestId, uint256 claimableAtTimestamp) = JT.requestRedeem(sharesToWithdrawForThisRequest, jtDepositor, jtDepositor);
+                (uint256 requestId,) = JT.requestRedeem(sharesToWithdrawForThisRequest, jtDepositor, jtDepositor);
                 assertEq(requestId, ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, "Request ID should be the ERC-7540 controller discriminated request ID");
             }
 
@@ -475,7 +474,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
 
         // Claim the redeem
         vm.prank(jtDepositor);
-        (AssetClaims memory redeemResult,,) = JT.redeem(shares, jtDepositor, jtDepositor);
+        (AssetClaims memory redeemResult,) = JT.redeem(shares, jtDepositor, jtDepositor);
 
         // Verify that the redeem result is the correct amount
         assertApproxEqAbs(
@@ -511,7 +510,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
         uint256 initialDepositorShares = JT.balanceOf(jtDepositor);
         vm.startPrank(jtDepositor);
         USDC.approve(address(JT), _jtAssets);
-        uint256 shares = JT.deposit(jtAssets, jtDepositor, jtDepositor);
+        (uint256 shares,) = JT.deposit(jtAssets, jtDepositor, jtDepositor);
         vm.stopPrank();
 
         _updateOnDeposit(jtState, jtAssets, _toJTValue(jtAssets), shares, TrancheType.JUNIOR);
@@ -536,7 +535,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
         // Request the redeem
         vm.prank(jtDepositor);
         {
-            (uint256 requestId, uint256 claimableAtTimestamp) = JT.requestRedeem(sharesToWithdraw, jtDepositor, jtDepositor);
+            (uint256 requestId,) = JT.requestRedeem(sharesToWithdraw, jtDepositor, jtDepositor);
             assertEq(requestId, ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, "Request ID should be the ERC-7540 controller discriminated request ID");
         }
 
@@ -628,7 +627,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
         // Step 1: JT deposits (provides coverage for ST)
         vm.startPrank(jtDepositor);
         USDC.approve(address(JT), _jtAssets);
-        uint256 jtShares = JT.deposit(jtAssets, jtDepositor, jtDepositor);
+        (uint256 jtShares,) = JT.deposit(jtAssets, jtDepositor, jtDepositor);
         vm.stopPrank();
 
         _updateOnDeposit(jtState, jtAssets, _toJTValue(jtAssets), jtShares, TrancheType.JUNIOR);
@@ -651,7 +650,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
 
         vm.startPrank(stDepositor);
         USDC.approve(address(ST), toUint256(stDepositAmount));
-        uint256 stShares = ST.deposit(stDepositAmount, stDepositor, stDepositor);
+        (uint256 stShares,) = ST.deposit(stDepositAmount, stDepositor, stDepositor);
         vm.stopPrank();
 
         _updateOnDeposit(stState, stDepositAmount, _toSTValue(stDepositAmount), stShares, TrancheType.SENIOR);
@@ -699,7 +698,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
         // Step 5: JT requests withdrawal (async), waits for delay, then redeems
         vm.prank(jtDepositor);
         {
-            (uint256 requestId, uint256 claimableAtTimestamp) = JT.requestRedeem(jtMaxRedeemAfterSTRedeem, jtDepositor, jtDepositor);
+            (uint256 requestId,) = JT.requestRedeem(jtMaxRedeemAfterSTRedeem, jtDepositor, jtDepositor);
             assertEq(requestId, ERC_7540_CONTROLLER_DISCRIMINATED_REQUEST_ID, "Request ID should be the ERC-7540 controller discriminated request ID");
         }
 
@@ -716,7 +715,7 @@ contract BasicOperationsTest is MainnetForkWithAaveTestBase {
         // Claim the redeem
         uint256 jtDepositorBalanceBeforeRedeem = USDC.balanceOf(jtDepositor);
         vm.prank(jtDepositor);
-        (AssetClaims memory jtRedeemResult,,) = JT.redeem(jtMaxRedeemAfterSTRedeem, jtDepositor, jtDepositor);
+        (AssetClaims memory jtRedeemResult,) = JT.redeem(jtMaxRedeemAfterSTRedeem, jtDepositor, jtDepositor);
 
         // Verify JT received assets
         assertApproxEqRel(

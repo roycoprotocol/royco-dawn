@@ -104,12 +104,12 @@ enum ExecutionModel {
 /**
  * @title ActionMetadataFormat
  * @dev Defines the format of the metadata for the action
- * @custom:type ACTION_REQUEST_REDEEM__FORMAT_REDEEM_CLAIMABLE_AT_TIMESTAMP is followed by a uint256 representing the claimable at timestamp of the redemption request
- * @custom:type ACTION_REDEEM__FORMAT_REQUEST_IDS_AND_REQUEST_SHARES_PROCESSED is followed by a uint256[] representing the request IDs and a uint256[] representing the request shares processed
+ * @custom:type REDEMPTION_CLAIMABLE_AT_TIMESTAMP is followed by a uint256 representing the claimable at timestamp of the redemption request
+ * @custom:type REQUEST_IDS_AND_REQUEST_SHARES_PROCESSED is followed by a uint256[] representing the request IDs and a uint256[] representing the request shares processed
  */
 enum ActionMetadataFormat {
-    ACTION_REQUEST_REDEEM__FORMAT_REDEEM_CLAIMABLE_AT_TIMESTAMP,
-    ACTION_REDEEM__FORMAT_REQUEST_IDS_AND_REQUEST_SHARES_PROCESSED
+    REDEMPTION_CLAIMABLE_AT_TIMESTAMP,
+    REQUEST_IDS_AND_REQUEST_SHARES_PROCESSED
 }
 
 /**

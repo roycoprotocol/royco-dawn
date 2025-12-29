@@ -12,3 +12,7 @@ docs/
 
 # Dotenv file
 .env
+.env.deploy
+
+# Foundry deployment files
+broadcast

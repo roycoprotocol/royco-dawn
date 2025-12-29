@@ -1,33 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-/**
- * Required Environment Variables:
- * - DEPLOYER_PRIVATE_KEY: Private key of the deployer (should be factory admin)
- * - FACTORY_ADMIN: Address that will be the factory admin
- * - PROTOCOL_FEE_RECIPIENT: Address to receive protocol fees
- * - ST_VAULT_ADDRESS: Address of the ERC4626 vault for senior tranche
- * - AAVE_V3_POOL_ADDRESS: Address of the Aave V3 Pool
- * - SENIOR_ASSET: Address of the senior tranche asset (e.g., USDC)
- * - JUNIOR_ASSET: Address of the junior tranche asset (e.g., USDC)
- * - SENIOR_TRANCHE_NAME: Name of the senior tranche token
- * - SENIOR_TRANCHE_SYMBOL: Symbol of the senior tranche token
- * - JUNIOR_TRANCHE_NAME: Name of the junior tranche token
- * - JUNIOR_TRANCHE_SYMBOL: Symbol of the junior tranche token
- * - PROTOCOL_FEE_WAD: Protocol fee in WAD (1e18 = 100%)
- * - COVERAGE_WAD: Coverage requirement in WAD
- * - BETA_WAD: Beta parameter in WAD
- * - JT_REDEMPTION_DELAY_SECONDS: Redemption delay for junior tranche in seconds
- * - MARKET_ID: Market ID (bytes32, hex format)
- * - FACTORY_OWNER_ADDRESS: Address to transfer factory ownership to after deployment
- * - PAUSER_ADDRESS: Address with pauser role
- * - UPGRADER_ADDRESS: Address with upgrader role
- * - DEPOSIT_ROLE_ADDRESS: Address with deposit role
- * - REDEEM_ROLE_ADDRESS: Address with redeem role
- * - SYNC_ROLE_ADDRESS: Address with sync role
- * - KERNEL_ADMIN_ROLE_ADDRESS: Address with kernel admin role
- */
-
 import { IAccessManager } from "../lib/openzeppelin-contracts/contracts/access/manager/IAccessManager.sol";
 import { RoycoFactory } from "../src/RoycoFactory.sol";
 import { RoycoAccountant } from "../src/accountant/RoycoAccountant.sol";
@@ -51,13 +24,13 @@ import { console2 } from "lib/forge-std/src/console2.sol";
 
 contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
     // Deployment salts for CREATE2
-    bytes32 constant ACCOUNTANT_IMPL_SALT = keccak256("RoycoAccountant_Implementation_v1");
-    bytes32 constant KERNEL_IMPL_SALT = keccak256("ERC4626_ST_AaveV3_JT_IdenticalAssets_Kernel_Implementation_v1");
-    bytes32 constant ST_TRANCHE_IMPL_SALT = keccak256("RoycoST_Implementation_v1");
-    bytes32 constant JT_TRANCHE_IMPL_SALT = keccak256("RoycoJT_Implementation_v1");
-    bytes32 constant RDM_SALT = keccak256("StaticCurveRDM_v1");
-    bytes32 constant FACTORY_SALT_BASE = keccak256("RoycoFactory_v1");
-    bytes32 constant MARKET_DEPLOYMENT_SALT = keccak256("RoycoMarket_Deployment_v1");
+    bytes32 constant ACCOUNTANT_IMPL_SALT = keccak256("ROYCO_ACCOUNTANT_IMPLEMENTATION_V1");
+    bytes32 constant KERNEL_IMPL_SALT = keccak256("ROYCO_KERNEL_IMPLEMENTATION_V1");
+    bytes32 constant ST_TRANCHE_IMPL_SALT = keccak256("ROYCO_ST_TRANCHE_IMPLEMENTATION_V1");
+    bytes32 constant JT_TRANCHE_IMPL_SALT = keccak256("ROYCO_JT_TRANCHE_IMPLEMENTATION_V1");
+    bytes32 constant RDM_SALT = keccak256("ROYCO_RDM_IMPLEMENTATION_V1");
+    bytes32 constant FACTORY_SALT_BASE = keccak256("ROYCO_FACTORY_IMPLEMENTATION_V1");
+    bytes32 constant MARKET_DEPLOYMENT_SALT = keccak256("ROYCO_MARKET_DEPLOYMENT_V2");
 
     function run() external {
         // Read deployer private key

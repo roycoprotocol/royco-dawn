@@ -36,3 +36,6 @@ exclude_lints = ["mixed-case-function", "mixed-case-variable"]
 
 [fuzz]
 runs = 200
+
+[etherscan]
+mainnet = { key = "${ETHERSCAN_API_KEY}" }

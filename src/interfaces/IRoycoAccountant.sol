@@ -12,7 +12,8 @@ interface IRoycoAccountant {
     /**
      * @notice Initialization parameters for the Royco Accountant
      * @custom:field kernel - The kernel that this accountant maintains NAV, debt, and fee accounting for
-     * @custom:field protocolFeeWAD - The market's configured protocol fee percentage taken from yield earned by senior and junior tranches, scaled to WAD precision
+     * @custom:field stProtocolFeeWAD - The market's configured protocol fee percentage taken from yield earned by the senior tranche, scaled to WAD precision
+     * @custom:field jtProtocolFeeWAD - The market's configured protocol fee percentage taken from yield earned by the junior tranche, scaled to WAD precision
      * @custom:field coverageWAD - The coverage ratio that the senior tranche is expected to be protected by, scaled to WAD precision
      * @custom:field betaWAD - The junior tranche's sensitivity to the same downside stress that affects the senior tranche, scaled to WAD precision
      *                         For example, beta is 0 when JT is in the RFR and 1 when JT is in the same opportunity as senior
@@ -21,7 +22,8 @@ interface IRoycoAccountant {
      */
     struct RoycoAccountantInitParams {
         address kernel;
-        uint64 protocolFeeWAD;
+        uint64 stProtocolFeeWAD;
+        uint64 jtProtocolFeeWAD;
         uint64 coverageWAD;
         uint96 betaWAD;
         address rdm;
@@ -34,7 +36,8 @@ interface IRoycoAccountant {
      * @custom:field coverageWAD - The coverage percentage that the senior tranche is expected to be protected by, scaled to WAD precision
      * @custom:field betaWAD - JT's percentage sensitivity to the same downside stress that affects ST, scaled to WAD precision
      *                         For example, beta is 0 when JT is in the RFR and 1e18 (100%) when JT is in the same opportunity as senior
-     * @custom:field protocolFeeWAD - The market's configured protocol fee percentage taken from yield earned by senior and junior tranches, scaled to WAD precision
+     * @custom:field stProtocolFeeWAD - The market's configured protocol fee percentage taken from yield earned by the senior tranche, scaled to WAD precision
+     * @custom:field jtProtocolFeeWAD - The market's configured protocol fee percentage taken from yield earned by the junior tranche, scaled to WAD precision
      * @custom:field rdm - The market's Reward Distribution Model (RDM), responsible for determining the ST's yield split between ST and JT
      * @custom:field lastSTRawNAV - The last recorded pure NAV (excluding any coverage taken and yield shared) of the senior tranche
      * @custom:field lastJTRawNAV - The last recorded pure NAV (excluding any coverage given and yield shared) of the junior tranche
@@ -48,7 +51,8 @@ interface IRoycoAccountant {
      */
     struct RoycoAccountantState {
         address kernel;
-        uint64 protocolFeeWAD;
+        uint64 stProtocolFeeWAD;
+        uint64 jtProtocolFeeWAD;
         uint64 coverageWAD;
         uint96 betaWAD;
         address rdm;
@@ -196,11 +200,18 @@ interface IRoycoAccountant {
     function setRDM(address _rdm) external;
 
     /**
-     * @notice Updates the protocol fee percentage
+     * @notice Updates the senior tranche protocol fee percentage
      * @dev Only callable by a designated admin
-     * @param _protocolFeeWAD The new protocol fee percentage in WAD format
+     * @param _stProtocolFeeWAD The new protocol fee percentage charged on senior tranche yield, scaled to WAD precision
      */
-    function setProtocolFee(uint64 _protocolFeeWAD) external;
+    function setSeniorTrancheProtocolFee(uint64 _stProtocolFeeWAD) external;
+
+    /**
+     * @notice Updates the junior tranche protocol fee percentage
+     * @dev Only callable by a designated admin
+     * @param _jtProtocolFeeWAD The new protocol fee percentage charged on junior tranche yield, scaled to WAD precision
+     */
+    function setJuniorTrancheProtocolFee(uint64 _jtProtocolFeeWAD) external;
 
     /**
      * @notice Updates the coverage percentage requirement

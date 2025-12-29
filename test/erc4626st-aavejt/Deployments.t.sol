@@ -98,7 +98,8 @@ contract DeploymentsTest is MainnetForkWithAaveTestBase {
         // Coverage, beta, protocol fee configuration
         assertEq(accountantState.coverageWAD, COVERAGE_WAD, "Kernel coverageWAD mismatch");
         assertEq(accountantState.betaWAD, BETA_WAD, "BETA_WAD mismatch");
-        assertEq(accountantState.protocolFeeWAD, PROTOCOL_FEE_WAD, "Kernel protocolFeeWAD mismatch");
+        assertEq(accountantState.stProtocolFeeWAD, ST_PROTOCOL_FEE_WAD, "Kernel stProtocolFeeWAD mismatch");
+        assertEq(accountantState.jtProtocolFeeWAD, JT_PROTOCOL_FEE_WAD, "Kernel jtProtocolFeeWAD mismatch");
 
         // RDM wiring
         assertEq(accountantState.rdm, address(RDM), "Kernel RDM mismatch");
@@ -311,7 +312,12 @@ contract DeploymentsTest is MainnetForkWithAaveTestBase {
             RoycoAccountant.initialize,
             (
                 IRoycoAccountant.RoycoAccountantInitParams({
-                    kernel: expectedKernelAddress, protocolFeeWAD: PROTOCOL_FEE_WAD, coverageWAD: COVERAGE_WAD, betaWAD: BETA_WAD, rdm: address(RDM)
+                    kernel: expectedKernelAddress,
+                    stProtocolFeeWAD: ST_PROTOCOL_FEE_WAD,
+                    jtProtocolFeeWAD: JT_PROTOCOL_FEE_WAD,
+                    coverageWAD: COVERAGE_WAD,
+                    betaWAD: BETA_WAD,
+                    rdm: address(RDM)
                 }),
                 OWNER_ADDRESS // invalid authority: should be FACTORY
             )
@@ -455,7 +461,8 @@ contract DeploymentsTest is MainnetForkWithAaveTestBase {
             (
                 IRoycoAccountant.RoycoAccountantInitParams({
                     kernel: address(0xdead), // wrong kernel
-                    protocolFeeWAD: PROTOCOL_FEE_WAD,
+                    stProtocolFeeWAD: ST_PROTOCOL_FEE_WAD,
+                    jtProtocolFeeWAD: JT_PROTOCOL_FEE_WAD,
                     coverageWAD: COVERAGE_WAD,
                     betaWAD: BETA_WAD,
                     rdm: address(RDM)
@@ -580,7 +587,12 @@ contract DeploymentsTest is MainnetForkWithAaveTestBase {
             RoycoAccountant.initialize,
             (
                 IRoycoAccountant.RoycoAccountantInitParams({
-                    kernel: expectedKernelAddress, protocolFeeWAD: PROTOCOL_FEE_WAD, coverageWAD: COVERAGE_WAD, betaWAD: BETA_WAD, rdm: address(RDM)
+                    kernel: expectedKernelAddress,
+                    stProtocolFeeWAD: ST_PROTOCOL_FEE_WAD,
+                    jtProtocolFeeWAD: JT_PROTOCOL_FEE_WAD,
+                    coverageWAD: COVERAGE_WAD,
+                    betaWAD: BETA_WAD,
+                    rdm: address(RDM)
                 }),
                 address(FACTORY)
             )

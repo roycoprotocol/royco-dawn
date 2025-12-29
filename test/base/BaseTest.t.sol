@@ -102,7 +102,8 @@ abstract contract BaseTest is Test, RoycoRoles, Assertions {
     string internal JUNIOR_TRANCH_SYMBOL = "RJT";
     uint64 internal COVERAGE_WAD = 0.2e18; // 20% coverage
     uint96 internal BETA_WAD = 0; // Different opportunities
-    uint64 internal PROTOCOL_FEE_WAD = 0.1e18; // 10% protocol fee
+    uint64 internal ST_PROTOCOL_FEE_WAD = 0.1e18; // 10% protocol fee
+    uint64 internal JT_PROTOCOL_FEE_WAD = 0.1e18; // 10% protocol fee
 
     /// -----------------------------------------
     /// Mainnet Fork Addresses
@@ -462,26 +463,29 @@ abstract contract BaseTest is Test, RoycoRoles, Assertions {
         kernelRoles[4] = KERNEL_ADMIN_ROLE;
 
         // Accountant: 6 functions (setRDM, setProtocolFee, setCoverage, setBeta, pause, unpause)
-        bytes4[] memory accountantSelectors = new bytes4[](6);
-        uint64[] memory accountantRoles = new uint64[](6);
+        bytes4[] memory accountantSelectors = new bytes4[](7);
+        uint64[] memory accountantRoles = new uint64[](7);
 
         accountantSelectors[0] = IRoycoAccountant.setRDM.selector;
         accountantRoles[0] = KERNEL_ADMIN_ROLE;
 
-        accountantSelectors[1] = IRoycoAccountant.setProtocolFee.selector;
+        accountantSelectors[1] = IRoycoAccountant.setSeniorTrancheProtocolFee.selector;
         accountantRoles[1] = KERNEL_ADMIN_ROLE;
 
-        accountantSelectors[2] = IRoycoAccountant.setCoverage.selector;
+        accountantSelectors[2] = IRoycoAccountant.setJuniorTrancheProtocolFee.selector;
         accountantRoles[2] = KERNEL_ADMIN_ROLE;
 
-        accountantSelectors[3] = IRoycoAccountant.setBeta.selector;
+        accountantSelectors[3] = IRoycoAccountant.setCoverage.selector;
         accountantRoles[3] = KERNEL_ADMIN_ROLE;
 
-        accountantSelectors[4] = IRoycoAuth.pause.selector;
-        accountantRoles[4] = PAUSER_ROLE;
+        accountantSelectors[4] = IRoycoAccountant.setBeta.selector;
+        accountantRoles[4] = KERNEL_ADMIN_ROLE;
 
-        accountantSelectors[5] = IRoycoAuth.unpause.selector;
+        accountantSelectors[5] = IRoycoAuth.pause.selector;
         accountantRoles[5] = PAUSER_ROLE;
+
+        accountantSelectors[6] = IRoycoAuth.unpause.selector;
+        accountantRoles[6] = PAUSER_ROLE;
 
         // Create roles configuration array
         roles = new RolesConfiguration[](4);

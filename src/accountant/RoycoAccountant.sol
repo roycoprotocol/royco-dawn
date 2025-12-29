@@ -87,7 +87,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         // Ensure that the RDM is not null
         require(_params.rdm != address(0), NULL_RDM_ADDRESS());
         // Ensure that the protocol fee percentage is valid
-        require(_params.protocolFeeWAD <= MAX_PROTOCOL_FEE_WAD, MAX_PROTOCOL_FEE_EXCEEDED());
+        require(_params.stProtocolFeeWAD <= MAX_PROTOCOL_FEE_WAD && _params.jtProtocolFeeWAD <= MAX_PROTOCOL_FEE_WAD, MAX_PROTOCOL_FEE_EXCEEDED());
 
         // Initialize the base state of the accountant
         __RoycoBase_init(_initialAuthority);
@@ -95,7 +95,8 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         // Initialize the state of the accountant
         RoycoAccountantState storage $ = _getRoycoAccountantStorage();
         $.kernel = _params.kernel;
-        $.protocolFeeWAD = _params.protocolFeeWAD;
+        $.stProtocolFeeWAD = _params.stProtocolFeeWAD;
+        $.jtProtocolFeeWAD = _params.jtProtocolFeeWAD;
         $.coverageWAD = _params.coverageWAD;
         $.betaWAD = _params.betaWAD;
         $.rdm = _params.rdm;
@@ -426,7 +427,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
             /// @dev STEP_JT_ACCRUES_RESIDUAL_GAINS: JT accrues any remaining appreciation after repaying liabilities
             if (jtGain != ZERO_NAV_UNITS) {
                 // Compute the protocol fee taken on this JT yield accrual - will be used to mint JT shares to the protocol fee recipient at the updated JT effective NAV
-                jtProtocolFeeAccrued = jtGain.mulDiv($.protocolFeeWAD, WAD, Math.Rounding.Floor);
+                jtProtocolFeeAccrued = jtGain.mulDiv($.jtProtocolFeeWAD, WAD, Math.Rounding.Floor);
                 // Book the residual gains to the JT
                 jtEffectiveNAV = (jtEffectiveNAV + jtGain);
             }
@@ -479,7 +480,6 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
                 uint256 twJTYieldShareAccruedWAD = _twJTYieldShareAccruedWAD;
                 // Compute the time weighted average JT share of yield
                 uint256 elapsed = block.timestamp - $.lastDistributionTimestamp;
-                uint256 protocolFeeWAD = $.protocolFeeWAD;
                 // If the last yield distribution wasn't in this block, split the yield between ST and JT
                 if (elapsed != 0) {
                     // Compute the ST gain allocated to JT based on its time weighted yield share since the last distribution, rounding in favor of the senior tranche
@@ -487,13 +487,13 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
                     // Apply the yield split to JT's effective NAV
                     if (jtGain != ZERO_NAV_UNITS) {
                         // Compute the protocol fee taken on this JT yield accrual (will be used to mint shares to the protocol fee recipient) at the updated JT effective NAV
-                        jtProtocolFeeAccrued = (jtProtocolFeeAccrued + jtGain.mulDiv(protocolFeeWAD, WAD, Math.Rounding.Floor));
+                        jtProtocolFeeAccrued = (jtProtocolFeeAccrued + jtGain.mulDiv($.jtProtocolFeeWAD, WAD, Math.Rounding.Floor));
                         jtEffectiveNAV = (jtEffectiveNAV + jtGain);
                         stGain = (stGain - jtGain);
                     }
                 }
                 // Compute the protocol fee taken on this ST yield accrual (will be used to mint shares to the protocol fee recipient) at the updated JT effective NAV
-                stProtocolFeeAccrued = stGain.mulDiv(protocolFeeWAD, WAD, Math.Rounding.Floor);
+                stProtocolFeeAccrued = stGain.mulDiv($.stProtocolFeeWAD, WAD, Math.Rounding.Floor);
                 // Book the residual gain to the ST
                 stEffectiveNAV = (stEffectiveNAV + stGain);
                 // Mark yield as distributed
@@ -588,11 +588,19 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
     }
 
     /// @inheritdoc IRoycoAccountant
-    function setProtocolFee(uint64 _protocolFeeWAD) external override(IRoycoAccountant) restricted {
+    function setSeniorTrancheProtocolFee(uint64 _stProtocolFeeWAD) external override(IRoycoAccountant) restricted {
         // Ensure that the protocol fee percentage is valid
-        require(_protocolFeeWAD <= MAX_PROTOCOL_FEE_WAD, MAX_PROTOCOL_FEE_EXCEEDED());
+        require(_stProtocolFeeWAD <= MAX_PROTOCOL_FEE_WAD, MAX_PROTOCOL_FEE_EXCEEDED());
         // Set the new protocol fee percentage
-        _getRoycoAccountantStorage().protocolFeeWAD = _protocolFeeWAD;
+        _getRoycoAccountantStorage().stProtocolFeeWAD = _stProtocolFeeWAD;
+    }
+
+    /// @inheritdoc IRoycoAccountant
+    function setJuniorTrancheProtocolFee(uint64 _jtProtocolFeeWAD) external override(IRoycoAccountant) restricted {
+        // Ensure that the protocol fee percentage is valid
+        require(_jtProtocolFeeWAD <= MAX_PROTOCOL_FEE_WAD, MAX_PROTOCOL_FEE_EXCEEDED());
+        // Set the new protocol fee percentage
+        _getRoycoAccountantStorage().jtProtocolFeeWAD = _jtProtocolFeeWAD;
     }
 
     /// @inheritdoc IRoycoAccountant

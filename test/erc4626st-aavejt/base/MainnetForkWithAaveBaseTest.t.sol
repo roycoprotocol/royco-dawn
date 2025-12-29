@@ -121,7 +121,12 @@ abstract contract MainnetForkWithAaveTestBase is BaseTest {
             RoycoAccountant.initialize,
             (
                 IRoycoAccountant.RoycoAccountantInitParams({
-                    kernel: expectedKernelAddress, protocolFeeWAD: PROTOCOL_FEE_WAD, coverageWAD: COVERAGE_WAD, betaWAD: BETA_WAD, rdm: address(RDM)
+                    kernel: expectedKernelAddress,
+                    stProtocolFeeWAD: ST_PROTOCOL_FEE_WAD,
+                    jtProtocolFeeWAD: JT_PROTOCOL_FEE_WAD,
+                    coverageWAD: COVERAGE_WAD,
+                    betaWAD: BETA_WAD,
+                    rdm: address(RDM)
                 }),
                 address(FACTORY)
             )

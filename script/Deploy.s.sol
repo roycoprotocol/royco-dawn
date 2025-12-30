@@ -231,12 +231,18 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
         view
         returns (bytes memory)
     {
-        uint64 protocolFeeWAD = uint64(vm.envUint("PROTOCOL_FEE_WAD"));
+        uint64 stProtocolFeeWAD = uint64(vm.envUint("ST_PROTOCOL_FEE_WAD"));
+        uint64 jtProtocolFeeWAD = uint64(vm.envUint("JT_PROTOCOL_FEE_WAD"));
         uint64 coverageWAD = uint64(vm.envUint("COVERAGE_WAD"));
         uint96 betaWAD = uint96(vm.envUint("BETA_WAD"));
 
         IRoycoAccountant.RoycoAccountantInitParams memory accountantParams = IRoycoAccountant.RoycoAccountantInitParams({
-            kernel: expectedKernelAddress, protocolFeeWAD: protocolFeeWAD, coverageWAD: coverageWAD, betaWAD: betaWAD, rdm: rdmAddress
+            kernel: expectedKernelAddress,
+            stProtocolFeeWAD: stProtocolFeeWAD,
+            jtProtocolFeeWAD: jtProtocolFeeWAD,
+            coverageWAD: coverageWAD,
+            betaWAD: betaWAD,
+            rdm: rdmAddress
         });
 
         return abi.encodeCall(RoycoAccountant.initialize, (accountantParams, factoryAddress));
@@ -359,21 +365,23 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
         roles[index++] = RolesConfiguration({ target: kernel, selectors: kernelSelectors, roles: kernelRoleValues });
 
         // Accountant roles
-        bytes4[] memory accountantSelectors = new bytes4[](6);
-        uint64[] memory accountantRoleValues = new uint64[](6);
+        bytes4[] memory accountantSelectors = new bytes4[](7);
+        uint64[] memory accountantRoleValues = new uint64[](7);
 
         accountantSelectors[0] = IRoycoAccountant.setRDM.selector;
         accountantRoleValues[0] = KERNEL_ADMIN_ROLE;
-        accountantSelectors[1] = IRoycoAccountant.setProtocolFee.selector;
+        accountantSelectors[1] = IRoycoAccountant.setSeniorTrancheProtocolFee.selector;
         accountantRoleValues[1] = KERNEL_ADMIN_ROLE;
-        accountantSelectors[2] = IRoycoAccountant.setCoverage.selector;
+        accountantSelectors[2] = IRoycoAccountant.setJuniorTrancheProtocolFee.selector;
         accountantRoleValues[2] = KERNEL_ADMIN_ROLE;
-        accountantSelectors[3] = IRoycoAccountant.setBeta.selector;
+        accountantSelectors[3] = IRoycoAccountant.setCoverage.selector;
         accountantRoleValues[3] = KERNEL_ADMIN_ROLE;
-        accountantSelectors[4] = IRoycoAuth.pause.selector;
-        accountantRoleValues[4] = PAUSER_ROLE;
-        accountantSelectors[5] = IRoycoAuth.unpause.selector;
+        accountantSelectors[4] = IRoycoAccountant.setBeta.selector;
+        accountantRoleValues[4] = KERNEL_ADMIN_ROLE;
+        accountantSelectors[5] = IRoycoAuth.pause.selector;
         accountantRoleValues[5] = PAUSER_ROLE;
+        accountantSelectors[6] = IRoycoAuth.unpause.selector;
+        accountantRoleValues[6] = PAUSER_ROLE;
 
         roles[index++] = RolesConfiguration({ target: accountant, selectors: accountantSelectors, roles: accountantRoleValues });
     }

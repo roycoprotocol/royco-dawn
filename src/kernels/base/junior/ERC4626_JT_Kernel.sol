@@ -99,7 +99,8 @@ abstract contract ERC4626_JT_Kernel is RoycoKernel {
             // If the vault has insufficient liquidity to withdraw the specified assets, transfer the equivalent number of shares to the receiver
         } else {
             // Transfer the assets equivalent of shares to the receiver
-            uint256 sharesEquivalentToWithdraw = ($.jtOwnedShares -= jtVault.convertToShares(toUint256(_jtAssets)));
+            uint256 sharesEquivalentToWithdraw = jtVault.convertToShares(toUint256(_jtAssets));
+            $.jtOwnedShares -= sharesEquivalentToWithdraw;
             IERC20(address(jtVault)).safeTransfer(_receiver, sharesEquivalentToWithdraw);
         }
     }

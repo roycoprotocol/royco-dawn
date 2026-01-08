@@ -77,9 +77,9 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         _;
     }
 
-    /// @dev Enforces that the kernel is synced before the function is called
+    /// @dev Enforces that the kernel's accounting is synced before the function is called
     /// forge-lint: disable-next-item(unwrapped-modifier-logic)
-    modifier withSyncedKernel() {
+    modifier withSyncedAccounting() {
         IRoycoKernel(_getRoycoAccountantStorage().kernel).syncTrancheAccounting();
         _;
     }
@@ -586,7 +586,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
     }
 
     /// @inheritdoc IRoycoAccountant
-    function setRDM(address _rdm) external override(IRoycoAccountant) restricted withSyncedKernel {
+    function setRDM(address _rdm) external override(IRoycoAccountant) restricted withSyncedAccounting {
         // Ensure that the RDM is not null
         require(_rdm != address(0), NULL_RDM_ADDRESS());
         // Set the new RDM
@@ -594,7 +594,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
     }
 
     /// @inheritdoc IRoycoAccountant
-    function setSeniorTrancheProtocolFee(uint64 _stProtocolFeeWAD) external override(IRoycoAccountant) restricted withSyncedKernel {
+    function setSeniorTrancheProtocolFee(uint64 _stProtocolFeeWAD) external override(IRoycoAccountant) restricted withSyncedAccounting {
         // Ensure that the protocol fee percentage is valid
         require(_stProtocolFeeWAD <= MAX_PROTOCOL_FEE_WAD, MAX_PROTOCOL_FEE_EXCEEDED());
         // Set the new protocol fee percentage
@@ -602,7 +602,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
     }
 
     /// @inheritdoc IRoycoAccountant
-    function setJuniorTrancheProtocolFee(uint64 _jtProtocolFeeWAD) external override(IRoycoAccountant) restricted withSyncedKernel {
+    function setJuniorTrancheProtocolFee(uint64 _jtProtocolFeeWAD) external override(IRoycoAccountant) restricted withSyncedAccounting {
         // Ensure that the protocol fee percentage is valid
         require(_jtProtocolFeeWAD <= MAX_PROTOCOL_FEE_WAD, MAX_PROTOCOL_FEE_EXCEEDED());
         // Set the new protocol fee percentage
@@ -610,7 +610,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
     }
 
     /// @inheritdoc IRoycoAccountant
-    function setCoverage(uint64 _coverageWAD) external override(IRoycoAccountant) restricted withSyncedKernel {
+    function setCoverage(uint64 _coverageWAD) external override(IRoycoAccountant) restricted withSyncedAccounting {
         RoycoAccountantState storage $ = _getRoycoAccountantStorage();
         // Validate the new coverage requirement
         _validateCoverageRequirement(_coverageWAD, $.betaWAD);
@@ -619,7 +619,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
     }
 
     /// @inheritdoc IRoycoAccountant
-    function setBeta(uint96 _betaWAD) external override(IRoycoAccountant) restricted withSyncedKernel {
+    function setBeta(uint96 _betaWAD) external override(IRoycoAccountant) restricted withSyncedAccounting {
         RoycoAccountantState storage $ = _getRoycoAccountantStorage();
         // Validate the new coverage requirement
         _validateCoverageRequirement($.coverageWAD, _betaWAD);

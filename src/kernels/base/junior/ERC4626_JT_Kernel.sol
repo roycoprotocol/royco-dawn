@@ -53,7 +53,7 @@ abstract contract ERC4626_JT_Kernel is RoycoKernel {
     /// @inheritdoc RoycoKernel
     function _getJuniorTrancheRawNAV() internal view override(RoycoKernel) returns (NAV_UNIT) {
         ERC4626KernelState storage $ = ERC4626KernelStorageLib._getERC4626KernelStorage();
-        // Must use convert to assets for the tranche owned shares in order to be exlusive of any fixed fees on withdrawal
+        // Must use convert to assets for the tranche owned shares in order to be exclusive of any fixed fees on withdrawal
         // Cannot use max withdraw since it will treat illiquidity as a NAV loss
         TRANCHE_UNIT jtOwnedAssets = toTrancheUnits(IERC4626($.jtVault).convertToAssets($.jtOwnedShares));
         return jtConvertTrancheUnitsToNAVUnits(jtOwnedAssets);

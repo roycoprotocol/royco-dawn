@@ -80,8 +80,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
     /// @dev Enforces that the kernel is synced before the function is called
     /// forge-lint: disable-next-item(unwrapped-modifier-logic)
     modifier withSyncedKernel() {
-        IRoycoKernel kernel = IRoycoKernel(_getRoycoAccountantStorage().kernel);
-        kernel.syncTrancheAccounting();
+        IRoycoKernel(_getRoycoAccountantStorage().kernel).syncTrancheAccounting();
         _;
     }
 

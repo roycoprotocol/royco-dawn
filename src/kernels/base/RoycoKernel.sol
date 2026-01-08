@@ -187,7 +187,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
     // =============================
 
     /// @inheritdoc IRoycoKernel
-    function syncTrancheAccounting() public virtual override(IRoycoKernel) whenNotPaused restricted returns (SyncedAccountingState memory state) {
+    function syncTrancheAccounting() public virtual override(IRoycoKernel) whenNotPaused returns (SyncedAccountingState memory state) {
         // Execute a pre-op accounting sync via the accountant
         return _preOpSyncTrancheAccounting();
     }

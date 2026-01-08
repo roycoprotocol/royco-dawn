@@ -26,8 +26,10 @@ struct AssetClaims {
  * @custom:field jtRawNAV - The junior tranche's current raw NAV: the pure value of its invested assets
  * @custom:field stEffectiveNAV - Senior tranche effective NAV: includes applied coverage, its share of ST yield, and uncovered losses
  * @custom:field jtEffectiveNAV - Junior tranche effective NAV: includes provided coverage, JT yield, its share of ST yield, and JT losses
- * @custom:field stCoverageDebt - Coverage that has currently been applied to ST from the JT loss-absorption buffer
- * @custom:field jtCoverageDebt - Losses that ST incurred after exhausting the JT loss-absorption buffer
+ * @custom:field stImpermanentLoss - The impermanent loss that ST has suffered after exhausting JT's loss-absorption buffer
+ *                                   This represents the first claim on capital that the senior tranche has on future recoveries
+ * @custom:field jtImpermanentLoss - The impermanent loss that JT has suffered after providing coverage for ST losses
+ *                                   This represents the second claim on capital that the junior tranche has on future recoveries
  * @custom:field stProtocolFeeAccrued - Protocol fee taken on ST yield on this sync
  * @custom:field jtProtocolFeeAccrued - Protocol fee taken on JT yield on this sync
  */
@@ -36,8 +38,8 @@ struct SyncedAccountingState {
     NAV_UNIT jtRawNAV;
     NAV_UNIT stEffectiveNAV;
     NAV_UNIT jtEffectiveNAV;
-    NAV_UNIT stCoverageDebt;
-    NAV_UNIT jtCoverageDebt;
+    NAV_UNIT stImpermanentLoss;
+    NAV_UNIT jtImpermanentLoss;
     NAV_UNIT stProtocolFeeAccrued;
     NAV_UNIT jtProtocolFeeAccrued;
 }

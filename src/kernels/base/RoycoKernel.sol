@@ -538,7 +538,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
 
     /**
      * @notice Previews an accounting sync via the accountant
-     * @return state The synced NAV, debt, and fee accounting containing all mark to market accounting data
+     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark to market accounting data
      */
     function _previewSyncTrancheAccounting() internal view virtual returns (SyncedAccountingState memory state) {
         // Preview an accounting sync via the accountant
@@ -550,7 +550,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
      * @notice Also returns the asset claims and total tranche shares after minting any fees
      * @dev Should be called on every NAV mutating user operation
      * @param _trancheType An enum indicating which tranche to return claims and total tranche shares for
-     * @return state The synced NAV, debt, and fee accounting containing all mark to market accounting data
+     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark to market accounting data
      * @return claims The claims on ST and JT assets that the specified tranche has denominated in tranche-native units
      * @return totalTrancheShares The total shares outstanding in the specified tranche after minting any protocol fee shares
      */
@@ -592,7 +592,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
     /**
      * @notice Invokes the accountant to do a pre-operation (deposit and withdrawal) NAV sync and mints any protocol fee shares accrued
      * @dev Should be called on every NAV mutating user operation
-     * @return state The synced NAV, debt, and fee accounting containing all mark to market accounting data
+     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark to market accounting data
      */
     function _preOpSyncTrancheAccounting() internal virtual returns (SyncedAccountingState memory state) {
         // Execute the pre-op sync via the accountant
@@ -617,7 +617,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
      * @notice Invokes the accountant to do a post-operation (deposit and withdrawal) NAV sync
      * @dev Should be called on every NAV mutating user operation that doesn't require a coverage check
      * @param _op The operation being executed in between the pre and post synchronizations
-     * @return state The synced NAV, debt, and fee accounting containing all mark to market accounting data
+     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark to market accounting data
      */
     function _postOpSyncTrancheAccounting(Operation _op) internal virtual returns (SyncedAccountingState memory state) {
         // Execute the post-op sync on the accountant
@@ -630,7 +630,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
      * @notice Invokes the accountant to do a post-operation (deposit and withdrawal) NAV sync and checks the market's coverage requirement is satisfied
      * @dev Should be called on every NAV mutating user operation that requires a coverage check: ST deposit and JT withdrawal
      * @param _op The operation being executed in between the pre and post synchronizations
-     * @return state The synced NAV, debt, and fee accounting containing all mark to market accounting data
+     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark to market accounting data
      */
     function _postOpSyncTrancheAccountingAndEnforceCoverage(Operation _op) internal virtual returns (SyncedAccountingState memory state) {
         // Execute the post-op sync on the accountant
@@ -639,7 +639,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
 
     /**
      * @notice Decomposes effective NAVs into self-backed NAV claims and cross-tranche NAV claims
-     * @param _state The synced NAV, debt, and fee accounting containing all mark to market accounting data
+     * @param _state The synced NAV, impermanent loss, and fee accounting containing all mark to market accounting data
      * @return stNAVClaimOnSelf The portion of ST's effective NAV that must be funded by ST’s raw NAV
      * @return stNAVClaimOnJT The portion of ST's effective NAV that must be funded by JT’s raw NAV
      * @return jtNAVClaimOnSelf The portion of JT's effective NAV that must be funded by JT’s raw NAV

@@ -117,7 +117,7 @@ interface IRoycoKernel {
     /**
      * @notice Synchronizes and persists the raw and effective NAVs of both tranches
      * @dev Only executes a pre-op sync because there is no operation being executed in the same call as this sync
-     * @return state The synced NAV, debt, and fee accounting containing all mark to market accounting data
+     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark to market accounting data
      */
     function syncTrancheAccounting() external returns (SyncedAccountingState memory state);
 
@@ -125,7 +125,7 @@ interface IRoycoKernel {
      * @notice Previews a synchronization of the raw and effective NAVs of both tranches
      * @dev Does not mutate any state
      * @param _trancheType An enum indicating which tranche to execute this preview for
-     * @return state The synced NAV, debt, and fee accounting containing all mark to market accounting data
+     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark to market accounting data
      * @return claims The claims on ST and JT assets that the specified tranche has denominated in tranche-native units
      * @return totalTrancheShares The total number of shares that exist in the specified tranche after minting any protocol fee shares post-sync
      */

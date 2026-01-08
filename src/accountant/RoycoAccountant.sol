@@ -10,58 +10,6 @@ import { NAV_UNIT, SyncedAccountingState } from "../libraries/Types.sol";
 import { UnitsMathLib, toNAVUnits, toUint256 } from "../libraries/Units.sol";
 import { Math, UtilsLib } from "../libraries/UtilsLib.sol";
 
-//........................................................................................................................................................................................................
-//........................................................................................................................................................................................................
-//........................................................................................................................................................................................................
-//........................................................................................................................................................................................................
-//...........................................................................................................,*(#%&@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&%#/,..................................................
-//.....................................................................................................,/#%&@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%(*..............................................
-//...............................................................................................,*/#%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&(*...........................................
-//................................................,,,,,,...................................,*(%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&/.........................................
-//.........................................,*#%&@@@@@@@@@@@@&&&&&&&&&@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&#*......................................
-//......................................,*#&@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#*....................................
-//...................................../%@@@@@@@&@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%(..................................
-//.................................../&@@@@%/,...#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@(*...............................
-//.................................,#@@@&#*...,(@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&(,.............................
-//................................/&@@@%*....*%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%/............................
-//...............................#&@@&#,....,#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&(...........................
-//.............................,(&@@@(......,%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@(,.........................
-//.,/(%%%%#/*................../@@@@(,......,#&@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@(,........................
-//&&@@@@@@@@@@(*............../%@@&(,.......,/&@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&(........................
-//..*#@@@@@@@@@@&#*..........*%@@%/.........,#&@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&*.......................
-//....*%@@@@@@@@@@@&#/,..,*/#@@&(,........../@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#*......................
-//....../%@@@@@@@@@@@@@@@@@@@&(,...........,(@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&(,.....................
-//........./%@@@@@@@@@@@@@%/,..............*#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&(,...................
-//............,**/////*,,.................../@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%/,................
-//.........................................*#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#*...............
-//......................................,(@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%*..............
-//................................,*(#&&@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&(,...*#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%/,............
-//..............................,%@@@@@@@@@@@@@@@@@@@@%(/*/%@@@@@@@@@@@@@@@&#/,.......*#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&&%#(*,...
-//.............................,#@@@@@@@@@@@@@@@@@&#*,.*#@@@@@@@@@@@@@@@%/,.............*#@@@@@&%###%&&&@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&#(/**,,........
-//.............................*%@@@@@@@@@@@@%(*,....,*&@@@@@@@@@@@@@&(,................../%@(,......................,/%@@@@@@@@@@@@@@@@@@@@@@@@@@@%/,./%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#*...............
-//.............................*&@@@@@@@@&(*.........../#@@@@@@@@@@@@@%/,...............................................,*//(((((((##%@@@@@@@@@@@@@/.....*#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@/................
-//............................./@@@@@@@&(,................/#&@@@@@@@@@@@@&#/,,.......................................................*%@@@@@@@@@@@@#*...../%@@@@@@@@@@@@@@@@@@@@@@@@@@@@&*................
-//............................*#@@@@@&#,......................,*#&@@@@@@@@@@@@&%/,.................................................*#@@@@@@@@@@@@@@@#....*#@@@@@@@@@@@@@@@@@@&&%%&@@@@@@@/................
-//...........................*%@@@@@%/.............................,*/#&@@@@@@@@@@&%/,......................................,(%%%&&@@@@@@@@@@@@@@@@@%*...*#@@@@@@@@@@@@&#*,......,#&@@@@@%/...............
-//........................,(%@@@@@@&*...................................,*(&@@@@@@@@@&(,...............................*(%&@@@@@@@@@@@&(,.,/#&@@@@@@@@#*...,#&@@@@&%#/,............/%@@@@@@%(*,,..........
-//...................../%@@@@@@@@@&#,......................................,(&@@@@@@@@@/............................,/&@@@@@@@@@@@@@@%,......,/@@@@@@@@@&/,..,**,....................,#&@@@@@@@@@&%/,.....
-//....................,%@@@@@@@@@@%*........................................./%@@@@@@@@/,..........................*#@@@@@@@@@@@@@@#*...........(&@@@@@@@@&#,............................,,,,,,...........
-//................../%@@@@@@@@@@@@#..........................................(&@@@@@@@@/..........................,%@@@@@@@@&%##(/,..............*%@@@@@@@@@@#*...........................................
-//................*#@@@@@@@@@@@@&/,.........................................,#&@@@@@@@%*.........................../(((((/*,.......................#@@@@@@@@@@@%/*,.......................................
-//...............*#@@@@@@@@@@&/,............................................,#&@@@@@#*.............................................................,(@@@@@@@@@@@@@@@%*....................................
-//...............#&@@@@@&&%(*................................................/%@@%(,...................................................................,(@@@@@@@@@@@@@&#*.................................
-//...............,****,.......................................................*/*.......................................................................,(%&&&&&&&&&&&%%%/,...............................
-//........................................................................................................................................................................................................
-//........................................................................................................................................................................................................
-//........................................................................................................................................................................................................
-//........................................................................................................................................................................................................
-//........................................................................................................................................................................................................
-//........................................................................................................................................................................................................
-//........................................................................................................................................................................................................
-//........................................................................................................................................................................................................
-//........................................................................................................................................................................................................
-//........................................................................................................................................................................................................
-
 contract RoycoAccountant is IRoycoAccountant, RoycoBase {
     using Math for uint256;
     using UnitsMathLib for NAV_UNIT;
@@ -123,7 +71,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         // Get the storage pointer to the base kernel state
         RoycoAccountantState storage $ = _getRoycoAccountantStorage();
 
-        // Accrue the JT yield share since the last accrual and preview the tranche NAVs and debts synchronization
+        // Accrue the JT yield share since the last accrual and preview the tranche NAVs and impermanent loss synchronization
         bool yieldDistributed;
         (state, yieldDistributed) = _previewSyncTrancheAccounting(_stRawNAV, _jtRawNAV, _accrueJTYieldShare());
 
@@ -134,13 +82,13 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
             $.lastDistributionTimestamp = uint32(block.timestamp);
         }
 
-        // Checkpoint the mark to market NAVs and debts
+        // Checkpoint the mark to market NAVs and impermanent losses
         $.lastSTRawNAV = _stRawNAV;
         $.lastJTRawNAV = _jtRawNAV;
         $.lastSTEffectiveNAV = state.stEffectiveNAV;
         $.lastJTEffectiveNAV = state.jtEffectiveNAV;
-        $.lastSTCoverageDebt = state.stCoverageDebt;
-        $.lastJTCoverageDebt = state.jtCoverageDebt;
+        $.lastSTImpermanentLoss = state.stImpermanentLoss;
+        $.lastJTImpermanentLoss = state.jtImpermanentLoss;
 
         emit PreOpTrancheAccountingSynced(state);
     }
@@ -175,19 +123,15 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
             // Compute the delta in the raw NAV of the senior tranche
             int256 deltaST = UnitsMathLib.computeNAVDelta(_stRawNAV, $.lastSTRawNAV);
             require(deltaST >= 0, INVALID_POST_OP_STATE(_op));
-            // Update the post-operation raw NAV ST checkpoint
+            // New ST deposits are treated as an addition to the future ST exposure
             $.lastSTRawNAV = _stRawNAV;
-            // Apply the deposit to the senior tranche's effective NAV
             $.lastSTEffectiveNAV = $.lastSTEffectiveNAV + toNAVUnits(deltaST);
         } else if (_op == Operation.JT_INCREASE_NAV) {
             // Compute the delta in the raw NAV of the junior tranche
             int256 deltaJT = UnitsMathLib.computeNAVDelta(_jtRawNAV, $.lastJTRawNAV);
             require(deltaJT >= 0, INVALID_POST_OP_STATE(_op));
-            // New JT deposits do not go towards paying off existing JT coverage debt (subsidizing old losses)
-            // They are treated as an addition to the future loss-absorption buffer
-            // Update the post-operation raw NAV ST checkpoint
+            // New JT deposits are treated as an addition to the future loss-absorption buffer
             $.lastJTRawNAV = _jtRawNAV;
-            // Apply the deposit to the junior tranche's effective NAV
             $.lastJTEffectiveNAV = $.lastJTEffectiveNAV + toNAVUnits(deltaJT);
         } else {
             // Compute the deltas in the raw NAVs of each tranche after an operation's execution and cache the raw NAVs
@@ -206,21 +150,21 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
                 NAV_UNIT preWithdrawalSTEffectiveNAV = $.lastSTEffectiveNAV;
                 // The actual amount withdrawn was the delta in ST raw NAV and the coverage applied from JT
                 $.lastSTEffectiveNAV = preWithdrawalSTEffectiveNAV - (toNAVUnits(-deltaST) + toNAVUnits(-deltaJT));
-                // Proportionally reduce system debts, rounding in favor of senior
+                // Proportionally reduce the market's impermanent losses, rounding in favor of senior
                 // The withdrawing senior LP has realized its proportional share of past covered losses, settling the realized portion between JT and ST
-                NAV_UNIT coverageDebt = $.lastSTCoverageDebt;
-                if (coverageDebt != ZERO_NAV_UNITS) {
-                    $.lastSTCoverageDebt = coverageDebt.mulDiv($.lastSTEffectiveNAV, preWithdrawalSTEffectiveNAV, Math.Rounding.Floor);
+                NAV_UNIT impermanentLoss = $.lastJTImpermanentLoss;
+                if (impermanentLoss != ZERO_NAV_UNITS) {
+                    $.lastJTImpermanentLoss = impermanentLoss.mulDiv($.lastSTEffectiveNAV, preWithdrawalSTEffectiveNAV, Math.Rounding.Floor);
                 }
                 // The withdrawing senior LP has realized its proportional share of past uncovered losses and associated recovery optionality
-                coverageDebt = $.lastJTCoverageDebt;
-                if (coverageDebt != ZERO_NAV_UNITS) {
-                    $.lastJTCoverageDebt = coverageDebt.mulDiv($.lastSTEffectiveNAV, preWithdrawalSTEffectiveNAV, Math.Rounding.Ceil);
+                impermanentLoss = $.lastSTImpermanentLoss;
+                if (impermanentLoss != ZERO_NAV_UNITS) {
+                    $.lastSTImpermanentLoss = impermanentLoss.mulDiv($.lastSTEffectiveNAV, preWithdrawalSTEffectiveNAV, Math.Rounding.Ceil);
                 }
             } else if (_op == Operation.JT_DECREASE_NAV) {
                 require(deltaJT <= 0 && deltaST <= 0, INVALID_POST_OP_STATE(_op));
-                // Junior withdrew: The NAV deltas include the discrete withdrawal amount in addition to any assets (yield + debt repayments) pulled from ST to JT
-                // JT LPs cannot settle debts on withdrawal since they don't have discretion on when coverage applied to ST (stCoverageDebt) and uncovered ST losses (jtCoverageDebt) can be realized
+                // Junior withdrew: The NAV deltas include the discrete withdrawal amount in addition to any assets (yield + impermanent loss repayments) pulled from ST to JT
+                // JT LPs cannot settle IL on withdrawal since they don't have discretion on when coverage applied to ST (jtImpermanentLoss) and uncovered ST losses (stImpermanentLoss) can be realized
                 // The actual amount withdrawn by JT was the delta in JT raw NAV and the assets claimed from ST
                 $.lastJTEffectiveNAV = $.lastJTEffectiveNAV - (toNAVUnits(-deltaJT) + toNAVUnits(-deltaST));
             }
@@ -232,8 +176,8 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
             jtRawNAV: _jtRawNAV,
             stEffectiveNAV: $.lastSTEffectiveNAV,
             jtEffectiveNAV: $.lastJTEffectiveNAV,
-            stCoverageDebt: $.lastSTCoverageDebt,
-            jtCoverageDebt: $.lastJTCoverageDebt,
+            stImpermanentLoss: $.lastSTImpermanentLoss,
+            jtImpermanentLoss: $.lastJTImpermanentLoss,
             stProtocolFeeAccrued: ZERO_NAV_UNITS,
             jtProtocolFeeAccrued: ZERO_NAV_UNITS
         });
@@ -362,11 +306,11 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
     }
 
     /**
-     * @notice Syncs all tranche NAVs and debts based on unrealized PNLs of the underlying investment(s)
+     * @notice Syncs all tranche NAVs and impermanent losses based on unrealized PNLs of the underlying investment(s)
      * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
      * @param _twJTYieldShareAccruedWAD The currently accrued time-weighted JT yield share RDM output since the last distribution, scaled to WAD precision
-     * @return state A struct containing all synced NAV, debt, and fee data after executing the sync
+     * @return state A struct containing all synced NAV, impermanent losses, and fee data after executing the sync
      * @return yieldDistributed A boolean indicating whether ST yield was split between ST and JT
      */
     function _previewSyncTrancheAccounting(
@@ -386,11 +330,11 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         int256 deltaST = UnitsMathLib.computeNAVDelta(_stRawNAV, $.lastSTRawNAV);
         int256 deltaJT = UnitsMathLib.computeNAVDelta(_jtRawNAV, $.lastJTRawNAV);
 
-        // Cache the last checkpointed effective NAV and coverage debt for each tranche
+        // Cache the last checkpointed effective NAV and impermanent losses for each tranche
         NAV_UNIT stEffectiveNAV = $.lastSTEffectiveNAV;
         NAV_UNIT jtEffectiveNAV = $.lastJTEffectiveNAV;
-        NAV_UNIT stCoverageDebt = $.lastSTCoverageDebt;
-        NAV_UNIT jtCoverageDebt = $.lastJTCoverageDebt;
+        NAV_UNIT jtImpermanentLoss = $.lastJTImpermanentLoss;
+        NAV_UNIT stImpermanentLoss = $.lastSTImpermanentLoss;
         NAV_UNIT stProtocolFeeAccrued;
         NAV_UNIT jtProtocolFeeAccrued;
 
@@ -409,26 +353,26 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
             if (jtLoss != ZERO_NAV_UNITS) {
                 // The excess loss is absorbed by ST
                 stEffectiveNAV = (stEffectiveNAV - jtLoss);
-                // Repay ST debt to JT
+                // Reduce the JT impermanent loss
                 // This is equivalent to retroactively reducing previously applied coverage
-                // Thus, the liability is flipped to JT debt to ST
-                stCoverageDebt = (stCoverageDebt - jtLoss);
-                jtCoverageDebt = (jtCoverageDebt + jtLoss);
+                // Thus, the JT impermanent loss is now born by ST
+                jtImpermanentLoss = (jtImpermanentLoss - jtLoss);
+                stImpermanentLoss = (stImpermanentLoss + jtLoss);
             }
             /// @dev STEP_APPLY_JT_GAIN: The JT assets appreciated in value
         } else if (deltaJT > 0) {
             NAV_UNIT jtGain = toNAVUnits(deltaJT);
-            /// @dev STEP_REPAY_JT_COVERAGE_DEBT: Pay off any JT debt to ST (previously uncovered losses)
-            NAV_UNIT jtDebtRepayment = UnitsMathLib.min(jtGain, jtCoverageDebt);
-            if (jtDebtRepayment != ZERO_NAV_UNITS) {
-                // Repay JT debt to ST
+            /// @dev STEP_ST_IMPERMANENT_LOSS_RECOVERY: First, reduce any ST impermanent loss (first claim on appreciation)
+            NAV_UNIT stImpermanentLossRecovery = UnitsMathLib.min(jtGain, stImpermanentLoss);
+            if (stImpermanentLossRecovery != ZERO_NAV_UNITS) {
+                // Reduce the ST impermanent loss
                 // This is equivalent to retroactively applying coverage for previously uncovered losses
-                // Thus, the liability is flipped to ST debt to JT
-                jtCoverageDebt = (jtCoverageDebt - jtDebtRepayment);
-                stCoverageDebt = (stCoverageDebt + jtDebtRepayment);
-                // Apply the repayment (retroactive coverage) to the ST
-                stEffectiveNAV = (stEffectiveNAV + jtDebtRepayment);
-                jtGain = (jtGain - jtDebtRepayment);
+                // Thus, the ST impermanent loss is now born by JT
+                stImpermanentLoss = (stImpermanentLoss - stImpermanentLossRecovery);
+                jtImpermanentLoss = (jtImpermanentLoss + stImpermanentLossRecovery);
+                // Apply the retroactive coverage to the ST
+                stEffectiveNAV = (stEffectiveNAV + stImpermanentLossRecovery);
+                jtGain = (jtGain - stImpermanentLossRecovery);
             }
             /// @dev STEP_JT_ACCRUES_RESIDUAL_GAINS: JT accrues any remaining appreciation after repaying liabilities
             if (jtGain != ZERO_NAV_UNITS) {
@@ -447,7 +391,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
             if (coverageApplied != ZERO_NAV_UNITS) {
                 jtEffectiveNAV = (jtEffectiveNAV - coverageApplied);
                 // Any coverage provided is a ST liability to JT
-                stCoverageDebt = (stCoverageDebt + coverageApplied);
+                jtImpermanentLoss = (jtImpermanentLoss + coverageApplied);
             }
             /// @dev STEP_ST_INCURS_RESIDUAL_LOSSES: Apply any uncovered losses by JT to ST
             NAV_UNIT netStLoss = stLoss - coverageApplied;
@@ -455,32 +399,30 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
                 // Apply residual losses to ST
                 stEffectiveNAV = (stEffectiveNAV - netStLoss);
                 // The uncovered portion of the ST loss is a JT liability to ST
-                jtCoverageDebt = (jtCoverageDebt + netStLoss);
+                stImpermanentLoss = (stImpermanentLoss + netStLoss);
             }
             /// @dev STEP_APPLY_ST_GAIN: The ST assets appreciated in value
         } else if (deltaST > 0) {
             NAV_UNIT stGain = toNAVUnits(deltaST);
-            /// @dev STEP_REPAY_JT_COVERAGE_DEBT: The first priority of repayment to reverse the loss-waterfall is making ST whole again
-            // Repay JT debt to ST: previously uncovered ST losses
-            NAV_UNIT debtRepayment = UnitsMathLib.min(stGain, jtCoverageDebt);
-            if (debtRepayment != ZERO_NAV_UNITS) {
-                // Pay back JT debt to ST: making ST whole again
-                stEffectiveNAV = (stEffectiveNAV + debtRepayment);
-                jtCoverageDebt = (jtCoverageDebt - debtRepayment);
-                // Deduct the repayment from the ST gains and return if no gains are left
-                stGain = (stGain - debtRepayment);
+            /// @dev STEP_ST_IMPERMANENT_LOSS_RECOVERY: The first priority of repayment to reverse the loss-waterfall is making ST whole again
+            NAV_UNIT impermanentLossRecovery = UnitsMathLib.min(stGain, stImpermanentLoss);
+            if (impermanentLossRecovery != ZERO_NAV_UNITS) {
+                // Recover as much of the ST impermanent loss as possible
+                stEffectiveNAV = (stEffectiveNAV + impermanentLossRecovery);
+                stImpermanentLoss = (stImpermanentLoss - impermanentLossRecovery);
+                // Deduct the ST IL recovery from the ST gains
+                stGain = (stGain - impermanentLossRecovery);
             }
-            /// @dev STEP_REPAY_ST_COVERAGE_DEBT: The second priority of repayment to reverse the loss-waterfall is making JT whole again
-            // Repay ST debt to JT: previously applied coverage from JT to ST
-            debtRepayment = UnitsMathLib.min(stGain, stCoverageDebt);
-            if (debtRepayment != ZERO_NAV_UNITS) {
-                // Pay back ST debt to JT: making JT whole again
-                jtEffectiveNAV = (jtEffectiveNAV + debtRepayment);
-                stCoverageDebt = (stCoverageDebt - debtRepayment);
-                // Deduct the repayment from the remaining ST gains and return if no gains are left
-                stGain = (stGain - debtRepayment);
+            /// @dev STEP_JT_IMPERMANENT_LOSS_RECOVERY: The second priority of repayment to reverse the loss-waterfall is making JT whole again
+            impermanentLossRecovery = UnitsMathLib.min(stGain, jtImpermanentLoss);
+            if (impermanentLossRecovery != ZERO_NAV_UNITS) {
+                // Recover as much of the JT impermanent loss as possible
+                jtEffectiveNAV = (jtEffectiveNAV + impermanentLossRecovery);
+                jtImpermanentLoss = (jtImpermanentLoss - impermanentLossRecovery);
+                // Deduct the JT IL recovery from the ST gains
+                stGain = (stGain - impermanentLossRecovery);
             }
-            /// @dev STEP_DISTRIBUTE_YIELD: There are no remaining debts in the system, the residual gains will be used to distribute yield to both tranches
+            /// @dev STEP_DISTRIBUTE_YIELD: There are no remaining impermanent losses in the system, the residual gains will be used to distribute yield to both tranches
             if (stGain != ZERO_NAV_UNITS) {
                 // Bring the twJTYieldShareAccruedWAD to the top of the stack
                 uint256 twJTYieldShareAccruedWAD = _twJTYieldShareAccruedWAD;
@@ -514,8 +456,8 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
             jtRawNAV: _jtRawNAV,
             stEffectiveNAV: stEffectiveNAV,
             jtEffectiveNAV: jtEffectiveNAV,
-            stCoverageDebt: stCoverageDebt,
-            jtCoverageDebt: jtCoverageDebt,
+            stImpermanentLoss: stImpermanentLoss,
+            jtImpermanentLoss: jtImpermanentLoss,
             stProtocolFeeAccrued: stProtocolFeeAccrued,
             jtProtocolFeeAccrued: jtProtocolFeeAccrued
         });

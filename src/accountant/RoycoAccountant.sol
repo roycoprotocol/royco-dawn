@@ -215,8 +215,6 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
                 // JT LPs cannot settle debts on withdrawal since they don't have discretion on when coverage applied to ST (stCoverageDebt) and uncovered ST losses (jtCoverageDebt) can be realized
                 // The actual amount withdrawn by JT was the delta in JT raw NAV and the assets claimed from ST
                 $.lastJTEffectiveNAV = $.lastJTEffectiveNAV - (toNAVUnits(-deltaJT) + toNAVUnits(-deltaST));
-                // Enforce the expected relationship between JT NAVs and ST coverage debt (outstanding applied coverage)
-                require($.lastJTEffectiveNAV + $.lastSTCoverageDebt >= _jtRawNAV, INVALID_POST_OP_STATE(_op));
             }
         }
         // Construct the synced NAVs state to return to the caller

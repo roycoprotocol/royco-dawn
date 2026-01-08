@@ -101,8 +101,8 @@ contract DeploymentsTest is MainnetForkWithAaveTestBase {
         assertEq(accountantState.stProtocolFeeWAD, ST_PROTOCOL_FEE_WAD, "Kernel stProtocolFeeWAD mismatch");
         assertEq(accountantState.jtProtocolFeeWAD, JT_PROTOCOL_FEE_WAD, "Kernel jtProtocolFeeWAD mismatch");
 
-        // RDM wiring
-        assertEq(accountantState.rdm, address(RDM), "Kernel RDM mismatch");
+        // YDM wiring
+        assertEq(accountantState.ydm, address(YDM), "Kernel YDM mismatch");
 
         // Initial NAV / ASSETS via KERNEL view functions
         (SyncedAccountingState memory state,,) = KERNEL.previewSyncTrancheAccounting(TrancheType.SENIOR);
@@ -317,7 +317,7 @@ contract DeploymentsTest is MainnetForkWithAaveTestBase {
                     jtProtocolFeeWAD: JT_PROTOCOL_FEE_WAD,
                     coverageWAD: COVERAGE_WAD,
                     betaWAD: BETA_WAD,
-                    rdm: address(RDM)
+                    ydm: address(YDM)
                 }),
                 OWNER_ADDRESS // invalid authority: should be FACTORY
             )
@@ -465,7 +465,7 @@ contract DeploymentsTest is MainnetForkWithAaveTestBase {
                     jtProtocolFeeWAD: JT_PROTOCOL_FEE_WAD,
                     coverageWAD: COVERAGE_WAD,
                     betaWAD: BETA_WAD,
-                    rdm: address(RDM)
+                    ydm: address(YDM)
                 }),
                 address(FACTORY)
             )
@@ -592,7 +592,7 @@ contract DeploymentsTest is MainnetForkWithAaveTestBase {
                     jtProtocolFeeWAD: JT_PROTOCOL_FEE_WAD,
                     coverageWAD: COVERAGE_WAD,
                     betaWAD: BETA_WAD,
-                    rdm: address(RDM)
+                    ydm: address(YDM)
                 }),
                 address(FACTORY)
             )

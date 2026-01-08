@@ -4,10 +4,10 @@ pragma solidity ^0.8.28;
 import { NAV_UNIT } from "../libraries/Types.sol";
 
 /**
- * @title IRDM - Reward Distribution Model Interface
- * @notice Interface for reward distribution models that determine how ST yield is distributed between tranches in Royco markets
+ * @title IYDM - Yield Distribution Model Interface
+ * @notice Interface for yield distribution models that determine how ST yield is distributed between tranches in Royco markets
  */
-interface IRDM {
+interface IYDM {
     /**
      * @notice Previews and returns a Royco market's percentage of ST yield that should be allocated to its JT
      * @dev Does not mutate any state
@@ -19,7 +19,7 @@ interface IRDM {
      * @param _jtEffectiveNAV JT's net asset value after applying provided coverage, JT yield, ST yield distribution, and JT losses
      *                        Equivalent to its remaining loss-absorption buffer to cover ST's and its own drawdowns
      * @return jtYieldShareWAD The percentage of the ST's yield allocated to its JT, scaled to WAD precision
-     *                         It is implied that (WAD - jtRewardPercentageWAD) will be the percentage allocated to ST, excluding any protocol fees
+     *                         It is implied that (WAD - jtYieldPercentageWAD) will be the percentage allocated to ST, excluding any protocol fees
      */
     function previewJTYieldShare(
         NAV_UNIT _stRawNAV,
@@ -43,7 +43,7 @@ interface IRDM {
      * @param _jtEffectiveNAV JT's net asset value after applying provided coverage, JT yield, ST yield distribution, and JT losses
      *                        Equivalent to its remaining loss-absorption buffer to cover ST's and its own drawdowns
      * @return jtYieldShareWAD The percentage of the ST's yield allocated to its JT, scaled to WAD precision
-     *                         It is implied that (WAD - jtRewardPercentageWAD) will be the percentage allocated to ST, excluding any protocol fees
+     *                         It is implied that (WAD - jtYieldPercentageWAD) will be the percentage allocated to ST, excluding any protocol fees
      */
     function jtYieldShare(
         NAV_UNIT _stRawNAV,

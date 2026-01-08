@@ -18,10 +18,10 @@ import { ERC4626_ST_AaveV3_JT_IdenticalAssets_Kernel } from "../../src/kernels/E
 import { RoycoKernel } from "../../src/kernels/base/RoycoKernel.sol";
 import { AssetClaims, RolesConfiguration, TrancheType } from "../../src/libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toUint256 } from "../../src/libraries/Units.sol";
-import { StaticCurveRDM } from "../../src/rdm/StaticCurveRDM.sol";
 import { RoycoJT } from "../../src/tranches/RoycoJT.sol";
 import { RoycoST } from "../../src/tranches/RoycoST.sol";
 import { RoycoVaultTranche } from "../../src/tranches/RoycoVaultTranche.sol";
+import { StaticCurveYDM } from "../../src/ydm/StaticCurveYDM.sol";
 import { Assertions } from "./Assertions.t.sol";
 
 abstract contract BaseTest is Test, RoycoRoles, Assertions {
@@ -78,7 +78,7 @@ abstract contract BaseTest is Test, RoycoRoles, Assertions {
 
     // Initial Deployments
     RoycoFactory internal FACTORY;
-    StaticCurveRDM internal RDM;
+    StaticCurveYDM internal YDM;
     RoycoST public ST_IMPL;
     RoycoJT internal JT_IMPL;
     ERC4626_ST_AaveV3_JT_IdenticalAssets_Kernel internal ERC4626_ST_AaveV3_JT_IdenticalAssets_Kernel_IMPL;
@@ -128,9 +128,9 @@ abstract contract BaseTest is Test, RoycoRoles, Assertions {
         _setupWallets();
         _setupAssets(10_000_000_000);
 
-        // Deploy RDM
-        RDM = new StaticCurveRDM();
-        vm.label(address(RDM), "RDM");
+        // Deploy YDM
+        YDM = new StaticCurveYDM();
+        vm.label(address(YDM), "YDM");
 
         // Deploy tranche implementations
         ST_IMPL = new RoycoST();
@@ -462,11 +462,11 @@ abstract contract BaseTest is Test, RoycoRoles, Assertions {
         kernelSelectors[4] = IRoycoKernel.setJuniorTrancheRedemptionDelay.selector;
         kernelRoles[4] = KERNEL_ADMIN_ROLE;
 
-        // Accountant: 6 functions (setRDM, setProtocolFee, setCoverage, setBeta, pause, unpause)
+        // Accountant: 6 functions (setYDM, setProtocolFee, setCoverage, setBeta, pause, unpause)
         bytes4[] memory accountantSelectors = new bytes4[](7);
         uint64[] memory accountantRoles = new uint64[](7);
 
-        accountantSelectors[0] = IRoycoAccountant.setRDM.selector;
+        accountantSelectors[0] = IRoycoAccountant.setYDM.selector;
         accountantRoles[0] = KERNEL_ADMIN_ROLE;
 
         accountantSelectors[1] = IRoycoAccountant.setSeniorTrancheProtocolFee.selector;

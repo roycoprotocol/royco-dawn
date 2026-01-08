@@ -15,9 +15,9 @@ import { IRoycoVaultTranche } from "../src/interfaces/tranche/IRoycoVaultTranche
 import { ERC4626_ST_AaveV3_JT_IdenticalAssets_Kernel } from "../src/kernels/ERC4626_ST_AaveV3_JT_IdenticalAssets_Kernel.sol";
 import { RoycoKernelInitParams } from "../src/libraries/RoycoKernelStorageLib.sol";
 import { DeployedContracts, MarketDeploymentParams, RolesConfiguration, TrancheDeploymentParams } from "../src/libraries/Types.sol";
-import { StaticCurveRDM } from "../src/rdm/StaticCurveRDM.sol";
 import { RoycoJT } from "../src/tranches/RoycoJT.sol";
 import { RoycoST } from "../src/tranches/RoycoST.sol";
+import { StaticCurveYDM } from "../src/ydm/StaticCurveYDM.sol";
 import { Create2DeployUtils } from "./Create2DeployUtils.sol";
 import { Script } from "lib/forge-std/src/Script.sol";
 import { console2 } from "lib/forge-std/src/console2.sol";
@@ -28,7 +28,7 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
     bytes32 constant KERNEL_IMPL_SALT = keccak256("ROYCO_KERNEL_IMPLEMENTATION_V1");
     bytes32 constant ST_TRANCHE_IMPL_SALT = keccak256("ROYCO_ST_TRANCHE_IMPLEMENTATION_V1");
     bytes32 constant JT_TRANCHE_IMPL_SALT = keccak256("ROYCO_JT_TRANCHE_IMPLEMENTATION_V1");
-    bytes32 constant RDM_SALT = keccak256("ROYCO_RDM_IMPLEMENTATION_V1");
+    bytes32 constant YDM_SALT = keccak256("ROYCO_YDM_IMPLEMENTATION_V1");
     bytes32 constant FACTORY_SALT_BASE = keccak256("ROYCO_FACTORY_IMPLEMENTATION_V1");
     bytes32 constant MARKET_DEPLOYMENT_SALT = keccak256("ROYCO_MARKET_DEPLOYMENT_V2");
 
@@ -42,11 +42,11 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
         ERC4626_ST_AaveV3_JT_IdenticalAssets_Kernel kernelImpl = _deployKernelImpl();
         RoycoST stTrancheImpl = _deploySTTrancheImpl();
         RoycoJT jtTrancheImpl = _deployJTTrancheImpl();
-        StaticCurveRDM rdm = _deployRDM();
+        StaticCurveYDM ydm = _deployYDM();
         RoycoFactory factory = _deployFactory();
 
         // Deploy market using factory
-        _deployMarket(factory, accountantImpl, kernelImpl, stTrancheImpl, jtTrancheImpl, address(rdm));
+        _deployMarket(factory, accountantImpl, kernelImpl, stTrancheImpl, jtTrancheImpl, address(ydm));
 
         // Transfer factory ownership to new admin if provided
         _transferFactoryOwnership(factory, deployerPrivateKey);
@@ -102,16 +102,16 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
         return RoycoJT(addr);
     }
 
-    function _deployRDM() internal returns (StaticCurveRDM) {
-        bytes memory creationCode = type(StaticCurveRDM).creationCode;
+    function _deployYDM() internal returns (StaticCurveYDM) {
+        bytes memory creationCode = type(StaticCurveYDM).creationCode;
 
-        (address addr, bool alreadyDeployed) = deployWithSanityChecks(RDM_SALT, creationCode, false);
+        (address addr, bool alreadyDeployed) = deployWithSanityChecks(YDM_SALT, creationCode, false);
         if (alreadyDeployed) {
-            console2.log("RDM already deployed at:", addr);
+            console2.log("YDM already deployed at:", addr);
         } else {
-            console2.log("RDM deployed at:", addr);
+            console2.log("YDM deployed at:", addr);
         }
-        return StaticCurveRDM(addr);
+        return StaticCurveYDM(addr);
     }
 
     function _deployFactory() internal returns (RoycoFactory) {
@@ -133,7 +133,7 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
         ERC4626_ST_AaveV3_JT_IdenticalAssets_Kernel kernelImpl,
         RoycoST stTrancheImpl,
         RoycoJT jtTrancheImpl,
-        address rdmAddress
+        address ydmAddress
     )
         internal
     {
@@ -156,7 +156,7 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
         address factoryAddress = address(factory);
         bytes memory kernelInitializationData =
             _buildKernelInitializationData(expectedSeniorTrancheAddress, expectedJuniorTrancheAddress, expectedAccountantAddress, factoryAddress);
-        bytes memory accountantInitializationData = _buildAccountantInitializationData(expectedKernelAddress, rdmAddress, factoryAddress);
+        bytes memory accountantInitializationData = _buildAccountantInitializationData(expectedKernelAddress, ydmAddress, factoryAddress);
         bytes memory seniorTrancheInitializationData = _buildSeniorTrancheInitializationData(expectedKernelAddress, marketId, factoryAddress);
         bytes memory juniorTrancheInitializationData = _buildJuniorTrancheInitializationData(expectedKernelAddress, marketId, factoryAddress);
 
@@ -226,7 +226,7 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
         return abi.encodeCall(ERC4626_ST_AaveV3_JT_IdenticalAssets_Kernel.initialize, (kernelParams, stVault, aaveV3Pool));
     }
 
-    function _buildAccountantInitializationData(address expectedKernelAddress, address rdmAddress, address factoryAddress)
+    function _buildAccountantInitializationData(address expectedKernelAddress, address ydmAddress, address factoryAddress)
         internal
         view
         returns (bytes memory)
@@ -242,7 +242,7 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
             jtProtocolFeeWAD: jtProtocolFeeWAD,
             coverageWAD: coverageWAD,
             betaWAD: betaWAD,
-            rdm: rdmAddress
+            ydm: ydmAddress
         });
 
         return abi.encodeCall(RoycoAccountant.initialize, (accountantParams, factoryAddress));
@@ -368,7 +368,7 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
         bytes4[] memory accountantSelectors = new bytes4[](7);
         uint64[] memory accountantRoleValues = new uint64[](7);
 
-        accountantSelectors[0] = IRoycoAccountant.setRDM.selector;
+        accountantSelectors[0] = IRoycoAccountant.setYDM.selector;
         accountantRoleValues[0] = KERNEL_ADMIN_ROLE;
         accountantSelectors[1] = IRoycoAccountant.setSeniorTrancheProtocolFee.selector;
         accountantRoleValues[1] = KERNEL_ADMIN_ROLE;

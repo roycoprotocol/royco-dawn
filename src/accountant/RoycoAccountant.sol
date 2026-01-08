@@ -2,8 +2,8 @@
 pragma solidity ^0.8.28;
 
 import { RoycoBase } from "../base/RoycoBase.sol";
-import { IRDM } from "../interfaces/IRDM.sol";
 import { IRoycoAccountant, Operation } from "../interfaces/IRoycoAccountant.sol";
+import { IYDM } from "../interfaces/IYDM.sol";
 import { IRoycoKernel } from "../interfaces/kernel/IRoycoKernel.sol";
 import { MAX_PROTOCOL_FEE_WAD, MIN_COVERAGE_WAD, WAD, ZERO_NAV_UNITS } from "../libraries/Constants.sol";
 import { NAV_UNIT, SyncedAccountingState } from "../libraries/Types.sol";
@@ -40,8 +40,8 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
     function initialize(RoycoAccountantInitParams calldata _params, address _initialAuthority) external initializer {
         // Validate the inital coverage requirement
         _validateCoverageRequirement(_params.coverageWAD, _params.betaWAD);
-        // Ensure that the RDM is not null
-        require(_params.rdm != address(0), NULL_RDM_ADDRESS());
+        // Ensure that the YDM is not null
+        require(_params.ydm != address(0), NULL_YDM_ADDRESS());
         // Ensure that the protocol fee percentage is valid
         require(_params.stProtocolFeeWAD <= MAX_PROTOCOL_FEE_WAD && _params.jtProtocolFeeWAD <= MAX_PROTOCOL_FEE_WAD, MAX_PROTOCOL_FEE_EXCEEDED());
 
@@ -55,7 +55,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         $.jtProtocolFeeWAD = _params.jtProtocolFeeWAD;
         $.coverageWAD = _params.coverageWAD;
         $.betaWAD = _params.betaWAD;
-        $.rdm = _params.rdm;
+        $.ydm = _params.ydm;
     }
 
     /// @inheritdoc IRoycoAccountant
@@ -309,7 +309,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
      * @notice Syncs all tranche NAVs and impermanent losses based on unrealized PNLs of the underlying investment(s)
      * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
-     * @param _twJTYieldShareAccruedWAD The currently accrued time-weighted JT yield share RDM output since the last distribution, scaled to WAD precision
+     * @param _twJTYieldShareAccruedWAD The currently accrued time-weighted JT yield share YDM output since the last distribution, scaled to WAD precision
      * @return state A struct containing all synced NAV, impermanent losses, and fee data after executing the sync
      * @return yieldDistributed A boolean indicating whether ST yield was split between ST and JT
      */
@@ -487,7 +487,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         if (elapsed == 0) return $.twJTYieldShareAccruedWAD;
 
         // Get the instantaneous JT yield share, scaled to WAD precision
-        uint256 jtYieldShareWAD = IRDM($.rdm).jtYieldShare($.lastSTRawNAV, $.lastJTRawNAV, $.betaWAD, $.coverageWAD, $.lastJTEffectiveNAV);
+        uint256 jtYieldShareWAD = IYDM($.ydm).jtYieldShare($.lastSTRawNAV, $.lastJTRawNAV, $.betaWAD, $.coverageWAD, $.lastJTEffectiveNAV);
         // Ensure that JT cannot earn more than 100% of senior appreciation
         if (jtYieldShareWAD > WAD) jtYieldShareWAD = WAD;
 
@@ -518,7 +518,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         if (elapsed == 0) return $.twJTYieldShareAccruedWAD;
 
         // Get the instantaneous JT yield share, scaled to WAD precision
-        uint256 jtYieldShareWAD = IRDM($.rdm).previewJTYieldShare($.lastSTRawNAV, $.lastJTRawNAV, $.betaWAD, $.coverageWAD, $.lastJTEffectiveNAV);
+        uint256 jtYieldShareWAD = IYDM($.ydm).previewJTYieldShare($.lastSTRawNAV, $.lastJTRawNAV, $.betaWAD, $.coverageWAD, $.lastJTEffectiveNAV);
         // Ensure that JT cannot earn more than 100% of senior appreciation
         if (jtYieldShareWAD > WAD) jtYieldShareWAD = WAD;
 
@@ -528,11 +528,11 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
     }
 
     /// @inheritdoc IRoycoAccountant
-    function setRDM(address _rdm) external override(IRoycoAccountant) restricted withSyncedAccounting {
-        // Ensure that the RDM is not null
-        require(_rdm != address(0), NULL_RDM_ADDRESS());
-        // Set the new RDM
-        _getRoycoAccountantStorage().rdm = _rdm;
+    function setYDM(address _ydm) external override(IRoycoAccountant) restricted withSyncedAccounting {
+        // Ensure that the YDM is not null
+        require(_ydm != address(0), NULL_YDM_ADDRESS());
+        // Set the new YDM
+        _getRoycoAccountantStorage().ydm = _ydm;
     }
 
     /// @inheritdoc IRoycoAccountant

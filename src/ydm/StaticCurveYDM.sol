@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IRDM } from "../interfaces/IRDM.sol";
+import { IYDM } from "../interfaces/IYDM.sol";
 
 import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import { WAD } from "../libraries/Constants.sol";
@@ -9,12 +9,12 @@ import { NAV_UNIT } from "../libraries/Units.sol";
 import { UtilsLib } from "../libraries/UtilsLib.sol";
 
 /**
- * @title StaticCurveRDM
- * @notice Royco's static curve reward distribution model (RDM)
- * @dev Responsible for computing the reward distribution between the senior and junior tranches of a Royco market
+ * @title StaticCurveYDM
+ * @notice Royco's static curve yield distribution model (YDM)
+ * @dev Responsible for computing the yield distribution between the senior and junior tranches of a Royco market
  * @dev The curve is defined as piece-wise function parameterized by the utilization of a Royco market
  */
-contract StaticCurveRDM is IRDM {
+contract StaticCurveYDM is IYDM {
     using Math for uint256;
 
     /**
@@ -34,7 +34,7 @@ contract StaticCurveRDM is IRDM {
     /// @dev The base rate paid to the junior tranche when the utilization is exactly at the target (scaled to WAD precision)
     uint256 public constant BASE_RATE_GTE_TARGET_UTIL = 0.225e18;
 
-    /// @inheritdoc IRDM
+    /// @inheritdoc IYDM
     function previewJTYieldShare(
         NAV_UNIT _stRawNAV,
         NAV_UNIT _jtRawNAV,
@@ -49,7 +49,7 @@ contract StaticCurveRDM is IRDM {
         return _computeJTYieldShare(_stRawNAV, _jtRawNAV, _betaWAD, _coverageWAD, _jtEffectiveNAV);
     }
 
-    /// @inheritdoc IRDM
+    /// @inheritdoc IYDM
     function jtYieldShare(
         NAV_UNIT _stRawNAV,
         NAV_UNIT _jtRawNAV,
@@ -77,7 +77,7 @@ contract StaticCurveRDM is IRDM {
         returns (uint256)
     {
         /**
-         * Reward Distribution Model (piecewise curve):
+         * Yield Distribution Model (piecewise curve):
          *
          *   R(U) = 0.25 * U                   if 0.9 > U >= 0
          *        = 7.75 * (U - 0.9) + 0.225   if 1 > U >= 0.9

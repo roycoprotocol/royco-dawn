@@ -126,7 +126,7 @@ abstract contract MainnetForkWithAaveTestBase is BaseTest {
                     jtProtocolFeeWAD: JT_PROTOCOL_FEE_WAD,
                     coverageWAD: COVERAGE_WAD,
                     betaWAD: BETA_WAD,
-                    rdm: address(RDM)
+                    ydm: address(YDM)
                 }),
                 address(FACTORY)
             )

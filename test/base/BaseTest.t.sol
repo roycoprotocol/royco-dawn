@@ -376,73 +376,51 @@ abstract contract BaseTest is Test, RoycoRoles, Assertions {
         view
         returns (RolesConfiguration[] memory roles)
     {
-        // Senior Tranche: 10 functions (deposit, redeem, requestDeposit, requestRedeem, cancelDepositRequest, claimCancelDepositRequest, cancelRedeemRequest, claimCancelRedeemRequest, pause, unpause)
-        bytes4[] memory stSelectors = new bytes4[](10);
-        uint64[] memory stRoles = new uint64[](10);
+        // Senior Tranche: 12 functions (deposit x2 , redeem x2, requestDeposit, requestRedeem, cancelDepositRequest, claimCancelDepositRequest, cancelRedeemRequest, claimCancelRedeemRequest, pause, unpause)
+        bytes4[] memory stSelectors = new bytes4[](12);
+        uint64[] memory stRoles = new uint64[](12);
 
         stSelectors[0] = IRoycoVaultTranche.deposit.selector;
         stRoles[0] = DEPOSIT_ROLE;
 
-        stSelectors[1] = IRoycoVaultTranche.redeem.selector;
-        stRoles[1] = REDEEM_ROLE;
+        // deposit(uint256,address,address,uint256)
+        stSelectors[1] = bytes4(0xe4cca4b0);
+        stRoles[1] = DEPOSIT_ROLE;
 
-        stSelectors[2] = IRoycoAsyncVault.requestDeposit.selector;
-        stRoles[2] = DEPOSIT_ROLE;
+        stSelectors[2] = IRoycoVaultTranche.redeem.selector;
+        stRoles[2] = REDEEM_ROLE;
 
-        stSelectors[3] = IRoycoAsyncVault.requestRedeem.selector;
+        // redeem(uint256,address,address,uint256)
+        stSelectors[3] = bytes4(0x9f40a7b3);
         stRoles[3] = REDEEM_ROLE;
 
-        stSelectors[4] = IRoycoAsyncCancellableVault.cancelDepositRequest.selector;
-        stRoles[4] = CANCEL_DEPOSIT_ROLE;
+        stSelectors[4] = IRoycoAsyncVault.requestDeposit.selector;
+        stRoles[4] = DEPOSIT_ROLE;
 
-        stSelectors[5] = IRoycoAsyncCancellableVault.claimCancelDepositRequest.selector;
-        stRoles[5] = CANCEL_DEPOSIT_ROLE;
+        stSelectors[5] = IRoycoAsyncVault.requestRedeem.selector;
+        stRoles[5] = REDEEM_ROLE;
 
-        stSelectors[6] = IRoycoAsyncCancellableVault.cancelRedeemRequest.selector;
-        stRoles[6] = CANCEL_REDEEM_ROLE;
+        stSelectors[6] = IRoycoAsyncCancellableVault.cancelDepositRequest.selector;
+        stRoles[6] = CANCEL_DEPOSIT_ROLE;
 
-        stSelectors[7] = IRoycoAsyncCancellableVault.claimCancelRedeemRequest.selector;
-        stRoles[7] = CANCEL_REDEEM_ROLE;
+        stSelectors[7] = IRoycoAsyncCancellableVault.claimCancelDepositRequest.selector;
+        stRoles[7] = CANCEL_DEPOSIT_ROLE;
 
-        stSelectors[8] = IRoycoAuth.pause.selector;
-        stRoles[8] = PAUSER_ROLE;
+        stSelectors[8] = IRoycoAsyncCancellableVault.cancelRedeemRequest.selector;
+        stRoles[8] = CANCEL_REDEEM_ROLE;
 
-        stSelectors[9] = IRoycoAuth.unpause.selector;
-        stRoles[9] = PAUSER_ROLE;
+        stSelectors[9] = IRoycoAsyncCancellableVault.claimCancelRedeemRequest.selector;
+        stRoles[9] = CANCEL_REDEEM_ROLE;
+
+        stSelectors[10] = IRoycoAuth.pause.selector;
+        stRoles[10] = PAUSER_ROLE;
+
+        stSelectors[11] = IRoycoAuth.unpause.selector;
+        stRoles[11] = PAUSER_ROLE;
 
         // Junior Tranche: same as senior tranche
-        bytes4[] memory jtSelectors = new bytes4[](10);
-        uint64[] memory jtRoles = new uint64[](10);
-
-        jtSelectors[0] = IRoycoVaultTranche.deposit.selector;
-        jtRoles[0] = DEPOSIT_ROLE;
-
-        jtSelectors[1] = IRoycoVaultTranche.redeem.selector;
-        jtRoles[1] = REDEEM_ROLE;
-
-        jtSelectors[2] = IRoycoAsyncVault.requestDeposit.selector;
-        jtRoles[2] = DEPOSIT_ROLE;
-
-        jtSelectors[3] = IRoycoAsyncVault.requestRedeem.selector;
-        jtRoles[3] = REDEEM_ROLE;
-
-        jtSelectors[4] = IRoycoAsyncCancellableVault.cancelDepositRequest.selector;
-        jtRoles[4] = CANCEL_DEPOSIT_ROLE;
-
-        jtSelectors[5] = IRoycoAsyncCancellableVault.claimCancelDepositRequest.selector;
-        jtRoles[5] = CANCEL_DEPOSIT_ROLE;
-
-        jtSelectors[6] = IRoycoAsyncCancellableVault.cancelRedeemRequest.selector;
-        jtRoles[6] = CANCEL_REDEEM_ROLE;
-
-        jtSelectors[7] = IRoycoAsyncCancellableVault.claimCancelRedeemRequest.selector;
-        jtRoles[7] = CANCEL_REDEEM_ROLE;
-
-        jtSelectors[8] = IRoycoAuth.pause.selector;
-        jtRoles[8] = PAUSER_ROLE;
-
-        jtSelectors[9] = IRoycoAuth.unpause.selector;
-        jtRoles[9] = PAUSER_ROLE;
+        bytes4[] memory jtSelectors = stSelectors;
+        uint64[] memory jtRoles = stRoles;
 
         bytes4[] memory kernelSelectors = new bytes4[](5);
         uint64[] memory kernelRoles = new uint64[](5);

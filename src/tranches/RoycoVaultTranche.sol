@@ -230,12 +230,18 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
     }
 
     /// @inheritdoc IRoycoAsyncVault
+    function deposit(TRANCHE_UNIT _assets, address _receiver, address _controller) external virtual override returns (uint256 shares, bytes memory metadata) {
+        (shares, metadata) = deposit(_assets, _receiver, _controller, 0);
+    }
+
+    /// @inheritdoc IRoycoAsyncVault
     function deposit(
         TRANCHE_UNIT _assets,
         address _receiver,
-        address _controller
+        address _controller,
+        uint256 _depositRequestId
     )
-        external
+        public
         virtual
         override
         restricted
@@ -254,8 +260,9 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
         }
 
         // Deposit the assets into the underlying investment opportunity and get the fraction of total assets allocated
-        (NAV_UNIT valueAllocated, NAV_UNIT effectiveNAVToMintAt, bytes memory _metadata) =
-            (TRANCHE_TYPE() == TrancheType.SENIOR ? kernel_.stDeposit(_assets, _controller, _receiver) : kernel_.jtDeposit(_assets, _controller, _receiver));
+        (NAV_UNIT valueAllocated, NAV_UNIT effectiveNAVToMintAt, bytes memory _metadata) = (TRANCHE_TYPE() == TrancheType.SENIOR
+                ? kernel_.stDeposit(_assets, _controller, _receiver, _depositRequestId)
+                : kernel_.jtDeposit(_assets, _controller, _receiver, _depositRequestId));
         metadata = _metadata;
 
         // effectiveNAVToMint at can be zero initially when the tranche is deployed
@@ -280,7 +287,22 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
     )
         external
         virtual
-        override(IRoycoVaultTranche)
+        override
+        returns (AssetClaims memory claims, bytes memory metadata)
+    {
+        (claims, metadata) = redeem(_shares, _receiver, _controller, 0);
+    }
+
+    /// @inheritdoc IRoycoAsyncVault
+    function redeem(
+        uint256 _shares,
+        address _receiver,
+        address _controller,
+        uint256 _redemptionRequestId
+    )
+        public
+        virtual
+        override
         restricted
         onlyCallerOrOperator(_controller)
         whenNotPaused
@@ -292,8 +314,8 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
         // It is expected that the kernel transfers the assets directly to the receiver
         (claims, metadata) =
         (TRANCHE_TYPE() == TrancheType.SENIOR
-                ? IRoycoKernel(kernel()).stRedeem(_shares, _controller, _receiver)
-                : IRoycoKernel(kernel()).jtRedeem(_shares, _controller, _receiver));
+                ? IRoycoKernel(kernel()).stRedeem(_shares, _controller, _receiver, _redemptionRequestId)
+                : IRoycoKernel(kernel()).jtRedeem(_shares, _controller, _receiver, _redemptionRequestId));
 
         // Account for the redemption
         // Shares must be burned after the kernel processes the redemption since the kernel has a causal dependency on the pre-burn and post-sync total share supply

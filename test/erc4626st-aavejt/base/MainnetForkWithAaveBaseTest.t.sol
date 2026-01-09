@@ -20,7 +20,7 @@ abstract contract MainnetForkWithAaveTestBase is BaseTest {
     uint256 internal constant MAX_REDEEM_RELATIVE_DELTA = 1 * BPS;
     uint256 internal constant MAX_CONVERT_TO_ASSETS_RELATIVE_DELTA = 1 * BPS;
     uint256 internal constant AAVE_PREVIEW_DEPOSIT_RELATIVE_DELTA = 1 * BPS;
-    uint24 internal constant JT_REDEMPTION_DELAY_SECONDS = 100;
+    uint24 internal constant JT_REDEMPTION_DELAY_SECONDS = 1_000_000;
 
     Vm.Wallet internal RESERVE;
     address internal RESERVE_ADDRESS;

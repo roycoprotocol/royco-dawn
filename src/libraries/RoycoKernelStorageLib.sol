@@ -42,7 +42,8 @@ struct RoycoKernelState {
     address protocolFeeRecipient;
     address accountant;
     uint24 jtRedemptionDelayInSeconds;
-    mapping(address controller => RedemptionRequest request) jtControllerToRedemptionRequest;
+    uint40 nextJTRedemptionRequestId;
+    mapping(address controller => mapping(uint256 requestId => RedemptionRequest request)) jtControllerToRedemptionRequest;
 }
 
 /**
@@ -78,6 +79,7 @@ library RoycoKernelStorageLib {
         $.protocolFeeRecipient = _params.protocolFeeRecipient;
         $.accountant = _params.accountant;
         $.jtRedemptionDelayInSeconds = _params.jtRedemptionDelayInSeconds;
+        $.nextJTRedemptionRequestId = 1; // Start at 1 to avoid 0 being a valid request ID
     }
 
     /**

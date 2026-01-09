@@ -311,8 +311,8 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
         uint256 index = 0;
 
         // Senior Tranche roles
-        bytes4[] memory stSelectors = new bytes4[](10);
-        uint64[] memory stRoles = new uint64[](10);
+        bytes4[] memory stSelectors = new bytes4[](12);
+        uint64[] memory stRoles = new uint64[](12);
 
         stSelectors[0] = IRoycoVaultTranche.deposit.selector;
         stRoles[0] = DEPOSIT_ROLE;
@@ -334,6 +334,10 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
         stRoles[8] = PAUSER_ROLE;
         stSelectors[9] = IRoycoAuth.unpause.selector;
         stRoles[9] = PAUSER_ROLE;
+        stSelectors[10] = bytes4(0xe4cca4b0);
+        stRoles[10] = DEPOSIT_ROLE;
+        stSelectors[11] = bytes4(0x9f40a7b3);
+        stRoles[11] = REDEEM_ROLE;
 
         roles[index++] = RolesConfiguration({ target: seniorTranche, selectors: stSelectors, roles: stRoles });
 

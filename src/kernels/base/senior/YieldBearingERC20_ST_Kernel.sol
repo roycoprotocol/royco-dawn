@@ -76,7 +76,7 @@ abstract contract YieldBearingERC20_ST_Kernel is RoycoKernel {
         $.stOwnedYieldBearingAssets = $.stOwnedYieldBearingAssets - _stAssets;
 
         // Transfer the yield bearing assets being withdrawn to the receiver
-        address yieldBearingAsset = RoycoKernelStorageLib._getRoycoKernelStorage().stAsset;
-        IERC20(yieldBearingAsset).safeTransfer(_receiver, toUint256(_stAssets));
+        address stYieldBearingAsset = RoycoKernelStorageLib._getRoycoKernelStorage().stAsset;
+        IERC20(stYieldBearingAsset).safeTransfer(_receiver, toUint256(_stAssets));
     }
 }

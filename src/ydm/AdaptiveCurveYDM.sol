@@ -119,8 +119,7 @@ contract AdaptiveCurveYDM is IYDM {
 
     /**
      * @notice Computes the JT yield share for a market, applying any pending adaptation
-     * @dev Uses Simpson's rule (trapezoidal approximation) to compute the average yield share
-     *      over the adaptation period for more accurate time-weighted results
+     * @dev Uses trapezoidal approximation to compute the average continuously adapting yield share for more accurate time-weighted results
      * @param _stRawNAV The raw net asset value of the senior tranche invested assets
      * @param _jtRawNAV The raw net asset value of the junior tranche invested assets
      * @param _betaWAD The JT's sensitivity to the same downside stress that affects ST scaled to WAD precision
@@ -176,6 +175,7 @@ contract AdaptiveCurveYDM is IYDM {
      * @notice Computes the JT yield share at target utilization for a market post-adaptation
      * @param _lastJtYieldShareAtTargetWAD The last recorded JT yield share at target utilization
      * @param _linearAdaptationWAD The linear adaptation to apply to the curve based on the normalized delta, time elapsed, and speed of adaptation
+     * @return jtYieldShareAtTargetWAD The JT yield share at target utilization after applying the adaptation
      */
     function _computeJtYieldShareAtTarget(
         int256 _lastJtYieldShareAtTargetWAD,
@@ -198,6 +198,7 @@ contract AdaptiveCurveYDM is IYDM {
      * @param _steepnessWAD The steepness of the curve for this market (ratio of yield share at 100% utilization to yield share at target)
      * @param _normalizedDeltaFromTargetWAD The delta of the current utilization relative to target utilization, normalized as a ratio of absolute delta to max delta
      * @param _jtYieldShareAtTargetWAD The JT yield share at target utilization
+     * @return jtYieldShareWAD The current JT yield share at target utilization
      */
     function _computeCurrentJtYieldShare(
         int256 _steepnessWAD,

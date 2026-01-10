@@ -28,7 +28,7 @@ library ERC4626KernelStorageLib {
     /**
      * @notice Returns a storage pointer to the ERC4626KernelState storage
      * @dev Uses ERC-7201 storage slot pattern for collision-resistant storage
-     * @return $ Storage pointer to the ERC4626 ST kernel state
+     * @return $ Storage pointer to the ERC4626 kernel state
      */
     function _getERC4626KernelStorage() internal pure returns (ERC4626KernelState storage $) {
         assembly ("memory-safe") {

@@ -18,7 +18,7 @@ interface IRoycoAccountant {
      * @custom:field betaWAD - The junior tranche's sensitivity to the same downside stress that affects the senior tranche, scaled to WAD precision
      *                         For example, beta is 0 when JT is in the RFR and 1 when JT is in the same opportunity as senior
      * @custom:field ydm - The market's Yield Distribution Model (YDM), responsible for determining the ST's yield split between ST and JT
-     * @custom:field protocolFeeRecipient - The market's configured protocol fee recipient
+     * @custom:field ydmInitializationData - The data used to initialize the YDM for this market
      */
     struct RoycoAccountantInitParams {
         address kernel;
@@ -27,6 +27,7 @@ interface IRoycoAccountant {
         uint64 coverageWAD;
         uint96 betaWAD;
         address ydm;
+        bytes ydmInitializationData;
     }
 
     /**
@@ -89,6 +90,9 @@ interface IRoycoAccountant {
      * @param resultingState The resulting market state after synchronizing the tranche accounting
      */
     event PostOpTrancheAccountingSynced(Operation op, SyncedAccountingState resultingState);
+
+    /// @notice Thrown when the YDM failed to initialize
+    error FAILED_TO_INITIALIZE_YDM(bytes data);
 
     /// @notice Thrown when the caller of the function is not the accountant's configured Royco Kernel
     error ONLY_ROYCO_KERNEL();

@@ -15,11 +15,11 @@ TRANCHE_UNIT constant MAX_TRANCHE_UNITS = TRANCHE_UNIT.wrap(type(uint256).max);
 /// @dev Constant for the WAD scaling factor
 uint256 constant WAD = 1e18;
 
+/// @dev Constant for the WAD scaling factor as an integer
+int256 constant WAD_INT = int256(WAD);
+
 /// @dev Constant for the number of decimals of precision a WAD denominated quantity has
 uint256 constant WAD_DECIMALS = 18;
-
-/// @dev Constant for the RAY scaling factor
-uint256 constant RAY = 1e27;
 
 /// @dev The minimum configurable coverage percentage, scaled to WAD precision
 uint256 constant MIN_COVERAGE_WAD = 0.01e18;

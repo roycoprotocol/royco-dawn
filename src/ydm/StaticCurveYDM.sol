@@ -113,10 +113,10 @@ contract StaticCurveYDM is IYDM {
          * Y_T   → JT yield share at target utilization (90%)
          *
          * Below 90% utilization, JT yield allocation rises based on S_lt.
-         * At or above 90% utilization, JT yield allocation rises more steeply based on S_gte,
-         * penalizing high utilization and incentivizing JT deposits or ST withdrawals.
+         * At or above 90% utilization, JT yield allocation rises more steeply based on S_gte,  penalizing high utilization and incentivizing JT deposits or ST withdrawals
          * Output is capped at 100% when utilization reaches or exceeds 100%.
          */
+
         // Compute the utilization of the market
         uint256 utilizationWAD = UtilsLib.computeUtilization(_stRawNAV, _jtRawNAV, _betaWAD, _coverageWAD, _jtEffectiveNAV);
         utilizationWAD = utilizationWAD > WAD ? WAD : utilizationWAD;

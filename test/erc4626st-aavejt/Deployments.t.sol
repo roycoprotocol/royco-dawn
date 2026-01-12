@@ -5,6 +5,7 @@ import { IRoycoFactory, RoycoFactory } from "../../src/RoycoFactory.sol";
 import { RoycoAccountant } from "../../src/accountant/RoycoAccountant.sol";
 import { RoycoRoles } from "../../src/auth/RoycoRoles.sol";
 import { IRoycoAuth } from "../../src/interfaces/IRoycoAuth.sol";
+import { IYDM } from "../../src/interfaces/IYDM.sol";
 import { IPool } from "../../src/interfaces/aave/IPool.sol";
 import { TrancheType } from "../../src/interfaces/kernel/IRoycoKernel.sol";
 import { ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "../../src/libraries/Constants.sol";
@@ -318,7 +319,7 @@ contract DeploymentsTest is MainnetForkWithAaveTestBase {
                     coverageWAD: COVERAGE_WAD,
                     betaWAD: BETA_WAD,
                     ydm: address(YDM),
-                    ydmInitializationData: new bytes(0)
+                    ydmInitializationData: abi.encodeCall(IYDM.initializeYDMForMarket, (0.225e18, 1e18))
                 }),
                 OWNER_ADDRESS // invalid authority: should be FACTORY
             )
@@ -467,7 +468,7 @@ contract DeploymentsTest is MainnetForkWithAaveTestBase {
                     coverageWAD: COVERAGE_WAD,
                     betaWAD: BETA_WAD,
                     ydm: address(YDM),
-                    ydmInitializationData: new bytes(0)
+                    ydmInitializationData: abi.encodeCall(IYDM.initializeYDMForMarket, (0.225e18, 1e18))
                 }),
                 address(FACTORY)
             )
@@ -595,7 +596,7 @@ contract DeploymentsTest is MainnetForkWithAaveTestBase {
                     coverageWAD: COVERAGE_WAD,
                     betaWAD: BETA_WAD,
                     ydm: address(YDM),
-                    ydmInitializationData: new bytes(0)
+                    ydmInitializationData: abi.encodeCall(IYDM.initializeYDMForMarket, (0.225e18, 1e18))
                 }),
                 address(FACTORY)
             )

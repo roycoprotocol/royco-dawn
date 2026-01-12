@@ -29,7 +29,7 @@ abstract contract YieldBearingERC20_JT_Kernel is RoycoKernel {
 
     /// @inheritdoc RoycoKernel
     function _getJuniorTrancheRawNAV() internal view override(RoycoKernel) returns (NAV_UNIT) {
-        // Get the yield bearned assets owned by JT and convert them to NAV units via the configured quoter
+        // Get the yield bearing assets owned by JT and convert them to NAV units via the configured quoter
         return jtConvertTrancheUnitsToNAVUnits(YieldBearingERC20StorageLib._getYieldBearingERC20KernelStorage().jtOwnedYieldBearingAssets);
     }
 

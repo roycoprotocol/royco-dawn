@@ -53,7 +53,7 @@ contract AdaptiveCurveYDM is IYDM {
     mapping(address accountant => AdaptiveYieldCurve curve) public accountantToCurve;
 
     /**
-     * @notice Emitted when the static curve YDM is initialized for a market
+     * @notice Emitted when the adaptive curve YDM is initialized for a market
      * @param accountant The accountant for the market that the YDM was initialized for
      * @param steepnessAfterTargetWAD The steepness of the curve for this market (ratio of yield share at 100% utilization to yield share at target), scaled to WAD precision
      * @param jtYieldShareAtTargetWAD The JT yield share at target utilization, scaled to WAD precision
@@ -64,9 +64,9 @@ contract AdaptiveCurveYDM is IYDM {
      * @notice Emitted when the JT yield share is updated and the curve is adapted
      * @param accountant The accountant for the market that the yield share was updated for
      * @param avgJtYieldShare The average JT yield share during the period since the last adaptation (returned to the accountant)
-     * @param jtYieldShareAtTarget The new JT yield share at the target utilization after applying adaptations
+     * @param newJtYieldShareAtTarget The new JT yield share at the target utilization after applying adaptations
      */
-    event JuniorTrancheYieldShareUpdated(address indexed accountant, uint256 avgJtYieldShare, uint256 jtYieldShareAtTarget);
+    event YdmAdapted(address indexed accountant, uint256 avgJtYieldShare, uint256 newJtYieldShareAtTarget);
 
     /// @inheritdoc IYDM
     function initializeYDMForMarket(uint256 _jtYieldShareAtTargetUtilWAD, uint256 _jtYieldShareAtFullUtilWAD) external override(IYDM) {
@@ -123,7 +123,7 @@ contract AdaptiveCurveYDM is IYDM {
         curve.jtYieldShareAtTargetWAD = int64(newJtYieldShareAtTargetWAD);
         curve.lastAdaptationTimestamp = uint40(block.timestamp);
 
-        emit JuniorTrancheYieldShareUpdated(msg.sender, jtYieldShareWAD, uint256(newJtYieldShareAtTargetWAD));
+        emit YdmAdapted(msg.sender, jtYieldShareWAD, uint256(newJtYieldShareAtTargetWAD));
     }
 
     /**
@@ -137,7 +137,7 @@ contract AdaptiveCurveYDM is IYDM {
      * @param _jtEffectiveNAV JT's net asset value after applying provided coverage, JT yield, ST yield distribution, and JT losses
      *                        Equivalent to its remaining loss-absorption buffer to cover ST's and its own drawdowns
      * @return jtYieldShareWAD The percentage of the ST's yield allocated to its JT, scaled to WAD precision
-     *                         It is implied that (WAD - jtYieldPercentageWAD) will be the percentage allocated to ST, excluding any protocol fees
+     *                         It is implied that (WAD - jtYieldShareWAD) will be the percentage allocated to ST, excluding any protocol fees
      * @return newJtYieldShareAtTargetWAD The updated yield share at target utilization after adaptation, scaled to WAD
      */
     function _jtYieldShare(
@@ -207,7 +207,7 @@ contract AdaptiveCurveYDM is IYDM {
      * @param _steepnessWAD The steepness of the curve for this market (ratio of yield share at 100% utilization to yield share at target)
      * @param _normalizedDeltaFromTargetWAD The delta of the current utilization relative to target utilization, normalized as a ratio of absolute delta to max delta
      * @param _jtYieldShareAtTargetWAD The JT yield share at target utilization
-     * @return jtYieldShareWAD The current JT yield share at target utilization
+     * @return jtYieldShareWAD The JT yield share at current utilization
      */
     function _computeCurrentJtYieldShare(
         int256 _steepnessWAD,

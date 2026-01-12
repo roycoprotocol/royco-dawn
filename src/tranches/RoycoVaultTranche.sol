@@ -9,7 +9,6 @@ import { SafeERC20 } from "../../lib/openzeppelin-contracts/contracts/token/ERC2
 import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import { RoycoBase } from "../base/RoycoBase.sol";
 import { IAsyncJTDepositKernel } from "../interfaces/kernel/IAsyncJTDepositKernel.sol";
-
 import { IAsyncSTDepositKernel } from "../interfaces/kernel/IAsyncSTDepositKernel.sol";
 import { IAsyncSTWithdrawalKernel } from "../interfaces/kernel/IAsyncSTWithdrawalKernel.sol";
 import { IRoycoKernel } from "../interfaces/kernel/IRoycoKernel.sol";
@@ -17,8 +16,7 @@ import { ExecutionModel, IRoycoKernel, SharesRedemptionModel } from "../interfac
 import { IERC165, IRoycoAsyncCancellableVault, IRoycoAsyncVault, IRoycoVaultTranche } from "../interfaces/tranche/IRoycoVaultTranche.sol";
 import { ZERO_NAV_UNITS } from "../libraries/Constants.sol";
 import { RoycoTrancheStorageLib } from "../libraries/RoycoTrancheStorageLib.sol";
-import { AssetClaims, TrancheType } from "../libraries/Types.sol";
-import { Action, SyncedAccountingState, TrancheDeploymentParams } from "../libraries/Types.sol";
+import { Action, AssetClaims, SyncedAccountingState, TrancheDeploymentParams, TrancheType } from "../libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toNAVUnits, toTrancheUnits, toUint256 } from "../libraries/Units.sol";
 import { UnitsMathLib } from "../libraries/Units.sol";
 import { UtilsLib } from "../libraries/UtilsLib.sol";

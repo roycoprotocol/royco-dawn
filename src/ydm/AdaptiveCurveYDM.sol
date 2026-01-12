@@ -213,8 +213,8 @@ contract AdaptiveCurveYDM is IYDM {
         /**
          * Adaptive Curve Yield Distribution Model (adaptive piecewise curve):
          *
-         *   Y(U) = ((S - 1) * Δ + 1) * Y_T     if U >= 0.9  (above target)
-         *          ((1 - 1/S) * Δ + 1) * Y_T   if U < 0.9   (below target)
+         *   Y(U) = ((1 - 1/S) * Δ + 1) * Y_T   if U < 0.9   (below target)
+         *          ((S - 1) * Δ + 1) * Y_T     if U >= 0.9  (at or above target)
          *
          * Y(U) → Percentage of ST yield paid to the junior tranche
          * U    → Utilization = ((ST_RAW_NAV + (JT_RAW_NAV * BETA_%)) * COV_%) / JT_EFFECTIVE_NAV
@@ -233,16 +233,16 @@ contract AdaptiveCurveYDM is IYDM {
          * - High utilization → Y_T adapts upward → entire curve scales up → JT receives more yield to attract deposits
          * - Low utilization  → Y_T adapts downward → entire curve scales down → JT receives less yield as capital is abundant
          *
-         * Steepness (S) is fixed at initialization and determines the curve's shape (ratio between endpoints).
-         * Y_T is the single adaptive parameter that shifts the curve vertically in response to market conditions.
+         * Steepness (S) is fixed at initialization and determines the curve's shape (ratio between JT yield share target and full utilization)
+         * Y_T is the single adaptive parameter that shifts the curve vertically in response to market forces
          */
 
         // Compute the coefficient based on the region of the curve that the market is currently in
         int256 coefficient = _normalizedDeltaFromTargetWAD < 0
-            ? WAD_INT - ((WAD_INT * WAD_INT) / _steepnessWAD)  // 1 - 1/C if below the kink
-            : _steepnessWAD - WAD_INT; // C - 1 if above the kink
+            ? WAD_INT - ((WAD_INT * WAD_INT) / _steepnessWAD)  // 1 - 1/S if below the kink
+            : _steepnessWAD - WAD_INT; // S - 1 if at or above the kink
 
-        jtYieldShareWAD = uint256(((coefficient * _normalizedDeltaFromTargetWAD / WAD_INT) + WAD_INT) * _jtYieldShareAtTargetWAD / WAD_INT);
+        jtYieldShareWAD = uint256((((coefficient * _normalizedDeltaFromTargetWAD / WAD_INT) + WAD_INT) * _jtYieldShareAtTargetWAD) / WAD_INT);
         jtYieldShareWAD = jtYieldShareWAD > WAD ? WAD : jtYieldShareWAD;
     }
 }

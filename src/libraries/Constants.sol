@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
-
 import { NAV_UNIT, TRANCHE_UNIT } from "./Units.sol";
 
 /// @dev Constant for 0 NAV units

@@ -103,8 +103,8 @@ contract StaticCurveYDM is IYDM {
         /**
          * Yield Distribution Model (piecewise curve):
          *
-         *   Y(U) = S_lt * U                      if U < 0.9
-         *        = S_gte * (U - 0.9) + Y_T       if U >= 0.9
+         *   Y(U) = S_lt * U                      if U < 0.9  (below target)
+         *        = S_gte * (U - 0.9) + Y_T       if U >= 0.9 (at or above target)
          *
          * Y(U)  → Percentage of ST yield paid to the junior tranche
          * U     → Utilization = ((ST_RAW_NAV + (JT_RAW_NAV * BETA_%)) * COV_%) / JT_EFFECTIVE_NAV

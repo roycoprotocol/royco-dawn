@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import { IYDM } from "../interfaces/IYDM.sol";
-import { WAD } from "../libraries/Constants.sol";
+import { TARGET_UTILIZATION_WAD, WAD } from "../libraries/Constants.sol";
 import { NAV_UNIT } from "../libraries/Units.sol";
 import { UtilsLib } from "../libraries/UtilsLib.sol";
 
@@ -15,14 +15,6 @@ import { UtilsLib } from "../libraries/UtilsLib.sol";
  */
 contract StaticCurveYDM is IYDM {
     using Math for uint256;
-
-    /**
-     * @dev Constant for the target utilization (kink) of the junior tranche's (90%) loss capital
-     * @dev Utilization = ((ST_RAW_NAV + (JT_RAW_NAV * BETA_%)) * COV_%) / JT_EFFECTIVE_NAV
-     * @dev If Utilization <= 1, the senior tranche exposure is collateralized as per the market's configured coverage requirement
-     *      If Utilization > 1, the senior tranche exposure is undercollateralized as per the market's configured coverage requirement
-     */
-    uint256 public constant TARGET_UTILIZATION_WAD = 0.9e18;
 
     /**
      * @notice Represents the state of a market's YDM

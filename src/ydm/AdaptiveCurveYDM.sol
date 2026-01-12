@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { FixedPointMathLib } from "../../lib/solady/src/utils/FixedPointMathLib.sol";
 import { IYDM } from "../interfaces/IYDM.sol";
-import { WAD, WAD_INT } from "../libraries/Constants.sol";
+import { TARGET_UTILIZATION_WAD_INT, WAD, WAD_INT } from "../libraries/Constants.sol";
 import { NAV_UNIT } from "../libraries/Units.sol";
 import { UtilsLib } from "../libraries/UtilsLib.sol";
 
@@ -15,14 +15,6 @@ import { UtilsLib } from "../libraries/UtilsLib.sol";
  * @dev Inspired by Morpho's AdaptiveCurveIrm: https://github.com/morpho-org/morpho-blue-irm
  */
 contract AdaptiveCurveYDM is IYDM {
-    /**
-     * @dev Constant for the target utilization (kink) of the junior tranche's (90%) loss capital
-     * @dev Utilization = ((ST_RAW_NAV + (JT_RAW_NAV * BETA_%)) * COV_%) / JT_EFFECTIVE_NAV
-     * @dev If Utilization <= 1, the senior tranche exposure is collateralized as per the market's configured coverage requirement
-     *      If Utilization > 1, the senior tranche exposure is undercollateralized as per the market's configured coverage requirement
-     */
-    int256 public constant TARGET_UTILIZATION_WAD = 0.9e18;
-
     /**
      * @notice The maximum speed at which the curve adapts per second scaled to WAD precision
      * @dev This represents how quickly the curve shifts up or down at the edges, 100% and 0% utilization respectively
@@ -156,9 +148,9 @@ contract AdaptiveCurveYDM is IYDM {
         int256 utilizationWAD = unboundedUtilizationWAD > WAD ? WAD_INT : int256(unboundedUtilizationWAD);
 
         // Compute the max delta from the target utilization in the region of the curve that the market is currently in (above or below the kink)
-        int256 maxDeltaFromTargetInRegionWAD = utilizationWAD > TARGET_UTILIZATION_WAD ? (WAD_INT - TARGET_UTILIZATION_WAD) : TARGET_UTILIZATION_WAD;
+        int256 maxDeltaFromTargetInRegionWAD = utilizationWAD > TARGET_UTILIZATION_WAD_INT ? (WAD_INT - TARGET_UTILIZATION_WAD_INT) : TARGET_UTILIZATION_WAD_INT;
         // Normalize the actual delta from the target utilization relative to the max delta in the current region
-        int256 normalizedDeltaFromTargetWAD = ((utilizationWAD - TARGET_UTILIZATION_WAD) * WAD_INT) / maxDeltaFromTargetInRegionWAD;
+        int256 normalizedDeltaFromTargetWAD = ((utilizationWAD - TARGET_UTILIZATION_WAD_INT) * WAD_INT) / maxDeltaFromTargetInRegionWAD;
 
         // Retrieve the current YDM curve for the market
         AdaptiveYieldCurve memory curve = accountantToCurve[msg.sender];

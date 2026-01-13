@@ -7,7 +7,7 @@ import { MAX_TRANCHE_UNITS } from "../../../libraries/Constants.sol";
 import { RoycoKernelState, RoycoKernelStorageLib } from "../../../libraries/RoycoKernelStorageLib.sol";
 import { AssetClaims, SyncedAccountingState } from "../../../libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toUint256 } from "../../../libraries/Units.sol";
-import { YieldBearingERC20KernelState, YieldBearingERC20StorageLib } from "../../../libraries/kernels/YieldBearingERC20StorageLib.sol";
+import { YieldBearingERC20KernelState, YieldBearingERC20KernelStorageLib } from "../../../libraries/kernels/YieldBearingERC20KernelStorageLib.sol";
 import { RoycoKernel, TrancheType } from "../RoycoKernel.sol";
 
 abstract contract YieldBearingERC20_ST_Kernel is RoycoKernel {
@@ -41,7 +41,7 @@ abstract contract YieldBearingERC20_ST_Kernel is RoycoKernel {
     /// @inheritdoc RoycoKernel
     function _getSeniorTrancheRawNAV() internal view override(RoycoKernel) returns (NAV_UNIT) {
         // Get the yield bearing assets owned by ST and convert them to NAV units via the configured quoter
-        return stConvertTrancheUnitsToNAVUnits(YieldBearingERC20StorageLib._getYieldBearingERC20KernelStorage().stOwnedYieldBearingAssets);
+        return stConvertTrancheUnitsToNAVUnits(YieldBearingERC20KernelStorageLib._getYieldBearingERC20KernelStorage().stOwnedYieldBearingAssets);
     }
 
     /// @inheritdoc RoycoKernel
@@ -53,7 +53,7 @@ abstract contract YieldBearingERC20_ST_Kernel is RoycoKernel {
     /// @inheritdoc RoycoKernel
     function _stMaxWithdrawableGlobally(address) internal view override(RoycoKernel) returns (TRANCHE_UNIT) {
         // The max yield bearing assets that can be withdrawn is the number of assets owned by ST
-        return YieldBearingERC20StorageLib._getYieldBearingERC20KernelStorage().stOwnedYieldBearingAssets;
+        return YieldBearingERC20KernelStorageLib._getYieldBearingERC20KernelStorage().stOwnedYieldBearingAssets;
     }
 
     /// @inheritdoc RoycoKernel
@@ -65,14 +65,14 @@ abstract contract YieldBearingERC20_ST_Kernel is RoycoKernel {
     /// @inheritdoc RoycoKernel
     function _stDepositAssets(TRANCHE_UNIT _stAssets) internal override(RoycoKernel) {
         // The tranche vault has already transfered the assets to the kernel, so simply credit those assets to the senior tranche
-        YieldBearingERC20KernelState storage $ = YieldBearingERC20StorageLib._getYieldBearingERC20KernelStorage();
+        YieldBearingERC20KernelState storage $ = YieldBearingERC20KernelStorageLib._getYieldBearingERC20KernelStorage();
         $.stOwnedYieldBearingAssets = $.stOwnedYieldBearingAssets + _stAssets;
     }
 
     /// @inheritdoc RoycoKernel
     function _stWithdrawAssets(TRANCHE_UNIT _stAssets, address _receiver) internal override(RoycoKernel) {
         // Debit the yield bearing assets being withdrawn from the senior tranche
-        YieldBearingERC20KernelState storage $ = YieldBearingERC20StorageLib._getYieldBearingERC20KernelStorage();
+        YieldBearingERC20KernelState storage $ = YieldBearingERC20KernelStorageLib._getYieldBearingERC20KernelStorage();
         $.stOwnedYieldBearingAssets = $.stOwnedYieldBearingAssets - _stAssets;
 
         // Transfer the yield bearing assets being withdrawn to the receiver

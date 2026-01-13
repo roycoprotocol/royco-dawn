@@ -15,13 +15,13 @@ struct YieldBearingERC20KernelState {
 }
 
 /**
- * @title YieldBearingERC20StorageLib
+ * @title YieldBearingERC20KernelStorageLib
  * @notice A lightweight storage library for reading and mutating state for kernels that hold yield bearing ERC20 compliant assets
  */
-library YieldBearingERC20StorageLib {
+library YieldBearingERC20KernelStorageLib {
     /// @dev Storage slot for YieldBearingERC20KernelState using ERC-7201 pattern
     // keccak256(abi.encode(uint256(keccak256("Royco.storage.YieldBearingERC20KernelState")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant YIELD_BEARING_ERC20_KERNEL_STORAGE_SLOT = 0x31dcae1a6c8e7be3177d6c56be6f186dd279c19bdd7d7f4820a1be934a634800;
+    bytes32 private constant YIELD_BEARING_ERC20_KERNEL_STORAGE_SLOT = 0xf08fe32678c2f7ad036517d5591e1931813c52b18720c8167a60c6d75df34500;
 
     /**
      * @notice Returns a storage pointer to the YieldBearingERC20KernelState storage

@@ -242,7 +242,8 @@ contract DeployScript is Script, Create2DeployUtils, RoycoRoles {
             jtProtocolFeeWAD: jtProtocolFeeWAD,
             coverageWAD: coverageWAD,
             betaWAD: betaWAD,
-            ydm: ydmAddress
+            ydm: ydmAddress,
+            ydmInitializationData: new bytes(0)
         });
 
         return abi.encodeCall(RoycoAccountant.initialize, (accountantParams, factoryAddress));

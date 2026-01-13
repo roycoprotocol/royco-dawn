@@ -7,7 +7,6 @@ import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib } from "../libraries/Units.s
 import { ERC4626KernelState, ERC4626KernelStorageLib } from "../libraries/kernels/ERC4626KernelStorageLib.sol";
 import { AssetClaims, IRoycoKernel, RoycoKernel, SyncedAccountingState, TrancheType, ZERO_NAV_UNITS } from "./base/RoycoKernel.sol";
 import { ERC4626_JT_Kernel } from "./base/junior/ERC4626_JT_Kernel.sol";
-import { IdenticalAssetsQuoter } from "./base/quoter/IdenticalAssetsQuoter.sol";
 import { InKindAssetsQuoter } from "./base/quoter/InKindAssetsQuoter.sol";
 import { ERC4626_ST_Kernel } from "./base/senior/ERC4626_ST_Kernel.sol";
 

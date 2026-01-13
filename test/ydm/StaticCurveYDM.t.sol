@@ -15,7 +15,7 @@ contract StaticCurveYDMTest is BaseTest {
     uint256 public constant TARGET_UTILIZATION = 0.9e18;
     uint256 public constant SLOPE_LT_TARGET_UTIL = 0.25e18;
     uint256 public constant SLOPE_GTE_TARGET_UTIL = 7.75e18;
-    uint256 public constant BASE_RATE_GTE_TARGET_UTIL = 0.225e18;
+    uint256 public constant JT_YIELD_SHARE_AT_TARGET_UTIL = 0.225e18;
 
     // Test parameters
     uint256 public constant BETA_100_PCT = WAD; // 100% beta
@@ -23,6 +23,8 @@ contract StaticCurveYDMTest is BaseTest {
 
     function setUp() public {
         _setUpRoyco();
+
+        YDM.initializeYDMForMarket(0, JT_YIELD_SHARE_AT_TARGET_UTIL, WAD);
     }
 
     // ============================================
@@ -54,8 +56,8 @@ contract StaticCurveYDMTest is BaseTest {
         uint256 coverageWAD = COVERAGE_100_PCT;
 
         uint256 result = YDM.previewJTYieldShare(stRawNAV, jtRawNAV, betaWAD, coverageWAD, jtEffectiveNAV);
-        // At U = 0.9, R(U) = BASE_RATE_GTE_TARGET_UTIL = 0.225e18
-        assertEq(result, BASE_RATE_GTE_TARGET_UTIL, "At U=0.9, yield share should equal BASE_RATE_GTE_TARGET_UTIL");
+        // At U = 0.9, R(U) = JT_YIELD_SHARE_AT_TARGET_UTIL = 0.225e18
+        assertEq(result, JT_YIELD_SHARE_AT_TARGET_UTIL, "At U=0.9, yield share should equal JT_YIELD_SHARE_AT_TARGET_UTIL");
     }
 
     /// @notice Test utilization exactly at 1.0 (100%)
@@ -103,7 +105,7 @@ contract StaticCurveYDMTest is BaseTest {
         // With Floor rounding: 0.224999999999999999e18
         uint256 expected = SLOPE_LT_TARGET_UTIL.mulDiv(899_999_999_999_999_999, WAD, Math.Rounding.Floor);
         assertEq(result, expected, "Just below target should use first leg formula");
-        assertLt(result, BASE_RATE_GTE_TARGET_UTIL, "Result should be less than BASE_RATE_GTE_TARGET_UTIL");
+        assertLt(result, JT_YIELD_SHARE_AT_TARGET_UTIL, "Result should be less than JT_YIELD_SHARE_AT_TARGET_UTIL");
     }
 
     /// @notice Test utilization just above target (0.9 + epsilon)
@@ -119,8 +121,8 @@ contract StaticCurveYDMTest is BaseTest {
         // Should use second leg: R(U) = 7.75 * (U - 0.9) + 0.225
         // Expected: 7.75 * (0.900000000000000001 - 0.9) + 0.225 = 7.75 * 0.000000000000000001 + 0.225
         // = 0.00000000000000000775 + 0.225 = 0.22500000000000000775
-        // With Floor rounding, this should be very close to BASE_RATE_GTE_TARGET_UTIL
-        assertGe(result, BASE_RATE_GTE_TARGET_UTIL, "Just above target should use second leg formula");
+        // With Floor rounding, this should be very close to JT_YIELD_SHARE_AT_TARGET_UTIL
+        assertGe(result, JT_YIELD_SHARE_AT_TARGET_UTIL, "Just above target should use second leg formula");
     }
 
     /// @notice Test utilization just below 1.0
@@ -139,7 +141,7 @@ contract StaticCurveYDMTest is BaseTest {
         // = 0.77499999999999999225 + 0.225 = 0.99999999999999999225
         // With Floor rounding, should be less than 1.0
         assertLt(result, WAD, "Just below 1.0 should be less than 1.0");
-        assertGt(result, BASE_RATE_GTE_TARGET_UTIL, "Should be greater than BASE_RATE_GTE_TARGET_UTIL");
+        assertGt(result, JT_YIELD_SHARE_AT_TARGET_UTIL, "Should be greater than JT_YIELD_SHARE_AT_TARGET_UTIL");
     }
 
     /// @notice Test with very small utilization
@@ -332,9 +334,9 @@ contract StaticCurveYDMTest is BaseTest {
         // Calculate what first leg would give
         uint256 firstLeg = SLOPE_LT_TARGET_UTIL.mulDiv(TARGET_UTILIZATION, WAD, Math.Rounding.Floor);
         // Calculate what second leg gives
-        uint256 secondLeg = BASE_RATE_GTE_TARGET_UTIL;
+        uint256 secondLeg = JT_YIELD_SHARE_AT_TARGET_UTIL;
 
-        assertEq(result, BASE_RATE_GTE_TARGET_UTIL, "At boundary, should equal BASE_RATE_GTE_TARGET_UTIL");
+        assertEq(result, JT_YIELD_SHARE_AT_TARGET_UTIL, "At boundary, should equal JT_YIELD_SHARE_AT_TARGET_UTIL");
         assertEq(firstLeg, secondLeg, "Both legs should give same result at boundary");
     }
 
@@ -431,7 +433,7 @@ contract StaticCurveYDMTest is BaseTest {
             // Should use first leg: R(U) = 0.25 * U
             uint256 expected = SLOPE_LT_TARGET_UTIL.mulDiv(utilization, WAD, Math.Rounding.Floor);
             assertEq(result, expected, "Just below target should use first leg formula");
-            assertLt(result, BASE_RATE_GTE_TARGET_UTIL, "Result should be less than BASE_RATE_GTE_TARGET_UTIL");
+            assertLt(result, JT_YIELD_SHARE_AT_TARGET_UTIL, "Result should be less than JT_YIELD_SHARE_AT_TARGET_UTIL");
         }
     }
 
@@ -464,7 +466,7 @@ contract StaticCurveYDMTest is BaseTest {
                 toNAVUnits(uint256(_stRawNAV)), toNAVUnits(uint256(_jtRawNAV)), _betaWAD, _coverageWAD, toNAVUnits(uint256(_jtEffectiveNAV))
             );
             // Should use second leg: R(U) = 7.75 * (U - 0.9) + 0.225
-            assertGe(result, BASE_RATE_GTE_TARGET_UTIL, "Just above target should use second leg formula");
+            assertGe(result, JT_YIELD_SHARE_AT_TARGET_UTIL, "Just above target should use second leg formula");
         }
     }
 
@@ -497,7 +499,7 @@ contract StaticCurveYDMTest is BaseTest {
                 toNAVUnits(uint256(_stRawNAV)), toNAVUnits(uint256(_jtRawNAV)), _betaWAD, _coverageWAD, toNAVUnits(uint256(_jtEffectiveNAV))
             );
             assertLt(result, WAD, "Just below 1.0 should be less than 1.0");
-            assertGt(result, BASE_RATE_GTE_TARGET_UTIL, "Should be greater than BASE_RATE_GTE_TARGET_UTIL");
+            assertGt(result, JT_YIELD_SHARE_AT_TARGET_UTIL, "Should be greater than JT_YIELD_SHARE_AT_TARGET_UTIL");
         }
     }
 
@@ -581,7 +583,7 @@ contract StaticCurveYDMTest is BaseTest {
         uint256 result = YDM.jtYieldShare(stRawNAV, jtRawNAV, betaWAD, coverageWAD, jtEffectiveNAV);
 
         // Second leg: R(U) = 7.75 * (U - 0.9) + 0.225
-        uint256 expected = SLOPE_GTE_TARGET_UTIL.mulDiv((utilization - TARGET_UTILIZATION), WAD, Math.Rounding.Floor) + BASE_RATE_GTE_TARGET_UTIL;
+        uint256 expected = SLOPE_GTE_TARGET_UTIL.mulDiv((utilization - TARGET_UTILIZATION), WAD, Math.Rounding.Floor) + JT_YIELD_SHARE_AT_TARGET_UTIL;
 
         assertEq(result, expected, "For TARGET_UTILIZATION <= U < 1.0, jtYieldShare should use the second leg formula");
     }

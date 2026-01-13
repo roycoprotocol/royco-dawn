@@ -10,7 +10,6 @@ import { ActionMetadataFormat, AssetClaims, SyncedAccountingState, TrancheType }
 import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib } from "../../libraries/Units.sol";
 import { UtilsLib } from "../../libraries/UtilsLib.sol";
 import { IRoycoAccountant, Operation } from "./../../interfaces/IRoycoAccountant.sol";
-import { console2 } from "forge-std/console2.sol";
 
 /**
  * @title RoycoKernel
@@ -49,7 +48,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
     /// @param _requestId The JT redemption request ID to validate
     modifier checkJTRedemptionRequestId(address _controller, uint256 _requestId) {
         RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
-        require($.jtControllerToRedemptionRequest[_controller][_requestId].totalJTSharesToRedeem != 0, INVALID_REQUEST_ID(_requestId));
+        require($.jtControllerToIdToRedemptionRequest[_controller][_requestId].totalJTSharesToRedeem != 0, INVALID_REQUEST_ID(_requestId));
         _;
     }
 
@@ -338,7 +337,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         // Create a new redemption request for the controller
         RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
         requestId = $.nextJTRedemptionRequestId++;
-        RedemptionRequest storage request = $.jtControllerToRedemptionRequest[_controller][requestId];
+        RedemptionRequest storage request = $.jtControllerToIdToRedemptionRequest[_controller][requestId];
 
         // Add the shares to the total shares to redeem in the controller's current redemption request
         // If an existing redemption request exists, it's redemption delay is refreshed based on the current time
@@ -352,7 +351,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
 
     /// @inheritdoc IRoycoKernel
     function jtPendingRedeemRequest(uint256 _requestId, address _controller) public view virtual override(IRoycoKernel) returns (uint256 pendingShares) {
-        RedemptionRequest storage request = RoycoKernelStorageLib._getRoycoKernelStorage().jtControllerToRedemptionRequest[_controller][_requestId];
+        RedemptionRequest storage request = RoycoKernelStorageLib._getRoycoKernelStorage().jtControllerToIdToRedemptionRequest[_controller][_requestId];
         // If the redemption is canceled or the request is claimable, no shares are still in a pending state
         if (request.isCanceled || request.claimableAtTimestamp <= block.timestamp) return 0;
         // The shares in the controller's redemption request are still pending
@@ -362,7 +361,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
     /// @inheritdoc IRoycoKernel
     function jtClaimableRedeemRequest(uint256 _requestId, address _controller) public view virtual override(IRoycoKernel) returns (uint256 claimableShares) {
         // Get how many shares from the request are now in a redeemable (claimable) state
-        RedemptionRequest storage request = RoycoKernelStorageLib._getRoycoKernelStorage().jtControllerToRedemptionRequest[_controller][_requestId];
+        RedemptionRequest storage request = RoycoKernelStorageLib._getRoycoKernelStorage().jtControllerToIdToRedemptionRequest[_controller][_requestId];
         claimableShares = _getRedeemableSharesForRequest(request);
     }
 
@@ -378,7 +377,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         onlyJuniorTranche
         checkJTRedemptionRequestId(_controller, _requestId)
     {
-        RedemptionRequest storage request = RoycoKernelStorageLib._getRoycoKernelStorage().jtControllerToRedemptionRequest[_controller][_requestId];
+        RedemptionRequest storage request = RoycoKernelStorageLib._getRoycoKernelStorage().jtControllerToIdToRedemptionRequest[_controller][_requestId];
         // Cannot cancel an already canceled request
         require(!request.isCanceled, REDEMPTION_REQUEST_CANCELED());
         // Cannot cancel a non-existant redemption request
@@ -395,7 +394,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
 
     /// @inheritdoc IRoycoKernel
     function jtClaimableCancelRedeemRequest(uint256 _requestId, address _controller) public view virtual override(IRoycoKernel) returns (uint256 shares) {
-        RedemptionRequest storage request = RoycoKernelStorageLib._getRoycoKernelStorage().jtControllerToRedemptionRequest[_controller][_requestId];
+        RedemptionRequest storage request = RoycoKernelStorageLib._getRoycoKernelStorage().jtControllerToIdToRedemptionRequest[_controller][_requestId];
         // If the redemption is not canceled, there are no shares to claim
         if (!request.isCanceled) return 0;
         // Return the shares for the redemption request that has been requested to be canceled
@@ -416,13 +415,13 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         returns (uint256 shares)
     {
         RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
-        RedemptionRequest storage request = $.jtControllerToRedemptionRequest[_controller][_requestId];
+        RedemptionRequest storage request = $.jtControllerToIdToRedemptionRequest[_controller][_requestId];
         // Cannot claim back shares from a request that hasn't been cancelled
         require(request.isCanceled, REDEMPTION_REQUEST_NOT_CANCELED());
         // Return the number of shares that need to be claimed after request cancellation
         shares = request.totalJTSharesToRedeem;
         // Clear all redemption state since cancellation has been processed
-        delete $.jtControllerToRedemptionRequest[_controller][_requestId];
+        delete $.jtControllerToIdToRedemptionRequest[_controller][_requestId];
     }
 
     /// @inheritdoc IRoycoKernel
@@ -446,7 +445,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         (state, userAssetClaims, totalTrancheShares) = _preOpSyncTrancheAccounting(TrancheType.JUNIOR);
 
         RoycoKernelState storage $ = RoycoKernelStorageLib._getRoycoKernelStorage();
-        RedemptionRequest storage request = $.jtControllerToRedemptionRequest[_controller][_redemptionRequestId];
+        RedemptionRequest storage request = $.jtControllerToIdToRedemptionRequest[_controller][_redemptionRequestId];
 
         // Ensure that the the shares that need to be redeemed are allowed to be redeemed for this controller
         uint256 redeemableShares = _getRedeemableSharesForRequest(request);
@@ -463,7 +462,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
         uint256 sharesRemaining = request.totalJTSharesToRedeem - _shares;
         // If there are no remaining shares, delete the controller's redemption
         if (sharesRemaining == 0) {
-            delete $.jtControllerToRedemptionRequest[_controller][_redemptionRequestId];
+            delete $.jtControllerToIdToRedemptionRequest[_controller][_redemptionRequestId];
         } else {
             // Update the redemption value at request for the remaining shares by the amount that
             request.redemptionValueAtRequestTime = request.redemptionValueAtRequestTime - redemptionValueAtRequestTime;
@@ -588,9 +587,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase {
      */
     function _postOpSyncTrancheAccounting(Operation _op) internal virtual returns (SyncedAccountingState memory state) {
         // Execute the post-op sync on the accountant
-        console2.log("before post-op sync");
         state = _accountant().postOpSyncTrancheAccounting(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV(), _op);
-        console2.log("after post-op sync");
     }
 
     /**

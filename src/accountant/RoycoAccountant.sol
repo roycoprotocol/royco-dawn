@@ -48,6 +48,12 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         // Initialize the base state of the accountant
         __RoycoBase_init(_initialAuthority);
 
+        // Initialize the YDM if required
+        if (_params.ydmInitializationData.length != 0) {
+            (bool success, bytes memory data) = _params.ydm.call(_params.ydmInitializationData);
+            require(success, FAILED_TO_INITIALIZE_YDM(data));
+        }
+
         // Initialize the state of the accountant
         RoycoAccountantState storage $ = _getRoycoAccountantStorage();
         $.kernel = _params.kernel;

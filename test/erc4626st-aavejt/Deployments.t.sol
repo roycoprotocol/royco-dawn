@@ -317,7 +317,8 @@ contract DeploymentsTest is MainnetForkWithAaveTestBase {
                     jtProtocolFeeWAD: JT_PROTOCOL_FEE_WAD,
                     coverageWAD: COVERAGE_WAD,
                     betaWAD: BETA_WAD,
-                    ydm: address(YDM)
+                    ydm: address(YDM),
+                    ydmInitializationData: abi.encodeCall(YDM.initializeYDMForMarket, (0, 0.225e18, 1e18))
                 }),
                 OWNER_ADDRESS // invalid authority: should be FACTORY
             )
@@ -465,7 +466,8 @@ contract DeploymentsTest is MainnetForkWithAaveTestBase {
                     jtProtocolFeeWAD: JT_PROTOCOL_FEE_WAD,
                     coverageWAD: COVERAGE_WAD,
                     betaWAD: BETA_WAD,
-                    ydm: address(YDM)
+                    ydm: address(YDM),
+                    ydmInitializationData: abi.encodeCall(YDM.initializeYDMForMarket, (0, 0.225e18, 1e18))
                 }),
                 address(FACTORY)
             )
@@ -592,7 +594,8 @@ contract DeploymentsTest is MainnetForkWithAaveTestBase {
                     jtProtocolFeeWAD: JT_PROTOCOL_FEE_WAD,
                     coverageWAD: COVERAGE_WAD,
                     betaWAD: BETA_WAD,
-                    ydm: address(YDM)
+                    ydm: address(YDM),
+                    ydmInitializationData: abi.encodeCall(YDM.initializeYDMForMarket, (0, 0.225e18, 1e18))
                 }),
                 address(FACTORY)
             )

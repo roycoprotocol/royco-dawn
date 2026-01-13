@@ -24,7 +24,7 @@ contract StaticCurveYDMTest is BaseTest {
     function setUp() public {
         _setUpRoyco();
 
-        YDM.initializeYDMForMarket(JT_YIELD_SHARE_AT_TARGET_UTIL, WAD);
+        YDM.initializeYDMForMarket(0, JT_YIELD_SHARE_AT_TARGET_UTIL, WAD);
     }
 
     // ============================================

@@ -18,14 +18,16 @@ contract StaticCurveYDM is IYDM {
 
     /**
      * @notice Represents the state of a market's YDM
-     * @custom:field slopeGteTargetWAD - The slope when the market's utilization is greater than or equal to the target utilization, scaled to WAD precision
-     * @custom:field slopeLtTargetWAD - The slope when the market's utilization is less than the target utilization, scaled to WAD precision
-     * @custom:field jtYieldShareAtTargetWAD - The JT yield share at target utilization, scaled to WAD precision
+     * @custom:field slopeGteTargetUtilWAD - The slope when the market's utilization is greater than or equal to the target utilization, scaled to WAD precision
+     * @custom:field jtYieldShareAtTargetUtilWAD - The JT yield share at target utilization, scaled to WAD precision
+     * @custom:field slopeLtTargetUtilWAD - The slope when the market's utilization is less than the target utilization, scaled to WAD precision
+     * @custom:field jtYieldShareAtZeroUtilWAD - The JT yield share at zero utilization, scaled to WAD precision
      */
     struct StaticYieldCurve {
-        uint96 slopeGteTargetWAD;
-        uint96 slopeLtTargetWAD;
-        uint64 jtYieldShareAtTargetWAD;
+        uint128 slopeGteTargetUtilWAD;
+        uint128 jtYieldShareAtTargetUtilWAD;
+        uint128 slopeLtTargetUtilWAD;
+        uint128 jtYieldShareAtZeroUtilWAD;
     }
 
     /// @dev A mapping from market accountants to its market's current YDM curve
@@ -35,25 +37,37 @@ contract StaticCurveYDM is IYDM {
     /**
      * @notice Emitted when the static curve YDM is initialized for a market
      * @param accountant The accountant for the market that the YDM was initialized for
-     * @param slopeGteTargetWAD The slope when the market's utilization is greater than or equal to the target utilization, scaled to WAD precision
-     * @param slopeLtTargetWAD The slope when the market's utilization is less than the target utilization, scaled to WAD precision
-     * @param jtYieldShareAtTargetWAD The JT yield share at target utilization, scaled to WAD precision
+     * @param jtYieldShareAtZeroUtilWAD The JT yield share at zero utilization, scaled to WAD precision
+     * @param slopeLtTargetUtilWAD The slope when the market's utilization is less than the target utilization, scaled to WAD precision
+     * @param slopeGteTargetUtilWAD The slope when the market's utilization is greater than or equal to the target utilization, scaled to WAD precision
      */
-    event StaticCurveYdmInitialized(address indexed accountant, uint256 slopeGteTargetWAD, uint256 slopeLtTargetWAD, uint256 jtYieldShareAtTargetWAD);
+    event StaticCurveYdmInitialized(address indexed accountant, uint256 jtYieldShareAtZeroUtilWAD, uint256 slopeLtTargetUtilWAD, uint256 slopeGteTargetUtilWAD);
 
-    /// @inheritdoc IYDM
-    function initializeYDMForMarket(uint256 _jtYieldShareAtTargetUtilWAD, uint256 _jtYieldShareAtFullUtilWAD) external override(IYDM) {
+    /**
+     * @notice Initializes the YDM curve for a particular Royco market
+     * @dev Must be called during the initialization of the accountant for the Royco market
+     * @param _jtYieldShareAtZeroUtilWAD The JT yield share at 0% utilization, scaled to WAD precision
+     * @param _jtYieldShareAtTargetUtilWAD The JT yield share at target utilization, scaled to WAD precision
+     * @param _jtYieldShareAtFullUtilWAD The JT yield share at 100% utilization, scaled to WAD precision
+     */
+    function initializeYDMForMarket(uint256 _jtYieldShareAtZeroUtilWAD, uint256 _jtYieldShareAtTargetUtilWAD, uint256 _jtYieldShareAtFullUtilWAD) external {
         // Ensure that the static YDM curve is valid
-        require(_jtYieldShareAtTargetUtilWAD <= _jtYieldShareAtFullUtilWAD && _jtYieldShareAtFullUtilWAD <= WAD, INVALID_YDM_INITIALIZATION());
+        require(
+            _jtYieldShareAtZeroUtilWAD <= _jtYieldShareAtTargetUtilWAD && _jtYieldShareAtTargetUtilWAD <= _jtYieldShareAtFullUtilWAD
+                && _jtYieldShareAtFullUtilWAD <= WAD,
+            INVALID_YDM_INITIALIZATION()
+        );
 
         // Initialize the YDM curve for this market
         StaticYieldCurve storage curve = accountantToCurve[msg.sender];
-        curve.slopeGteTargetWAD =
-            uint96(((_jtYieldShareAtFullUtilWAD - _jtYieldShareAtTargetUtilWAD).mulDiv(WAD, (WAD - TARGET_UTILIZATION_WAD), Math.Rounding.Floor)));
-        curve.slopeLtTargetWAD = uint96((_jtYieldShareAtTargetUtilWAD.mulDiv(WAD, TARGET_UTILIZATION_WAD, Math.Rounding.Floor)));
-        curve.jtYieldShareAtTargetWAD = uint64(_jtYieldShareAtTargetUtilWAD);
+        curve.slopeGteTargetUtilWAD =
+            uint128(((_jtYieldShareAtFullUtilWAD - _jtYieldShareAtTargetUtilWAD).mulDiv(WAD, (WAD - TARGET_UTILIZATION_WAD), Math.Rounding.Floor)));
+        curve.jtYieldShareAtTargetUtilWAD = uint128(_jtYieldShareAtTargetUtilWAD);
+        curve.slopeLtTargetUtilWAD =
+            uint128(((_jtYieldShareAtTargetUtilWAD - _jtYieldShareAtZeroUtilWAD).mulDiv(WAD, TARGET_UTILIZATION_WAD, Math.Rounding.Floor)));
+        curve.jtYieldShareAtZeroUtilWAD = uint128(_jtYieldShareAtZeroUtilWAD);
 
-        emit StaticCurveYdmInitialized(msg.sender, curve.slopeGteTargetWAD, curve.slopeLtTargetWAD, curve.jtYieldShareAtTargetWAD);
+        emit StaticCurveYdmInitialized(msg.sender, _jtYieldShareAtZeroUtilWAD, curve.slopeLtTargetUtilWAD, curve.slopeGteTargetUtilWAD);
     }
 
     /// @inheritdoc IYDM
@@ -103,17 +117,19 @@ contract StaticCurveYDM is IYDM {
         /**
          * Yield Distribution Model (piecewise curve):
          *
-         *   Y(U) = S_lt * U                      if U < 0.9  (below target)
-         *        = S_gte * (U - 0.9) + Y_T       if U >= 0.9 (at or above target)
+         *   Y(U) = Y_0 + S_lt * U                if U < 0.9  (below target)
+         *        = Y_T + S_gte * (U - 0.9)       if U >= 0.9 (at or above target)
          *
          * Y(U)  → Percentage of ST yield paid to the junior tranche
          * U     → Utilization = ((ST_RAW_NAV + (JT_RAW_NAV * BETA_%)) * COV_%) / JT_EFFECTIVE_NAV
-         * S_lt  → Slope below target utilization (derived from Y_T / 0.9)
-         * S_gte → Slope at or above target utilization (derived from (Y_full - Y_T) / 0.1)
-         * Y_T   → JT yield share at target utilization (90%)
+         * Y_0   → JT yield share at zero utilization
+         * Y_T   → JT yield share at target (90%) utilization
+         * S_lt  → Slope below target utilization: (Y_T - Y_0) / 0.9
+         * S_gte → Slope at or above target utilization: (Y_full - Y_T) / 0.1
          *
-         * Below 90% utilization, JT yield allocation rises based on S_lt.
-         * At or above 90% utilization, JT yield allocation rises more steeply based on S_gte,  penalizing high utilization and incentivizing JT deposits or ST withdrawals
+         * Below 90% utilization, JT yield allocation rises from Y_0 based on S_lt.
+         * At or above 90% utilization, JT yield allocation rises from Y_T based on S_gte,
+         * penalizing high utilization and incentivizing JT deposits or ST withdrawals.
          * Output is capped at 100% when utilization reaches or exceeds 100%.
          */
 
@@ -126,10 +142,11 @@ contract StaticCurveYDM is IYDM {
         // Compute Y(U), rounding in favor the senior tranche
         if (utilizationWAD >= TARGET_UTILIZATION_WAD) {
             // If utilization is at or above the target (kink), apply the second leg of Y(U)
-            return uint256(curve.slopeGteTargetWAD).mulDiv((utilizationWAD - TARGET_UTILIZATION_WAD), WAD, Math.Rounding.Floor) + curve.jtYieldShareAtTargetWAD;
+            return uint256(curve.slopeGteTargetUtilWAD).mulDiv((utilizationWAD - TARGET_UTILIZATION_WAD), WAD, Math.Rounding.Floor)
+                + curve.jtYieldShareAtTargetUtilWAD;
         } else {
             // If utilization is below the target (kink), apply the first leg of Y(U)
-            return uint256(curve.slopeLtTargetWAD).mulDiv(utilizationWAD, WAD, Math.Rounding.Floor);
+            return uint256(curve.slopeLtTargetUtilWAD).mulDiv(utilizationWAD, WAD, Math.Rounding.Floor) + curve.jtYieldShareAtZeroUtilWAD;
         }
     }
 }

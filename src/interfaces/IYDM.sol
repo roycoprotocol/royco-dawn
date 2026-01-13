@@ -12,14 +12,6 @@ interface IYDM {
     error INVALID_YDM_INITIALIZATION();
 
     /**
-     * @notice Initializes the YDM curve for a particular Royco market
-     * @dev Must be called during the initialization of the accountant for the Royco market
-     * @param _jtYieldShareAtTargetUtilWAD The initial JT yield share at target utilization, scaled to WAD precision
-     * @param _jtYieldShareAtFullUtilWAD The initial JT yield share at 100% utilization, scaled to WAD precision
-     */
-    function initializeYDMForMarket(uint256 _jtYieldShareAtTargetUtilWAD, uint256 _jtYieldShareAtFullUtilWAD) external;
-
-    /**
      * @notice Previews and returns a Royco market's percentage of ST yield that should be allocated to its JT
      * @dev Does not mutate any state
      * @param _stRawNAV The raw net asset value of the senior tranche invested assets

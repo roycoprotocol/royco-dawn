@@ -158,7 +158,7 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
     /**
      * @inheritdoc IRoycoVaultTranche
      * @dev Returns the maximum amount of shares that can be redeemed from the tranche
-     * @dev We query the kernel for (a) N_s and N_j - the notional claim of the tranch on the ST and JT assets respectively in NAV units, and
+     * @dev We query the kernel for (a) N_s and N_j - the notional claim of the tranche on the ST and JT assets respectively in NAV units, and
      *                              (b) L_s and L_j - the amount that can be withdrawn from the senior and junior tranches globally in NAV units, respectively
      *      When shares are redeemed, assets from the senior and junior tranches are withdrawn proportionally to the notional claims of the tranche on the respective assets.
      *      But, the global max withdrawable assets for each tranche are also considered. These are inclusive of any coverage requirements, as well as liquidity constraints.

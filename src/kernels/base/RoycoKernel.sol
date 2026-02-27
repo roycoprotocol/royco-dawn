@@ -367,8 +367,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase, ReentrancyGuardTransie
     /// @dev ST redemptions are enabled if the market is in a PERPETUAL state
     function stRedeem(
         uint256 _shares,
-        address _receiver,
-        bool _bypassRedemptionRestrictions
+        address _receiver
     )
         external
         virtual
@@ -384,7 +383,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase, ReentrancyGuardTransie
         // Execute an accounting sync to reconcile underlying PNL
         (state, userAssetClaims, totalTrancheShares) = _preOpSyncTrancheAccounting(TrancheType.SENIOR);
         // Ensure that the market is in a state where ST redemptions are allowed: PERPETUAL
-        require(_bypassRedemptionRestrictions || state.marketState == MarketState.PERPETUAL, ST_REDEEM_DISABLED_IN_FIXED_TERM_STATE());
+        require(state.marketState == MarketState.PERPETUAL, ST_REDEEM_DISABLED_IN_FIXED_TERM_STATE());
 
         // Scale the cumulative tranche asset claims by the ratio of shares this user owns of the entire tranche
         // Protocol fee shares were minted in the pre-op sync, so the total tranche shares are up to date
@@ -438,8 +437,7 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase, ReentrancyGuardTransie
     /// @dev JT redemptions are enabled if the market is in a PERPETUAL or FIXED_TERM state, granted that the market's coverage requirement is satisfied post-redemption
     function jtRedeem(
         uint256 _shares,
-        address _receiver,
-        bool _bypassRedemptionRestrictions
+        address _receiver
     )
         external
         virtual
@@ -461,13 +459,8 @@ abstract contract RoycoKernel is IRoycoKernel, RoycoBase, ReentrancyGuardTransie
         // Withdraw the asset claims from each tranche and transfer them to the receiver
         _withdrawAssets(userAssetClaims, _receiver);
 
-        if (_bypassRedemptionRestrictions) {
-            // Execute a post-redeem sync on accounting without enforcing the market's coverage requirement
-            _postOpSyncTrancheAccounting(Operation.JT_REDEEM, ZERO_NAV_UNITS);
-        } else {
-            // Execute a post-redeem sync on accounting and enforce the market's coverage requirement
-            _postOpSyncTrancheAccountingAndEnforceCoverage(Operation.JT_REDEEM);
-        }
+        // Execute a post-redeem sync on accounting and enforce the market's coverage requirement
+        _postOpSyncTrancheAccountingAndEnforceCoverage(Operation.JT_REDEEM);
     }
 
     // =============================

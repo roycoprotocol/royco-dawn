@@ -100,10 +100,7 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
 
         // Process the withdrawal from the Royco market
         // It is expected that the kernel transfers the assets directly to the receiver
-        claims =
-        (TRANCHE_TYPE() == TrancheType.SENIOR
-                ? IRoycoKernel(KERNEL).stRedeem(_shares, _receiver, false)
-                : IRoycoKernel(KERNEL).jtRedeem(_shares, _receiver, false));
+        claims = (TRANCHE_TYPE() == TrancheType.SENIOR ? IRoycoKernel(KERNEL).stRedeem(_shares, _receiver) : IRoycoKernel(KERNEL).jtRedeem(_shares, _receiver));
 
         // Burn shares after kernel processes redemption (kernel depends on pre-burn total supply)
         _burn(_owner, _shares);
@@ -148,37 +145,6 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
         super._update(_from, _receiver, _shares);
 
         emit AssetsSeized(_from, _receiver, _shares);
-    }
-
-    /// @inheritdoc IRoycoVaultTranche
-    function seizeAndRedeemAssets(
-        address _from,
-        address _receiver,
-        uint256 _shares
-    )
-        external
-        virtual
-        override(IRoycoVaultTranche)
-        restricted
-        returns (AssetClaims memory claims)
-    {
-        // Basic sanity checks on the seizure
-        require(_from != address(0), NULL_ADDRESS());
-        require(_receiver != address(0), ERC20InvalidReceiver(address(0)));
-        require(_shares != 0, MUST_REQUEST_NON_ZERO_SHARES());
-
-        // Force process the withdrawal from the Royco market
-        // It is expected that the kernel transfers the assets directly to the receiver
-        claims =
-        (TRANCHE_TYPE() == TrancheType.SENIOR
-                ? IRoycoKernel(KERNEL).stRedeem(_shares, _receiver, true)
-                : IRoycoKernel(KERNEL).jtRedeem(_shares, _receiver, true));
-
-        // Burn shares after kernel processes redemption
-        // Bypass the balance update hook
-        super._update(_from, address(0), _shares);
-
-        emit AssetsSeizedAndRedeemed(msg.sender, _from, _receiver, claims, _shares);
     }
 
     /// =============================

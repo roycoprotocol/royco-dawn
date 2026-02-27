@@ -187,14 +187,6 @@ interface IRoycoVaultTranche is IERC20Metadata {
     function seizeAssets(address _from, address _receiver, uint256 _shares) external;
 
     /**
-     * @notice Seizes assets from the tranche and transfers them to the receiver
-     * @param _from The address that lost the seized assets
-     * @param _receiver The address that received the seized assets
-     * @param _shares The number of shares to seize
-     */
-    function seizeAndRedeemAssets(address _from, address _receiver, uint256 _shares) external returns (AssetClaims memory claims);
-
-    /**
      * @notice Previews the protocol fee shares that would be minted for a given fee amount
      * @dev Does not mutate any state
      * @param _protocolFeeNAV The protocol fee amount to be minted as shares, denominated in the kernel's NAV units

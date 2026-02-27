@@ -11,7 +11,6 @@ import { IRoycoKernel } from "../src/interfaces/IRoycoKernel.sol";
 import { IRoycoVaultTranche } from "../src/interfaces/IRoycoVaultTranche.sol";
 import { IYDM } from "../src/interfaces/IYDM.sol";
 import { Identical_AA_IdleCDO_ST_IdleCDO_JT_Kernel } from "../src/kernels/Identical_AA_IdleCDO_ST_IdleCDO_JT_Kernel.sol";
-import { Identical_DSToken_ST_DSToken_JT_Kernel } from "../src/kernels/Identical_DSToken_ST_DSToken_JT_Kernel.sol";
 import { Identical_ERC20_ST_ERC20_JT_Kernel } from "../src/kernels/Identical_ERC20_ST_ERC20_JT_Kernel.sol";
 import { Identical_ERC4626_ST_ERC4626_JT_Kernel } from "../src/kernels/Identical_ERC4626_ST_ERC4626_JT_Kernel.sol";
 import { ReUSD_ST_ReUSD_JT_Kernel } from "../src/kernels/ReUSD_ST_ReUSD_JT_Kernel.sol";
@@ -56,7 +55,6 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, Deploym
     /// @notice Enum for kernel types
     enum KernelType {
         ReUSD_ST_ReUSD_JT,
-        Identical_DSToken_ST_DSToken_JT_Kernel,
         Identical_ERC20_ST_ERC20_JT_Kernel,
         Identical_ERC4626_ST_ERC4626_JT_Kernel,
         IdleCdoAA_ST_IdleCdoAA_JT
@@ -352,8 +350,8 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, Deploym
     /// @param _lpRole The role value for the LP role
     /// @return The roles configuration for the tranche contract
     function _buildTrancheRolesConfig(address _tranche, uint64 _lpRole) private pure returns (IRoycoFactory.RolesTargetConfiguration memory) {
-        bytes4[] memory selectors = new bytes4[](7);
-        uint64[] memory roleValues = new uint64[](7);
+        bytes4[] memory selectors = new bytes4[](6);
+        uint64[] memory roleValues = new uint64[](6);
 
         selectors[0] = IRoycoVaultTranche.deposit.selector;
         roleValues[0] = _lpRole;
@@ -367,8 +365,6 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, Deploym
         roleValues[4] = ADMIN_UPGRADER_ROLE;
         selectors[5] = IRoycoVaultTranche.seizeAssets.selector;
         roleValues[5] = TRANSFER_AGENT_ROLE;
-        selectors[6] = IRoycoVaultTranche.seizeAndRedeemAssets.selector;
-        roleValues[6] = TRANSFER_AGENT_ROLE;
 
         return IRoycoFactory.RolesTargetConfiguration({ target: _tranche, selectors: selectors, roles: roleValues });
     }
@@ -877,8 +873,6 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, Deploym
         } else if (_kernelType == KernelType.IdleCdoAA_ST_IdleCdoAA_JT) {
             IdleCdoAASTIdleCdoAAJTKernelParams memory kp = abi.decode(_kernelSpecificParams, (IdleCdoAASTIdleCdoAAJTKernelParams));
             return abi.encodePacked(type(Identical_AA_IdleCDO_ST_IdleCDO_JT_Kernel).creationCode, abi.encode(_cp, kp.idleCDO));
-        } else if (_kernelType == KernelType.Identical_DSToken_ST_DSToken_JT_Kernel) {
-            return abi.encodePacked(type(Identical_DSToken_ST_DSToken_JT_Kernel).creationCode, abi.encode(_cp));
         } else {
             revert UnsupportedKernelType(_kernelType);
         }
@@ -928,18 +922,6 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, Deploym
             return abi.encodeCall(Identical_ERC4626_ST_ERC4626_JT_Kernel.initialize, (kernelParams, kernelParams2.initialConversionRateWAD));
         } else if (_kernelType == KernelType.IdleCdoAA_ST_IdleCdoAA_JT) {
             return abi.encodeCall(Identical_AA_IdleCDO_ST_IdleCDO_JT_Kernel.initialize, (kernelParams));
-        } else if (_kernelType == KernelType.Identical_DSToken_ST_DSToken_JT_Kernel) {
-            IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams memory kernelParams2 =
-                abi.decode(_kernelSpecificParams, (IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams));
-            return abi.encodeCall(
-                Identical_ERC20_ST_ERC20_JT_Kernel.initialize,
-                (
-                    kernelParams,
-                    kernelParams2.trancheAssetToReferenceAssetOracle,
-                    kernelParams2.stalenessThresholdSeconds,
-                    kernelParams2.initialConversionRateWAD
-                )
-            );
         } else {
             revert UnsupportedKernelType(_kernelType);
         }

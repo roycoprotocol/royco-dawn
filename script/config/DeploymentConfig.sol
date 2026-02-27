@@ -531,7 +531,7 @@ abstract contract DeploymentConfig {
             juniorAsset: 0x17418038ecF73BA4026c4f428547BF099706F27B,
             stDustTolerance: 5 * 10 ** 10, // The chainlink oracle has 8 decimals of precision
             jtDustTolerance: 5 * 10 ** 10, // The chainlink oracle has 8 decimals of precision
-            kernelType: DeployScript.KernelType.Identical_DSToken_ST_DSToken_JT_Kernel,
+            kernelType: DeployScript.KernelType.Identical_ERC20_ST_ERC20_JT_Kernel,
             kernelSpecificParams: abi.encode(
                 DeployScript.IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams({
                     trancheAssetToReferenceAssetOracle: 0xD6BcbbC87bFb6c8964dDc73DC3EaE6d08865d51C,

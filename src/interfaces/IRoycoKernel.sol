@@ -321,10 +321,9 @@ interface IRoycoKernel {
      * @dev The function is expected to transfer the senior and junior assets directly to the receiver, based on the redemption claims
      * @param _shares The number of shares to redeem
      * @param _receiver The address that is receiving the assets
-     * @param _bypassRedemptionRestrictions Whether to bypass the redemption restrictions (eg. for Transfer Agent Obligations on RWA)
      * @return userAssetClaims The distribution of assets that were transferred to the receiver on redemption
      */
-    function stRedeem(uint256 _shares, address _receiver, bool _bypassRedemptionRestrictions) external returns (AssetClaims memory userAssetClaims);
+    function stRedeem(uint256 _shares, address _receiver) external returns (AssetClaims memory userAssetClaims);
 
     /**
      * @notice Returns the maximum amount of assets that can be deposited into the junior tranche
@@ -386,10 +385,9 @@ interface IRoycoKernel {
      * @dev The function is expected to transfer the senior and junior assets directly to the receiver, based on the redemption claims
      * @param _shares The number of shares to redeem
      * @param _receiver The address that is receiving the assets
-     * @param _bypassRedemptionRestrictions Whether to bypass the redemption restrictions (eg. for Transfer Agent Obligations on RWA)
      * @return userAssetClaims The distribution of assets that were transferred to the receiver on redemption
      */
-    function jtRedeem(uint256 _shares, address _receiver, bool _bypassRedemptionRestrictions) external returns (AssetClaims memory userAssetClaims);
+    function jtRedeem(uint256 _shares, address _receiver) external returns (AssetClaims memory userAssetClaims);
 
     /**
      * @notice Pre-balance update hook for the tranche

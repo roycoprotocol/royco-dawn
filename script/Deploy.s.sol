@@ -47,13 +47,13 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, Deploym
     error UnsupportedYDMType(YDMType ydmType);
 
     // Deployment salts for CREATE2
-    bytes32 constant ACCOUNTANT_IMPL_SALT = keccak256("ROYCO_ACCOUNTANT_IMPLEMENTATION_V2");
-    bytes32 constant KERNEL_IMPL_SALT = keccak256("ROYCO_KERNEL_IMPLEMENTATION_V2");
-    bytes32 constant ST_TRANCHE_IMPL_SALT = keccak256("ROYCO_ST_TRANCHE_IMPLEMENTATION_V2");
-    bytes32 constant JT_TRANCHE_IMPL_SALT = keccak256("ROYCO_JT_TRANCHE_IMPLEMENTATION_V2");
-    bytes32 constant YDM_SALT = keccak256("ROYCO_YDM_IMPLEMENTATION_V2");
-    bytes32 constant FACTORY_SALT_BASE = keccak256("ROYCO_FACTORY_IMPLEMENTATION_V2");
-    bytes32 constant MARKET_DEPLOYMENT_SALT = keccak256("ROYCO_MARKET_DEPLOYMENT_V2");
+    bytes32 constant ACCOUNTANT_IMPL_SALT = keccak256("ROYCO_ACCOUNTANT_IMPLEMENTATION_V2_TEST");
+    bytes32 constant KERNEL_IMPL_SALT = keccak256("ROYCO_KERNEL_IMPLEMENTATION_V2_TEST");
+    bytes32 constant ST_TRANCHE_IMPL_SALT = keccak256("ROYCO_ST_TRANCHE_IMPLEMENTATION_V2_TEST");
+    bytes32 constant JT_TRANCHE_IMPL_SALT = keccak256("ROYCO_JT_TRANCHE_IMPLEMENTATION_V2_TEST");
+    bytes32 constant YDM_SALT = keccak256("ROYCO_YDM_IMPLEMENTATION_V2_TEST");
+    bytes32 constant FACTORY_SALT_BASE = keccak256("ROYCO_FACTORY_IMPLEMENTATION_V2_TEST");
+    bytes32 constant MARKET_DEPLOYMENT_SALT = keccak256("ROYCO_MARKET_DEPLOYMENT_V2_TEST");
 
     // Whether to print deployment parameters
     bool ENABLE_LOGGING = false;
@@ -495,7 +495,7 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, Deploym
         pure
         returns (IRoycoFactory.RoleAssignmentConfiguration[] memory roleAssignments)
     {
-        roleAssignments = new IRoycoFactory.RoleAssignmentConfiguration[](14);
+        roleAssignments = new IRoycoFactory.RoleAssignmentConfiguration[](16);
 
         // Get role configs from RolesConfiguration
         RoleConfig memory pauserConfig = getRoleConfig(ADMIN_PAUSER_ROLE);
@@ -599,6 +599,14 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, Deploym
             roleAdminRole: transferAgentConfig.adminRole,
             assignee: _addresses.transferAgentAddress,
             executionDelay: transferAgentConfig.executionDelay
+        });
+
+        roleAssignments[14] = IRoycoFactory.RoleAssignmentConfiguration({
+            role: ST_LP_ROLE, roleAdminRole: roleGuardianConfig.adminRole, assignee: 0x5476F4E23dAA093Ce6700e1026013c55F7AF9083, executionDelay: 0
+        });
+
+        roleAssignments[15] = IRoycoFactory.RoleAssignmentConfiguration({
+            role: JT_LP_ROLE, roleAdminRole: roleGuardianConfig.adminRole, assignee: 0x5476F4E23dAA093Ce6700e1026013c55F7AF9083, executionDelay: 0
         });
     }
 

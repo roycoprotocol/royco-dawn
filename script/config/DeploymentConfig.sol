@@ -21,10 +21,10 @@ abstract contract DeploymentConfig {
     // CONTROLLING MULTISIG ADDRESSES
     // ═══════════════════════════════════════════════════════════════════════════
 
-    address internal constant EXECUTOR_MULTISIG = 0x84d37A25e46029CE161111420E07cEb78880119e;
-    address internal constant DEPLOYER = 0x35518D5E1fD8105FC325c5c171c329c3B10b254c;
-    address internal constant ROOT_MULTISIG = 0x7c405bbD131e42af506d14e752f2e59B19D49997;
-    address internal constant PROTOCOL_FEE_RECIPIENT = 0x05ea95aE815809D77153Ed3500Ad6d936712b639;
+    address internal constant EXECUTOR_MULTISIG = 0x77777Cc68b333a2256B436D675E8D257699Aa667;
+    address internal constant DEPLOYER = 0x77777Cc68b333a2256B436D675E8D257699Aa667;
+    address internal constant ROOT_MULTISIG = 0x77777Cc68b333a2256B436D675E8D257699Aa667;
+    address internal constant PROTOCOL_FEE_RECIPIENT = 0x77777Cc68b333a2256B436D675E8D257699Aa667;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // MARKET NAMES

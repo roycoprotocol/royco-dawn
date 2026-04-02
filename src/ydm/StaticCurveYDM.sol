@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
-import { IYDM, MarketState } from "../interfaces/IYDM.sol";
-import { TARGET_UTILIZATION_WAD, WAD } from "../libraries/Constants.sol";
-import { NAV_UNIT } from "../libraries/Units.sol";
-import { UtilsLib } from "../libraries/UtilsLib.sol";
+import { Math } from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import { IYDM, MarketState } from "src/interfaces/IYDM.sol";
+import { TARGET_UTILIZATION_WAD, WAD } from "src/libraries/Constants.sol";
+import { NAV_UNIT } from "src/libraries/Units.sol";
+import { UtilsLib } from "src/libraries/UtilsLib.sol";
 
 /**
  * @title StaticCurveYDM

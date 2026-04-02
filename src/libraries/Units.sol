@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import { Math } from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 /// @notice Common unit of account for Royco NAV values (e.g., USD, BTC) used consistently across a market's tranches
 /// @dev `NAV_UNIT` must be expressed in the same underlying unit and precision for both ST and JT within a market

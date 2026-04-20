@@ -6,11 +6,11 @@ import { AccessManagerUpgradeable } from "lib/openzeppelin-contracts-upgradeable
 import { UUPSUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1967Proxy } from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { CREATE3 } from "lib/solady/src/utils/CREATE3.sol";
+import { RolesConfiguration } from "src/factory/RolesConfiguration.sol";
 import { IRoycoAccountant } from "src/interfaces/IRoycoAccountant.sol";
 import { IRoycoFactory } from "src/interfaces/IRoycoFactory.sol";
 import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
 import { IRoycoVaultTranche } from "src/interfaces/IRoycoVaultTranche.sol";
-import { RolesConfiguration } from "src/factory/RolesConfiguration.sol";
 
 /**
  * @title RoycoFactory

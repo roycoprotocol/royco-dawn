@@ -15,7 +15,6 @@ import { AssetClaims, SyncedAccountingState, TrancheType } from "src/libraries/T
 import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "src/libraries/Units.sol";
 import { UtilsLib } from "src/libraries/UtilsLib.sol";
 
-
 /**
  * @title RoycoVaultTranche
  * @author Ankur Dubey, Shivaansh Kapoor

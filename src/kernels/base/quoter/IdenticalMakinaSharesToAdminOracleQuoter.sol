@@ -4,8 +4,8 @@ pragma solidity ^0.8.28;
 import { IERC20Metadata } from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import { Math } from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import { IMachine } from "src/interfaces/external/makina/IMachine.sol";
-import { WAD, WAD_DECIMALS } from "src/libraries/Constants.sol";
 import { IdenticalAssetsAdminOracleQuoter, IdenticalAssetsOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsAdminOracleQuoter.sol";
+import { WAD, WAD_DECIMALS } from "src/libraries/Constants.sol";
 
 /**
  * @title IdenticalMakinaSharesToAdminOracleQuoter

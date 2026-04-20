@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IERC20Metadata } from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { AssetClaims, TrancheType } from "../libraries/Types.sol";
-import { NAV_UNIT, TRANCHE_UNIT } from "../libraries/Units.sol";
+import { IERC20Metadata } from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { AssetClaims, TrancheType } from "src/libraries/Types.sol";
+import { NAV_UNIT, TRANCHE_UNIT } from "src/libraries/Units.sol";
 
 /**
  * @title IRoycoVaultTranche

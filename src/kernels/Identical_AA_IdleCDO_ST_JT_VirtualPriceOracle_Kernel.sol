@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IERC20Metadata } from "../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
-import { IIdleCDO } from "../interfaces/external/idle-finance/IIdleCDO.sol";
-import { WAD_DECIMALS } from "../libraries/Constants.sol";
-import { RoycoKernel } from "./base/RoycoKernel.sol";
-import { IdenticalAssetsOracleQuoter } from "./base/quoter/base/IdenticalAssetsOracleQuoter.sol";
+import { IERC20Metadata } from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
+import { IIdleCDO } from "src/interfaces/external/idle-finance/IIdleCDO.sol";
+import { RoycoKernel } from "src/kernels/base/RoycoKernel.sol";
+import { IdenticalAssetsOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol";
+import { WAD_DECIMALS } from "src/libraries/Constants.sol";
 
 /**
  * @title Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel

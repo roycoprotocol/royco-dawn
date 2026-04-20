@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { MarketState, NAV_UNIT } from "../libraries/Types.sol";
+import { MarketState, NAV_UNIT } from "src/libraries/Types.sol";
 
 /**
  * @title IYDM - Yield Distribution Model Interface

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
-import { RoycoKernel } from "./base/RoycoKernel.sol";
-import { IdenticalERC4626SharesToAdminOracleQuoter } from "./base/quoter/IdenticalERC4626SharesToAdminOracleQuoter.sol";
+import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
+import { RoycoKernel } from "src/kernels/base/RoycoKernel.sol";
+import { IdenticalERC4626SharesToAdminOracleQuoter } from "src/kernels/base/quoter/IdenticalERC4626SharesToAdminOracleQuoter.sol";
 
 /**
  * @title Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel

@@ -20,3 +20,7 @@ broadcast
 
 # Deployment script output
 output/
+
+# Certora directories
+**/.certora_internal
+**/.CertoraProverLiteReports

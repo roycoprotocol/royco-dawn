@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IdenticalAssetsAdminOracleQuoter } from "./base/IdenticalAssetsAdminOracleQuoter.sol";
-import { IdenticalAssetsOracleQuoter } from "./base/IdenticalAssetsOracleQuoter.sol";
-import { IdenticalERC4626SharesOracleQuoter } from "./base/IdenticalERC4626SharesOracleQuoter.sol";
+import { IdenticalAssetsAdminOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsAdminOracleQuoter.sol";
+import { IdenticalAssetsOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol";
+import { IdenticalERC4626SharesOracleQuoter } from "src/kernels/base/quoter/base/IdenticalERC4626SharesOracleQuoter.sol";
 
 /**
  * @title IdenticalERC4626SharesToAdminOracleQuoter

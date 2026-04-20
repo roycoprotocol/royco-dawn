@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
-import { WAD, ZERO_NAV_UNITS } from "./Constants.sol";
-import { AssetClaims } from "./Types.sol";
-import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib } from "./Units.sol";
+import { Math } from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import { WAD, ZERO_NAV_UNITS } from "src/libraries/Constants.sol";
+import { AssetClaims } from "src/libraries/Types.sol";
+import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib } from "src/libraries/Units.sol";
 
 /**
  * @title UtilsLib

@@ -8,6 +8,19 @@ methods {
     function _.jtYieldShare(RoycoAccountant.MarketState,RoycoAccountant.NAV_UNIT,RoycoAccountant.NAV_UNIT,uint256,uint256,RoycoAccountant.NAV_UNIT) external => NONDET;
 }
 
+// Ghost variable that tracks the last timestamp.
+ghost mathint lastTimestamp;
+
+// The maximum timestamp the protocol supports
+// TODO: This is 2104 since it's unsigned, but may still be worth mentioning the small limit.
+definition MAX_TIMESTAMP() returns mathint = max_uint32 - 86400 * 365;
+
+hook TIMESTAMP uint256 time {
+    require to_mathint(time) < MAX_TIMESTAMP(), "timestamp below protocol end date";
+    require to_mathint(time) >= lastTimestamp, "timestamp is monotone";
+    lastTimestamp = time;
+}
+
 definition excludeUpgradeAndCall(method f) returns bool =
     f.selector != sig:upgradeToAndCall(address,bytes).selector;
 
@@ -17,6 +30,25 @@ invariant sumEffectiveEqualsRaw()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV +
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV
     filtered { f -> excludeUpgradeAndCall(f) }
+
+invariant marketStateValid()
+    roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.PERPETUAL
+    || roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.FIXED_TERM
+    filtered { f -> excludeUpgradeAndCall(f) }
+
+
+invariant anyLossImpliesJTEffectivelyZero() 
+    roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTImpermanentLoss > 0
+    || roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss > 0
+    || roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState != RoycoAccountant.MarketState.PERPETUAL
+    => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV == 0
+    filtered { f -> excludeUpgradeAndCall(f)}
+{
+    preserved { 
+        requireInvariant stLossImpliesPerpetual();
+        requireInvariant stLossImpliesNoJTLoss();
+    }
+}
 
 //TODO: why stNAVDust instead of jtNAVDust?  Is this a bug in RoycoAccountant or intentional?
 invariant jtLossImpliesFixedTerm() 

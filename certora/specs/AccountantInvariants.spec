@@ -1,3 +1,5 @@
+import "../lib-summaries/OpenZeppelin/OZ_Math.spec";
+
 using RoycoAccountant as roycoAccountant;
 
 methods {
@@ -24,6 +26,9 @@ hook TIMESTAMP uint256 time {
 definition excludeUpgradeAndCall(method f) returns bool =
     f.selector != sig:upgradeToAndCall(address,bytes).selector;
 
+/* @title The sum JT+ST raw NAV equals the sum JT+ST effective NAV.
+ * @status Verified
+ */
 invariant sumEffectiveEqualsRaw() 
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV +
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV ==
@@ -31,53 +36,75 @@ invariant sumEffectiveEqualsRaw()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV
     filtered { f -> excludeUpgradeAndCall(f) }
 
-invariant marketStateValid()
-    roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.PERPETUAL
-    || roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.FIXED_TERM
-    filtered { f -> excludeUpgradeAndCall(f) }
 
-
-invariant anyLossImpliesJTEffectivelyZero() 
-    roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTImpermanentLoss > 0
-    || roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss > 0
-    || roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState != RoycoAccountant.MarketState.PERPETUAL
-    => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV == 0
-    filtered { f -> excludeUpgradeAndCall(f)}
-{
-    preserved { 
-        requireInvariant stLossImpliesPerpetual();
-        requireInvariant stLossImpliesNoJTLoss();
-    }
-}
-
-//TODO: why stNAVDust instead of jtNAVDust?  Is this a bug in RoycoAccountant or intentional?
+/* @title If there is jtImpermanentLoss above dust the market state is FIXED_TERM.
+ * @notice Currently violated by setting dust or initialize.
+ */
 invariant jtLossImpliesFixedTerm() 
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTImpermanentLoss > 
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.stNAVDustTolerance
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.FIXED_TERM
     filtered { f -> excludeUpgradeAndCall(f)}
 
+/* @title If there is no jtImpermanentLoss the market state is PERPETUAL.
+ * @notice Currently violated by redeeming (almost) all jt tokens.
+ */
 invariant noJTLossImpliesPerpetual() 
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTImpermanentLoss == 0
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.PERPETUAL
     filtered { f -> excludeUpgradeAndCall(f) }
 
+/* @title If there is stImpermanentLoss the market state is PERPETUAL.
+ */
 invariant stLossImpliesPerpetual() 
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss > 0
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.PERPETUAL
     filtered { f -> excludeUpgradeAndCall(f) }
 
+/* @title If there is stImpermanentLoss there cannot be jtImpermanentLoss
+ */
 invariant stLossImpliesNoJTLoss() 
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss > 0
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTImpermanentLoss == 0
     filtered { f -> excludeUpgradeAndCall(f) }
 
+/* @title If there is stImpermanentLoss the jtEffectiveNAV is zero
+ * @notice This is violated by jtDeposit: it will increase jtEffectiveNAV without repaying the ST losses.  This is how the contract should work, so this invariant is not a good invariant for the contract.
+ */
+invariant stLossImpliesJTEffectivelyZero() 
+    roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss > 0
+    => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV == 0
+    filtered { f -> excludeUpgradeAndCall(f)}
+
+/* @title If the termDuration is 0, the marketstate is always PERPTUAL.
+ */
 invariant termDurationZeroAlwaysPerpetual() 
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.fixedTermDurationSeconds == 0
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.PERPETUAL
     filtered { f -> excludeUpgradeAndCall(f)}
 
+
+/*  There is no lastUtilization WAD
+ * TODO: move to PRE properties
+invariant utilizationHighImpliesPerpetual()
+    roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastUtilizationWAD >=
+    roycoAccountant.ext_Royco_storage_RoycoAccountantState.liquidationUtilizationWAD
+    || roycoAccountant.ext_Royco_storage_RoycoAccountantState.jtEffectiveNAV == 0
+    => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.PERPETUAL;
+*/
+
+/* @title If the marketstate is FIXED_TERM, the fixedTermEndTimestamp must be set.
+ * @notice violated by initialize, but this should not be possible to be executed once initialization is complete.
+ */
 invariant fixedTermIsBounded()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.FIXED_TERM
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.fixedTermEndTimestamp > 0
     filtered { f -> excludeUpgradeAndCall(f)}
+
+/* TODO move to pre:
+invariant noFeesWhenFixedTerm()
+    roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.FIXED_TERM
+    => roycoAccountant.ext_Royco_storage_RoycoAccountantState.stProtocolFeeAccrued == 0
+    && roycoAccountant.ext_Royco_storage_RoycoAccountantState.jtProtocolFeeAccrued == 0
+    filtered { f -> excludeUpgradeAndCall(f)}
+*/

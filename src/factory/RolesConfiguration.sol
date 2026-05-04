@@ -23,6 +23,7 @@ abstract contract RolesConfiguration {
     /// Tranche roles
     uint64 public constant ST_LP_ROLE = uint64(uint256(keccak256(abi.encode("ROYCO_ST_LP_ROLE"))));
     uint64 public constant JT_LP_ROLE = uint64(uint256(keccak256(abi.encode("ROYCO_JT_LP_ROLE"))));
+    uint64 public constant BURNER_ROLE = uint64(uint256(keccak256(abi.encode("ROYCO_BURNER_ROLE"))));
 
     /// Kernel roles
     uint64 public constant SYNC_ROLE = uint64(uint256(keccak256(abi.encode("ROYCO_SYNC_ROLE"))));
@@ -136,6 +137,12 @@ abstract contract RolesConfiguration {
                 adminRole: _ADMIN_ROLE,
                 guardianRole: _ADMIN_ROLE, // Only admin can cancel transfer agent operations
                 executionDelay: 0 // Seizures and freezes must be immediate
+            });
+        } else if (role == BURNER_ROLE) {
+            return RoleConfig({
+                adminRole: _ADMIN_ROLE,
+                guardianRole: _ADMIN_ROLE, // Only admin can cancel burner operations
+                executionDelay: 0 // Burner operations should be immediate
             });
         } else {
             revert UNKNOWN_ROLE(role);

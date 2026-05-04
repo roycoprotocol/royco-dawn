@@ -10,7 +10,7 @@ import { RolesConfiguration } from "src/factory/RolesConfiguration.sol";
 import { IRoycoAccountant } from "src/interfaces/IRoycoAccountant.sol";
 import { IRoycoFactory } from "src/interfaces/IRoycoFactory.sol";
 import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
-import { IRoycoVaultTranche } from "src/interfaces/IRoycoVaultTranche.sol";
+import { IRoycoVaultTranche, TrancheType } from "src/interfaces/IRoycoVaultTranche.sol";
 
 /**
  * @title RoycoFactory
@@ -241,6 +241,8 @@ contract RoycoFactory is AccessManagerUpgradeable, RolesConfiguration, IRoycoFac
         require(AccessManagedUpgradeable(address(_roycoMarket.juniorTranche)).authority() == address(this), INVALID_ACCESS_MANAGER());
 
         // Verify the Tranche Configurations
+        require(_roycoMarket.seniorTranche.TRANCHE_TYPE() == TrancheType.SENIOR, INVALID_TRANCHE_TYPE_ON_SENIOR_TRANCHE());
+        require(_roycoMarket.juniorTranche.TRANCHE_TYPE() == TrancheType.JUNIOR, INVALID_TRANCHE_TYPE_ON_JUNIOR_TRANCHE());
         require(address(_roycoMarket.seniorTranche.KERNEL()) == address(_roycoMarket.kernel), INVALID_KERNEL_ON_SENIOR_TRANCHE());
         require(address(_roycoMarket.juniorTranche.KERNEL()) == address(_roycoMarket.kernel), INVALID_KERNEL_ON_JUNIOR_TRANCHE());
 

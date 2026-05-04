@@ -343,7 +343,10 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         // Compute the minimum junior tranche assets required to cover the exposure as per the market's coverage requirement
         NAV_UNIT requiredJTAssets = totalCoveredExposure.mulDiv($.coverageWAD, WAD, Math.Rounding.Ceil);
         // Compute the surplus coverage currently provided by the junior tranche based on its currently remaining loss-absorption buffer
-        NAV_UNIT surplusJTAssets = state.jtEffectiveNAV.saturatingSub(requiredJTAssets);
+        // Also account for the effective dust tolerance required to preclude reverts due to rounding after JT redemptions
+        NAV_UNIT surplusJTAssets = state.jtEffectiveNAV.saturatingSub(requiredJTAssets)
+            .saturatingSub($.stNAVDustTolerance + $.jtNAVDustTolerance.mulDiv(betaWAD, WAD, Math.Rounding.Ceil));
+        if (surplusJTAssets == ZERO_NAV_UNITS) return (ZERO_NAV_UNITS, ZERO_NAV_UNITS, ZERO_NAV_UNITS);
 
         // Compute the total JT claim on NAV and preemptively return if zero
         NAV_UNIT totalJTClaims = _jtClaimOnStUnits + _jtClaimOnJtUnits;
@@ -362,9 +365,6 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         // Split it into individual tranche's claims
         stClaimable = totalNAVClaimable.mulDiv(kS_WAD, WAD, Math.Rounding.Floor);
         jtClaimable = totalNAVClaimable.mulDiv(kJ_WAD, WAD, Math.Rounding.Floor);
-        // Account for the market's dust tolerance to preclude reverts due to rounding after JT withdrawal
-        stClaimable = stClaimable.saturatingSub($.stNAVDustTolerance);
-        jtClaimable = jtClaimable.saturatingSub($.jtNAVDustTolerance);
     }
 
     /**
@@ -474,10 +474,10 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
             /// @dev STEP_APPLY_JT_COVERAGE_TO_ST: Apply any possible coverage to ST provided by JT's loss-absorption buffer
             NAV_UNIT coverageApplied = UnitsMathLib.min(stLoss, jtEffectiveNAV);
             if (coverageApplied != ZERO_NAV_UNITS) {
-                // If there was a non-dust net JT gain, reduce it by the amount of coverage applied and recalculate the protocol fee accrued on the true net gains
-                if (jtNetGain > $.jtNAVDustTolerance) {
+                // If there was a JT protocol fee taken on their appreciation, recalculate it using the JT net gain after applying coverage applied
+                if (jtProtocolFeeAccrued != ZERO_NAV_UNITS) {
                     jtNetGain = jtNetGain.saturatingSub(coverageApplied);
-                    jtProtocolFeeAccrued = jtNetGain.mulDiv($.jtProtocolFeeWAD, WAD, Math.Rounding.Floor);
+                    jtProtocolFeeAccrued = (jtNetGain > $.jtNAVDustTolerance) ? jtNetGain.mulDiv($.jtProtocolFeeWAD, WAD, Math.Rounding.Floor) : ZERO_NAV_UNITS;
                 }
                 // Apply the coverage to JT effective NAV
                 jtEffectiveNAV = (jtEffectiveNAV - coverageApplied);
@@ -804,12 +804,18 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
      * @param _liquidationUtilizationWAD The liquidation utilization threshold for this market, scaled to WAD precision
      */
     function _validateCoverageConfig(uint64 _coverageWAD, uint96 _betaWAD, uint256 _liquidationUtilizationWAD) internal pure {
-        // Ensure that the coverage requirement is valid
-        require((_coverageWAD >= MIN_COVERAGE_WAD) && (_coverageWAD <= MAX_COVERAGE_WAD), INVALID_COVERAGE_CONFIG());
-        // Ensure that JT withdrawals are not permanently bricked
-        require(uint256(_coverageWAD).mulDiv(_betaWAD, WAD, Math.Rounding.Ceil) < WAD, INVALID_COVERAGE_CONFIG());
-        // Ensure that the liquidation utilization threshold can only be breached once the NAVs have experienced losses
-        require(_liquidationUtilizationWAD > WAD, INVALID_COVERAGE_CONFIG());
+        require(
+            // Ensure that the coverage requirement is valid
+            (_coverageWAD >= MIN_COVERAGE_WAD) && (_coverageWAD <= MAX_COVERAGE_WAD) && 
+                // Ensure that beta is valid
+                // NOTE: Beta cannot exceed 1 because the junior tranche should never be in a more loss-prone investment than the senior tranche
+                (_betaWAD <= WAD) && 
+                // Ensure that JT withdrawals are not permanently bricked
+                (uint256(_coverageWAD).mulDiv(_betaWAD, WAD, Math.Rounding.Ceil) < WAD) && 
+                // Ensure that the liquidation utilization threshold can only be breached once the NAVs have experienced losses
+                (_liquidationUtilizationWAD > WAD),
+            INVALID_COVERAGE_CONFIG()
+        );
     }
 
     /**

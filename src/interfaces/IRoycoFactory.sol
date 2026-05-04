@@ -47,6 +47,12 @@ interface IRoycoFactory {
     /// @notice Thrown when an invalid access manager is configured on a deployed contract
     error INVALID_ACCESS_MANAGER();
 
+    /// @notice Thrown when the tranche type configured on the senior tranche is not TrancheType.SENIOR
+    error INVALID_TRANCHE_TYPE_ON_SENIOR_TRANCHE();
+
+    /// @notice Thrown when the tranche type configured on the junior tranche is not TrancheType.JUNIOR
+    error INVALID_TRANCHE_TYPE_ON_JUNIOR_TRANCHE();
+
     /// @notice Thrown when the kernel address configured on the senior tranche is invalid
     error INVALID_KERNEL_ON_SENIOR_TRANCHE();
 

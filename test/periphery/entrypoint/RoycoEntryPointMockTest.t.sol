@@ -275,7 +275,7 @@ contract RoycoEntryPointMockTest is Test, RolesConfiguration {
 
         // Executor should not be able to execute
         vm.prank(executor);
-        vm.expectRevert(IRoycoEntryPoint.EXECUTOR_EXECUTION_DISABLED.selector);
+        vm.expectRevert(IRoycoEntryPoint.THIRD_PARTY_EXECUTION_DISABLED.selector);
         entryPoint.executeDeposit(userA, nonce, MAX_TRANCHE_UNITS);
 
         // User can still execute
@@ -1155,8 +1155,12 @@ contract RoycoEntryPointMockTest is Test, RolesConfiguration {
         amounts[0] = MAX_TRANCHE_UNITS;
         amounts[1] = MAX_TRANCHE_UNITS;
 
+        address[] memory users = new address[](2);
+        users[0] = userA;
+        users[1] = userA;
+
         vm.prank(userA);
-        uint256[] memory sharesMinted = entryPoint.executeDeposits(userA, nonces, amounts);
+        uint256[] memory sharesMinted = entryPoint.executeDeposits(users, nonces, amounts);
 
         assertEq(sharesMinted.length, 2, "should return 2 share amounts");
         assertGt(sharesMinted[0], 0, "should mint shares for first");
@@ -1171,9 +1175,13 @@ contract RoycoEntryPointMockTest is Test, RolesConfiguration {
         TRANCHE_UNIT[] memory amounts = new TRANCHE_UNIT[](1);
         amounts[0] = MAX_TRANCHE_UNITS;
 
+        address[] memory users = new address[](2);
+        users[0] = userA;
+        users[1] = userA;
+
         vm.prank(userA);
         vm.expectRevert(IRoycoEntryPoint.ARRAY_LENGTH_MISMATCH.selector);
-        entryPoint.executeDeposits(userA, nonces, amounts);
+        entryPoint.executeDeposits(users, nonces, amounts);
     }
 
     function test_executeDeposits_emptyArrays() public view {
@@ -1231,8 +1239,12 @@ contract RoycoEntryPointMockTest is Test, RolesConfiguration {
         amounts[0] = type(uint256).max;
         amounts[1] = type(uint256).max;
 
+        address[] memory users = new address[](2);
+        users[0] = userA;
+        users[1] = userA;
+
         vm.prank(userA);
-        AssetClaims[] memory claims = entryPoint.executeRedemptions(userA, nonces, amounts);
+        AssetClaims[] memory claims = entryPoint.executeRedemptions(users, nonces, amounts);
 
         assertEq(claims.length, 2, "should return 2 claims");
         assertGt(toUint256(claims[0].nav), 0, "should have claims for first");
@@ -1247,9 +1259,384 @@ contract RoycoEntryPointMockTest is Test, RolesConfiguration {
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = type(uint256).max;
 
+        address[] memory users = new address[](2);
+        users[0] = userA;
+        users[1] = userA;
+
         vm.prank(userA);
         vm.expectRevert(IRoycoEntryPoint.ARRAY_LENGTH_MISMATCH.selector);
-        entryPoint.executeRedemptions(userA, nonces, amounts);
+        entryPoint.executeRedemptions(users, nonces, amounts);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BATCH ACROSS USERS: EXECUTE DEPOSITS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_executeDeposits_acrossUsers_success() public {
+        uint256 depositAmount = 500e18;
+
+        // userA + userB each create a deposit request
+        vm.startPrank(userA);
+        asset.approve(address(entryPoint), depositAmount);
+        (uint256 nonceA,) = entryPoint.requestDeposit(address(stTranche), toTrancheUnits(depositAmount), userA, 0);
+        vm.stopPrank();
+
+        vm.startPrank(userB);
+        asset.approve(address(entryPoint), depositAmount);
+        (uint256 nonceB,) = entryPoint.requestDeposit(address(stTranche), toTrancheUnits(depositAmount), userB, 0);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + DEPOSIT_DELAY + 1);
+
+        address[] memory users = new address[](2);
+        users[0] = userA;
+        users[1] = userB;
+
+        uint256[] memory nonces = new uint256[](2);
+        nonces[0] = nonceA;
+        nonces[1] = nonceB;
+
+        TRANCHE_UNIT[] memory amounts = new TRANCHE_UNIT[](2);
+        amounts[0] = MAX_TRANCHE_UNITS;
+        amounts[1] = MAX_TRANCHE_UNITS;
+
+        // An executor (not the owner of either request) sweeps both
+        vm.prank(executor);
+        uint256[] memory sharesMinted = entryPoint.executeDeposits(users, nonces, amounts);
+
+        assertEq(sharesMinted.length, 2, "should return 2 share amounts");
+        assertGt(sharesMinted[0], 0, "userA should get shares");
+        assertGt(sharesMinted[1], 0, "userB should get shares");
+        assertEq(stTranche.balanceOf(userA), sharesMinted[0], "userA share balance");
+        assertEq(stTranche.balanceOf(userB), sharesMinted[1], "userB share balance");
+    }
+
+    function test_executeDeposits_revert_usersLengthMismatch() public {
+        uint256[] memory nonces = new uint256[](2);
+        nonces[0] = 1;
+        nonces[1] = 2;
+
+        TRANCHE_UNIT[] memory amounts = new TRANCHE_UNIT[](2);
+        amounts[0] = MAX_TRANCHE_UNITS;
+        amounts[1] = MAX_TRANCHE_UNITS;
+
+        address[] memory users = new address[](1); // mismatched
+        users[0] = userA;
+
+        vm.prank(userA);
+        vm.expectRevert(IRoycoEntryPoint.ARRAY_LENGTH_MISMATCH.selector);
+        entryPoint.executeDeposits(users, nonces, amounts);
+    }
+
+    function test_executeDeposits_gracefulSkip_whenMaxDepositZero() public {
+        // userA creates a request, userB creates another
+        uint256 depositAmount = 500e18;
+        vm.startPrank(userA);
+        asset.approve(address(entryPoint), depositAmount);
+        (uint256 nonceA,) = entryPoint.requestDeposit(address(stTranche), toTrancheUnits(depositAmount), userA, 0);
+        vm.stopPrank();
+
+        vm.startPrank(userB);
+        asset.approve(address(entryPoint), depositAmount);
+        (uint256 nonceB,) = entryPoint.requestDeposit(address(stTranche), toTrancheUnits(depositAmount), userB, 0);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + DEPOSIT_DELAY + 1);
+
+        // Freeze tranche maxDeposit to 0 — batch should NOT revert when callers pass MAX sentinel
+        stTranche.setMaxDeposit(0);
+
+        address[] memory users = new address[](2);
+        users[0] = userA;
+        users[1] = userB;
+
+        uint256[] memory nonces = new uint256[](2);
+        nonces[0] = nonceA;
+        nonces[1] = nonceB;
+
+        TRANCHE_UNIT[] memory amounts = new TRANCHE_UNIT[](2);
+        amounts[0] = MAX_TRANCHE_UNITS;
+        amounts[1] = MAX_TRANCHE_UNITS;
+
+        vm.prank(executor);
+        uint256[] memory sharesMinted = entryPoint.executeDeposits(users, nonces, amounts);
+
+        assertEq(sharesMinted[0], 0, "first entry skipped");
+        assertEq(sharesMinted[1], 0, "second entry skipped");
+        // Requests still live — user can retry once maxDeposit is restored
+        assertEq(toUint256(entryPoint.getDepositRequest(userA, nonceA).assets), depositAmount, "userA request intact");
+        assertEq(toUint256(entryPoint.getDepositRequest(userB, nonceB).assets), depositAmount, "userB request intact");
+    }
+
+    function test_executeDeposits_revertsWholeBatch_onInvalidEntry() public {
+        // userA has a valid request; userB's nonce is bogus — whole batch reverts
+        uint256 depositAmount = 500e18;
+        vm.startPrank(userA);
+        asset.approve(address(entryPoint), depositAmount);
+        (uint256 nonceA,) = entryPoint.requestDeposit(address(stTranche), toTrancheUnits(depositAmount), userA, 0);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + DEPOSIT_DELAY + 1);
+
+        address[] memory users = new address[](2);
+        users[0] = userA;
+        users[1] = userB;
+
+        uint256[] memory nonces = new uint256[](2);
+        nonces[0] = nonceA;
+        nonces[1] = 999; // bogus
+
+        TRANCHE_UNIT[] memory amounts = new TRANCHE_UNIT[](2);
+        amounts[0] = MAX_TRANCHE_UNITS;
+        amounts[1] = MAX_TRANCHE_UNITS;
+
+        vm.prank(executor);
+        vm.expectRevert(abi.encodeWithSelector(IRoycoEntryPoint.INVALID_REQUEST.selector, uint256(999)));
+        entryPoint.executeDeposits(users, nonces, amounts);
+    }
+
+    function test_executeDeposits_independentReceivers() public {
+        // userA requests a deposit whose receiver is userB (receiver != owner)
+        uint256 depositAmount = 500e18;
+        vm.startPrank(userA);
+        asset.approve(address(entryPoint), depositAmount);
+        (uint256 nonceA,) = entryPoint.requestDeposit(address(stTranche), toTrancheUnits(depositAmount), userB, 0);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + DEPOSIT_DELAY + 1);
+
+        address[] memory users = new address[](1);
+        users[0] = userA;
+        uint256[] memory nonces = new uint256[](1);
+        nonces[0] = nonceA;
+        TRANCHE_UNIT[] memory amounts = new TRANCHE_UNIT[](1);
+        amounts[0] = MAX_TRANCHE_UNITS;
+
+        vm.prank(executor);
+        uint256[] memory sharesMinted = entryPoint.executeDeposits(users, nonces, amounts);
+
+        assertGt(sharesMinted[0], 0, "minted shares");
+        assertEq(stTranche.balanceOf(userB), sharesMinted[0], "receiver (userB) gets shares");
+        assertEq(stTranche.balanceOf(userA), 0, "owner (userA) does not");
+    }
+
+    function test_executeDeposits_emptyArrays_noop() public {
+        address[] memory users = new address[](0);
+        uint256[] memory nonces = new uint256[](0);
+        TRANCHE_UNIT[] memory amounts = new TRANCHE_UNIT[](0);
+
+        vm.prank(executor);
+        uint256[] memory sharesMinted = entryPoint.executeDeposits(users, nonces, amounts);
+
+        assertEq(sharesMinted.length, 0, "empty batch returns empty array");
+    }
+
+    function test_executeDeposits_mixedTranches() public {
+        // userA on ST, userB on JT — single batch across tranches
+        uint256 depositAmount = 500e18;
+
+        vm.startPrank(userA);
+        asset.approve(address(entryPoint), depositAmount);
+        (uint256 nonceA,) = entryPoint.requestDeposit(address(stTranche), toTrancheUnits(depositAmount), userA, 0);
+        vm.stopPrank();
+
+        vm.startPrank(userB);
+        asset.approve(address(entryPoint), depositAmount);
+        (uint256 nonceB,) = entryPoint.requestDeposit(address(jtTranche), toTrancheUnits(depositAmount), userB, 0);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + DEPOSIT_DELAY + 1);
+
+        address[] memory users = new address[](2);
+        users[0] = userA;
+        users[1] = userB;
+        uint256[] memory nonces = new uint256[](2);
+        nonces[0] = nonceA;
+        nonces[1] = nonceB;
+        TRANCHE_UNIT[] memory amounts = new TRANCHE_UNIT[](2);
+        amounts[0] = MAX_TRANCHE_UNITS;
+        amounts[1] = MAX_TRANCHE_UNITS;
+
+        vm.prank(executor);
+        uint256[] memory sharesMinted = entryPoint.executeDeposits(users, nonces, amounts);
+
+        assertGt(stTranche.balanceOf(userA), 0, "userA holds ST");
+        assertGt(jtTranche.balanceOf(userB), 0, "userB holds JT");
+        assertEq(stTranche.balanceOf(userA), sharesMinted[0], "ST shares match return");
+        assertEq(jtTranche.balanceOf(userB), sharesMinted[1], "JT shares match return");
+    }
+
+    function test_executeDeposits_revert_whenPaused() public {
+        // Pause the entry point via factory authority
+        vm.prank(owner);
+        RoycoEntryPoint(address(entryPoint)).pause();
+
+        address[] memory users = new address[](1);
+        users[0] = userA;
+        uint256[] memory nonces = new uint256[](1);
+        nonces[0] = 1;
+        TRANCHE_UNIT[] memory amounts = new TRANCHE_UNIT[](1);
+        amounts[0] = MAX_TRANCHE_UNITS;
+
+        vm.prank(userA);
+        vm.expectRevert(); // EnforcedPause
+        entryPoint.executeDeposits(users, nonces, amounts);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BATCH ACROSS USERS: EXECUTE REDEMPTIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function test_executeRedemptions_acrossUsers_success() public {
+        uint256 depositAmount = 1000e18;
+        _depositToTranche(userA, address(stTranche), depositAmount);
+        _depositToTranche(userB, address(stTranche), depositAmount);
+
+        uint256 sharesA = stTranche.balanceOf(userA);
+        uint256 sharesB = stTranche.balanceOf(userB);
+
+        vm.startPrank(userA);
+        stTranche.approve(address(entryPoint), sharesA);
+        (uint256 nonceA,) = entryPoint.requestRedemption(address(stTranche), sharesA, userA, 0);
+        vm.stopPrank();
+
+        vm.startPrank(userB);
+        stTranche.approve(address(entryPoint), sharesB);
+        (uint256 nonceB,) = entryPoint.requestRedemption(address(stTranche), sharesB, userB, 0);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + REDEMPTION_DELAY + 1);
+
+        address[] memory users = new address[](2);
+        users[0] = userA;
+        users[1] = userB;
+        uint256[] memory nonces = new uint256[](2);
+        nonces[0] = nonceA;
+        nonces[1] = nonceB;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = type(uint256).max;
+        amounts[1] = type(uint256).max;
+
+        vm.prank(executor);
+        AssetClaims[] memory claims = entryPoint.executeRedemptions(users, nonces, amounts);
+
+        assertEq(claims.length, 2, "two claims");
+        assertGt(toUint256(claims[0].nav), 0, "userA claim");
+        assertGt(toUint256(claims[1].nav), 0, "userB claim");
+    }
+
+    function test_executeRedemptions_revert_usersLengthMismatch() public {
+        uint256[] memory nonces = new uint256[](2);
+        nonces[0] = 1;
+        nonces[1] = 2;
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = type(uint256).max;
+        amounts[1] = type(uint256).max;
+
+        address[] memory users = new address[](1); // mismatched
+        users[0] = userA;
+
+        vm.prank(userA);
+        vm.expectRevert(IRoycoEntryPoint.ARRAY_LENGTH_MISMATCH.selector);
+        entryPoint.executeRedemptions(users, nonces, amounts);
+    }
+
+    function test_executeRedemptions_gracefulSkip_whenMaxRedeemZero() public {
+        uint256 depositAmount = 1000e18;
+        _depositToTranche(userA, address(stTranche), depositAmount);
+        _depositToTranche(userB, address(stTranche), depositAmount);
+
+        uint256 sharesA = stTranche.balanceOf(userA);
+        uint256 sharesB = stTranche.balanceOf(userB);
+
+        vm.startPrank(userA);
+        stTranche.approve(address(entryPoint), sharesA);
+        (uint256 nonceA,) = entryPoint.requestRedemption(address(stTranche), sharesA, userA, 0);
+        vm.stopPrank();
+
+        vm.startPrank(userB);
+        stTranche.approve(address(entryPoint), sharesB);
+        (uint256 nonceB,) = entryPoint.requestRedemption(address(stTranche), sharesB, userB, 0);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + REDEMPTION_DELAY + 1);
+
+        // Freeze max redeem — batch tolerates with max sentinel
+        stTranche.setMaxRedeem(0);
+
+        address[] memory users = new address[](2);
+        users[0] = userA;
+        users[1] = userB;
+        uint256[] memory nonces = new uint256[](2);
+        nonces[0] = nonceA;
+        nonces[1] = nonceB;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = type(uint256).max;
+        amounts[1] = type(uint256).max;
+
+        vm.prank(executor);
+        AssetClaims[] memory claims = entryPoint.executeRedemptions(users, nonces, amounts);
+
+        assertEq(toUint256(claims[0].nav), 0, "first skipped");
+        assertEq(toUint256(claims[1].nav), 0, "second skipped");
+        // Requests still live
+        assertEq(entryPoint.getRedemptionRequest(userA, nonceA).shares, sharesA, "userA request intact");
+        assertEq(entryPoint.getRedemptionRequest(userB, nonceB).shares, sharesB, "userB request intact");
+    }
+
+    function test_executeRedemptions_revertsWholeBatch_onInvalidEntry() public {
+        uint256 depositAmount = 1000e18;
+        _depositToTranche(userA, address(stTranche), depositAmount);
+        uint256 sharesA = stTranche.balanceOf(userA);
+
+        vm.startPrank(userA);
+        stTranche.approve(address(entryPoint), sharesA);
+        (uint256 nonceA,) = entryPoint.requestRedemption(address(stTranche), sharesA, userA, 0);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + REDEMPTION_DELAY + 1);
+
+        address[] memory users = new address[](2);
+        users[0] = userA;
+        users[1] = userB;
+        uint256[] memory nonces = new uint256[](2);
+        nonces[0] = nonceA;
+        nonces[1] = 9999; // bogus
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = type(uint256).max;
+        amounts[1] = type(uint256).max;
+
+        vm.prank(executor);
+        vm.expectRevert(abi.encodeWithSelector(IRoycoEntryPoint.INVALID_REQUEST.selector, uint256(9999)));
+        entryPoint.executeRedemptions(users, nonces, amounts);
+    }
+
+    function test_executeRedemptions_emptyArrays_noop() public {
+        address[] memory users = new address[](0);
+        uint256[] memory nonces = new uint256[](0);
+        uint256[] memory amounts = new uint256[](0);
+
+        vm.prank(executor);
+        AssetClaims[] memory claims = entryPoint.executeRedemptions(users, nonces, amounts);
+
+        assertEq(claims.length, 0, "empty batch returns empty array");
+    }
+
+    function test_executeRedemptions_revert_whenPaused() public {
+        vm.prank(owner);
+        RoycoEntryPoint(address(entryPoint)).pause();
+
+        address[] memory users = new address[](1);
+        users[0] = userA;
+        uint256[] memory nonces = new uint256[](1);
+        nonces[0] = 1;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = type(uint256).max;
+
+        vm.prank(userA);
+        vm.expectRevert();
+        entryPoint.executeRedemptions(users, nonces, amounts);
     }
 
     function test_cancelRedemptionRequests_batch() public {
@@ -1387,7 +1774,7 @@ contract RoycoEntryPointMockTest is Test, RolesConfiguration {
 
         // Third party tries to execute
         vm.prank(executor);
-        vm.expectRevert(IRoycoEntryPoint.EXECUTOR_EXECUTION_DISABLED.selector);
+        vm.expectRevert(IRoycoEntryPoint.THIRD_PARTY_EXECUTION_DISABLED.selector);
         entryPoint.executeRedemption(userA, nonce, type(uint256).max);
     }
 
@@ -1981,7 +2368,7 @@ contract RoycoEntryPointMockTest is Test, RolesConfiguration {
 
         // Third-party execution with 100% bonus will revert because deposit amount becomes 0
         vm.prank(executor);
-        vm.expectRevert("MUST_DEPOSIT_NON_ZERO_ASSETS");
+        vm.expectRevert("MUST_MINT_NON_ZERO_SHARES");
         entryPoint.executeDeposit(userA, nonce, MAX_TRANCHE_UNITS);
     }
 

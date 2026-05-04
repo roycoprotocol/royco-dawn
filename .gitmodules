@@ -10,3 +10,10 @@
 [submodule "lib/solady"]
 	path = lib/solady
 	url = https://github.com/vectorized/solady
+[submodule "lib/Pendle-SY-Public"]
+	path = lib/Pendle-SY-Public
+	url = https://github.com/pendle-finance/Pendle-SY-Public
+[submodule "lib/openzeppelin-contracts-v4"]
+	path = lib/openzeppelin-contracts-v4
+	url = https://github.com/openzeppelin/openzeppelin-contracts
+	branch = release-v4.9

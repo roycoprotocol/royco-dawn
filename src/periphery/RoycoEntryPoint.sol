@@ -108,20 +108,22 @@ contract RoycoEntryPoint is RoycoBase, IRoycoEntryPoint {
 
     /// @inheritdoc IRoycoEntryPoint
     function executeDeposits(
-        address _user,
+        address[] calldata _users,
         uint256[] calldata _requestNonces,
         TRANCHE_UNIT[] calldata _assetsToDeposit
     )
         external
         override(IRoycoEntryPoint)
+        whenNotPaused
+        restricted
         returns (uint256[] memory trancheSharesMinted)
     {
         // Execute the user specified deposit requests
         uint256 numRequestsToExecute = _requestNonces.length;
-        require(numRequestsToExecute == _assetsToDeposit.length, ARRAY_LENGTH_MISMATCH());
+        require(numRequestsToExecute == _users.length && numRequestsToExecute == _assetsToDeposit.length, ARRAY_LENGTH_MISMATCH());
         trancheSharesMinted = new uint256[](numRequestsToExecute);
         for (uint256 i = 0; i < numRequestsToExecute; ++i) {
-            trancheSharesMinted[i] = executeDeposit(_user, _requestNonces[i], _assetsToDeposit[i]);
+            trancheSharesMinted[i] = _executeDeposit(_users[i], _requestNonces[i], _assetsToDeposit[i]);
         }
     }
 
@@ -131,57 +133,13 @@ contract RoycoEntryPoint is RoycoBase, IRoycoEntryPoint {
         uint256 _requestNonce,
         TRANCHE_UNIT _assetsToDeposit
     )
-        public
+        external
         override(IRoycoEntryPoint)
         whenNotPaused
         restricted
         returns (uint256 trancheSharesMinted)
     {
-        require(_assetsToDeposit != ZERO_TRANCHE_UNITS, ZERO_AMOUNT());
-        // Retrieve the user's specified deposit request and assert its validity
-        RoycoEntryPointState storage $ = _getRoycoEntryPointStorage();
-        DepositRequest memory request = $.userToNonceToDepositRequest[_user][_requestNonce];
-        _validateRequestExecution(_requestNonce, request.baseRequest.executableAtTimestamp);
-
-        // Ensure the tranche is still enabled
-        address tranche = request.baseRequest.tranche;
-        EnrichedTrancheConfig memory config = $.trancheToConfig[tranche];
-        require(config.baseConfig.enabled, TRANCHE_NOT_ENABLED());
-
-        // Resolve the actual amount of assets to deposit
-        _assetsToDeposit = (_assetsToDeposit == MAX_TRANCHE_UNITS)
-            ? UnitsMathLib.min(IRoycoVaultTranche(tranche).maxDeposit(request.baseRequest.receiver), request.assets)
-            : _assetsToDeposit;
-        // Return early without reverting if maxDeposit is 0 due to market conditions
-        if (_assetsToDeposit == ZERO_TRANCHE_UNITS) return 0;
-
-        // Mark the assets as deposited
-        TRANCHE_UNIT assetsLeftToDeposit = request.assets - _assetsToDeposit;
-        if (assetsLeftToDeposit == ZERO_TRANCHE_UNITS) delete $.userToNonceToDepositRequest[_user][_requestNonce];
-        else $.userToNonceToDepositRequest[_user][_requestNonce].assets = assetsLeftToDeposit;
-
-        // Execute the deposit on the underlying tranche
-        TRANCHE_UNIT bonusAssets;
-        // If this is a self-deposit or there is no executor bonus configured, mint shares directly to the specified recipient
-        if (_user == msg.sender || request.baseRequest.executorBonusWAD == 0) {
-            IERC20(config.asset).forceApprove(tranche, toUint256(_assetsToDeposit));
-            trancheSharesMinted = IRoycoVaultTranche(tranche).deposit(_assetsToDeposit, request.baseRequest.receiver);
-        }
-        // If this is an third party execution, remit the executor bonus and deposit the remaining assets
-        else {
-            // Ensure that the user has opted into third party execution
-            require(request.baseRequest.executorBonusWAD != type(uint64).max, EXECUTOR_EXECUTION_DISABLED());
-            // Compute and transfer bonus assets to the executor
-            bonusAssets = _assetsToDeposit.mulDiv(request.baseRequest.executorBonusWAD, WAD, Math.Rounding.Floor);
-            if (bonusAssets != ZERO_TRANCHE_UNITS) IERC20(config.asset).safeTransfer(msg.sender, toUint256(bonusAssets));
-            // Deposit assets and mint shares directly to the specified receiver
-            _assetsToDeposit = _assetsToDeposit - bonusAssets;
-            IERC20(config.asset).forceApprove(tranche, toUint256(_assetsToDeposit));
-            trancheSharesMinted = IRoycoVaultTranche(tranche).deposit(_assetsToDeposit, request.baseRequest.receiver);
-        }
-
-        // Emit the deposit execution event
-        emit DepositExecuted(_user, _requestNonce, msg.sender, _assetsToDeposit, trancheSharesMinted, bonusAssets);
+        return _executeDeposit(_user, _requestNonce, _assetsToDeposit);
     }
 
     /// @inheritdoc IRoycoEntryPoint
@@ -262,20 +220,22 @@ contract RoycoEntryPoint is RoycoBase, IRoycoEntryPoint {
 
     /// @inheritdoc IRoycoEntryPoint
     function executeRedemptions(
-        address _user,
+        address[] calldata _users,
         uint256[] calldata _requestNonces,
         uint256[] calldata _sharesToRedeem
     )
         external
         override(IRoycoEntryPoint)
+        whenNotPaused
+        restricted
         returns (AssetClaims[] memory userClaims)
     {
         // Execute the user specified redemption requests
         uint256 numRequestsToExecute = _requestNonces.length;
-        require(numRequestsToExecute == _sharesToRedeem.length, ARRAY_LENGTH_MISMATCH());
+        require(numRequestsToExecute == _users.length && numRequestsToExecute == _sharesToRedeem.length, ARRAY_LENGTH_MISMATCH());
         userClaims = new AssetClaims[](numRequestsToExecute);
         for (uint256 i = 0; i < numRequestsToExecute; ++i) {
-            userClaims[i] = executeRedemption(_user, _requestNonces[i], _sharesToRedeem[i]);
+            userClaims[i] = _executeRedemption(_users[i], _requestNonces[i], _sharesToRedeem[i]);
         }
     }
 
@@ -285,87 +245,13 @@ contract RoycoEntryPoint is RoycoBase, IRoycoEntryPoint {
         uint256 _requestNonce,
         uint256 _sharesToRedeem
     )
-        public
+        external
         override(IRoycoEntryPoint)
         whenNotPaused
         restricted
         returns (AssetClaims memory userClaims)
     {
-        require(_sharesToRedeem != 0, ZERO_AMOUNT());
-        // Retrieve the user's specified redemption request and assert its validity
-        RoycoEntryPointState storage $ = _getRoycoEntryPointStorage();
-        RedemptionRequest memory request = $.userToNonceToRedemptionRequest[_user][_requestNonce];
-        _validateRequestExecution(_requestNonce, request.baseRequest.executableAtTimestamp);
-
-        // Ensure the tranche is still enabled
-        address tranche = request.baseRequest.tranche;
-        EnrichedTrancheConfig memory config = $.trancheToConfig[tranche];
-        require(config.baseConfig.enabled, TRANCHE_NOT_ENABLED());
-
-        // Resolve the actual amount of shares to redeem
-        _sharesToRedeem =
-            (_sharesToRedeem == type(uint256).max) ? Math.min(IRoycoVaultTranche(tranche).maxRedeem(address(this)), request.shares) : _sharesToRedeem;
-        if (_sharesToRedeem == 0) return AssetClaims(ZERO_TRANCHE_UNITS, ZERO_TRANCHE_UNITS, ZERO_NAV_UNITS);
-
-        // Mark the shares as redeemed
-        uint256 sharesLeftToRedeem = request.shares - _sharesToRedeem;
-        if (sharesLeftToRedeem == 0) {
-            delete $.userToNonceToRedemptionRequest[_user][_requestNonce];
-        } else {
-            $.userToNonceToRedemptionRequest[_user][_requestNonce].shares = sharesLeftToRedeem;
-            // Scale the NAV of the remaining shares in the request by the shares left to redeem
-            if (request.navAtRequestTime != MAX_NAV_UNITS) {
-                NAV_UNIT navOfSharesLeftToRedeem = request.navAtRequestTime.mulDiv(sharesLeftToRedeem, request.shares, Math.Rounding.Floor);
-                $.userToNonceToRedemptionRequest[_user][_requestNonce].navAtRequestTime = navOfSharesLeftToRedeem;
-                request.navAtRequestTime = request.navAtRequestTime - navOfSharesLeftToRedeem;
-            }
-        }
-
-        // If this is a self-redemption or there is no executor bonus configured, withdraw assets directly to the specified recipient
-        uint256 userSharesRedeemed;
-        uint256 forfeitedYieldShares;
-        AssetClaims memory bonusClaims;
-        if (_user == msg.sender || request.baseRequest.executorBonusWAD == 0) {
-            // Redeem shares and route yield directly to the receiver
-            (userSharesRedeemed, forfeitedYieldShares, userClaims) =
-                _redeemWithYieldRouting(tranche, config, _sharesToRedeem, request.navAtRequestTime, request.baseRequest.receiver);
-        }
-        // If this is a third party execution, withdraw the assets, handle any yield as configured, and remit the executor bonus
-        else {
-            // Ensure that the user has opted into third party execution
-            require(request.baseRequest.executorBonusWAD != type(uint64).max, EXECUTOR_EXECUTION_DISABLED());
-
-            // Redeem shares and route yield to this contract for bonus calculation
-            (userSharesRedeemed, forfeitedYieldShares, userClaims) =
-                _redeemWithYieldRouting(tranche, config, _sharesToRedeem, request.navAtRequestTime, address(this));
-
-            // Scale the asset claims to compute the executor bonus and the receiver's portion
-            bonusClaims = UtilsLib.scaleAssetClaims(userClaims, request.baseRequest.executorBonusWAD, WAD);
-            userClaims.stAssets = userClaims.stAssets - bonusClaims.stAssets;
-            userClaims.jtAssets = userClaims.jtAssets - bonusClaims.jtAssets;
-            userClaims.nav = userClaims.nav - bonusClaims.nav;
-
-            // Transfer bonus and remaining assets to executor and receiver respectively
-            address kernel = IRoycoVaultTranche(tranche).KERNEL();
-            address stAsset = IRoycoKernel(kernel).ST_ASSET();
-            address jtAsset = IRoycoKernel(kernel).JT_ASSET();
-            if (stAsset == jtAsset) {
-                // Batch transfer if same asset
-                TRANCHE_UNIT totalBonus = bonusClaims.stAssets + bonusClaims.jtAssets;
-                TRANCHE_UNIT totalUserAssets = userClaims.stAssets + userClaims.jtAssets;
-                if (totalBonus != ZERO_TRANCHE_UNITS) IERC20(stAsset).safeTransfer(msg.sender, toUint256(totalBonus));
-                if (totalUserAssets != ZERO_TRANCHE_UNITS) IERC20(stAsset).safeTransfer(request.baseRequest.receiver, toUint256(totalUserAssets));
-            } else {
-                // Transfer each asset separately
-                if (bonusClaims.stAssets != ZERO_TRANCHE_UNITS) IERC20(stAsset).safeTransfer(msg.sender, toUint256(bonusClaims.stAssets));
-                if (bonusClaims.jtAssets != ZERO_TRANCHE_UNITS) IERC20(jtAsset).safeTransfer(msg.sender, toUint256(bonusClaims.jtAssets));
-                if (userClaims.stAssets != ZERO_TRANCHE_UNITS) IERC20(stAsset).safeTransfer(request.baseRequest.receiver, toUint256(userClaims.stAssets));
-                if (userClaims.jtAssets != ZERO_TRANCHE_UNITS) IERC20(jtAsset).safeTransfer(request.baseRequest.receiver, toUint256(userClaims.jtAssets));
-            }
-        }
-
-        // Emit the redemption execution event
-        emit RedemptionExecuted(_user, _requestNonce, msg.sender, userSharesRedeemed, forfeitedYieldShares, userClaims, bonusClaims);
+        return _executeRedemption(_user, _requestNonce, _sharesToRedeem);
     }
 
     /// @inheritdoc IRoycoEntryPoint
@@ -464,6 +350,150 @@ contract RoycoEntryPoint is RoycoBase, IRoycoEntryPoint {
     /// =============================
     /// Internal Utility Functions
     /// =============================
+
+    /**
+     * @notice Executes a pending deposit request for the specified user
+     * @dev The request must exist and the configured delay period must have elapsed
+     *      If executed by a third party, the executor bonus is paid in assets before depositing the remainder
+     * @param _user The user whose deposit request should be executed
+     * @param _requestNonce The nonce of the deposit request to execute
+     * @param _assetsToDeposit The amount of assets to deposit (use MAX_TRANCHE_UNITS to deposit the maximum possible)
+     * @return trancheSharesMinted The amount of tranche shares minted to the receiver
+     */
+    function _executeDeposit(address _user, uint256 _requestNonce, TRANCHE_UNIT _assetsToDeposit) internal returns (uint256 trancheSharesMinted) {
+        require(_assetsToDeposit != ZERO_TRANCHE_UNITS, ZERO_AMOUNT());
+        // Retrieve the user's specified deposit request and assert its validity
+        RoycoEntryPointState storage $ = _getRoycoEntryPointStorage();
+        DepositRequest memory request = $.userToNonceToDepositRequest[_user][_requestNonce];
+        _validateRequestExecution(_requestNonce, request.baseRequest.executableAtTimestamp);
+
+        // Ensure the tranche is still enabled
+        address tranche = request.baseRequest.tranche;
+        EnrichedTrancheConfig memory config = $.trancheToConfig[tranche];
+        require(config.baseConfig.enabled, TRANCHE_NOT_ENABLED());
+
+        // Resolve the actual amount of assets to deposit
+        _assetsToDeposit = (_assetsToDeposit == MAX_TRANCHE_UNITS)
+            ? UnitsMathLib.min(IRoycoVaultTranche(tranche).maxDeposit(request.baseRequest.receiver), request.assets)
+            : _assetsToDeposit;
+        // Return early without reverting if maxDeposit is 0 due to market conditions
+        if (_assetsToDeposit == ZERO_TRANCHE_UNITS) return 0;
+
+        // Mark the assets as deposited
+        TRANCHE_UNIT assetsLeftToDeposit = request.assets - _assetsToDeposit;
+        if (assetsLeftToDeposit == ZERO_TRANCHE_UNITS) delete $.userToNonceToDepositRequest[_user][_requestNonce];
+        else $.userToNonceToDepositRequest[_user][_requestNonce].assets = assetsLeftToDeposit;
+
+        // Execute the deposit on the underlying tranche
+        TRANCHE_UNIT bonusAssets;
+        // If this is a self-deposit or there is no executor bonus configured, mint shares directly to the specified recipient
+        if (_user == msg.sender || request.baseRequest.executorBonusWAD == 0) {
+            IERC20(config.asset).forceApprove(tranche, toUint256(_assetsToDeposit));
+            trancheSharesMinted = IRoycoVaultTranche(tranche).deposit(_assetsToDeposit, request.baseRequest.receiver);
+        }
+        // If this is an third party execution, remit the executor bonus and deposit the remaining assets
+        else {
+            // Ensure that the user has opted into third party execution
+            require(request.baseRequest.executorBonusWAD != type(uint64).max, THIRD_PARTY_EXECUTION_DISABLED());
+            // Compute and transfer bonus assets to the executor
+            bonusAssets = _assetsToDeposit.mulDiv(request.baseRequest.executorBonusWAD, WAD, Math.Rounding.Floor);
+            if (bonusAssets != ZERO_TRANCHE_UNITS) IERC20(config.asset).safeTransfer(msg.sender, toUint256(bonusAssets));
+            // Deposit assets and mint shares directly to the specified receiver
+            _assetsToDeposit = _assetsToDeposit - bonusAssets;
+            IERC20(config.asset).forceApprove(tranche, toUint256(_assetsToDeposit));
+            trancheSharesMinted = IRoycoVaultTranche(tranche).deposit(_assetsToDeposit, request.baseRequest.receiver);
+        }
+
+        // Emit the deposit execution event
+        emit DepositExecuted(_user, _requestNonce, msg.sender, _assetsToDeposit, trancheSharesMinted, bonusAssets);
+    }
+
+    /**
+     * @notice Executes a pending redemption request for the specified user
+     * @dev The request must exist and the configured delay period must have elapsed
+     * @param _user The user whose redemption request should be executed
+     * @param _requestNonce The nonce of the redemption request to execute
+     * @param _sharesToRedeem The amount of shares to redeem (use type(uint256).max to redeem the maximum possible)
+     * @return userClaims The assets withdrawn to the request-specific receiver upon executing this redemption request
+     */
+    function _executeRedemption(address _user, uint256 _requestNonce, uint256 _sharesToRedeem) internal returns (AssetClaims memory userClaims) {
+        require(_sharesToRedeem != 0, ZERO_AMOUNT());
+        // Retrieve the user's specified redemption request and assert its validity
+        RoycoEntryPointState storage $ = _getRoycoEntryPointStorage();
+        RedemptionRequest memory request = $.userToNonceToRedemptionRequest[_user][_requestNonce];
+        _validateRequestExecution(_requestNonce, request.baseRequest.executableAtTimestamp);
+
+        // Ensure the tranche is still enabled
+        address tranche = request.baseRequest.tranche;
+        EnrichedTrancheConfig memory config = $.trancheToConfig[tranche];
+        require(config.baseConfig.enabled, TRANCHE_NOT_ENABLED());
+
+        // Resolve the actual amount of shares to redeem
+        _sharesToRedeem =
+            (_sharesToRedeem == type(uint256).max) ? Math.min(IRoycoVaultTranche(tranche).maxRedeem(address(this)), request.shares) : _sharesToRedeem;
+        // Return early without reverting if maxRedeem is 0 due to market conditions
+        if (_sharesToRedeem == 0) return AssetClaims(ZERO_TRANCHE_UNITS, ZERO_TRANCHE_UNITS, ZERO_NAV_UNITS);
+
+        // Mark the shares as redeemed
+        uint256 sharesLeftToRedeem = request.shares - _sharesToRedeem;
+        if (sharesLeftToRedeem == 0) {
+            delete $.userToNonceToRedemptionRequest[_user][_requestNonce];
+        } else {
+            $.userToNonceToRedemptionRequest[_user][_requestNonce].shares = sharesLeftToRedeem;
+            // Scale the NAV of the remaining shares in the request by the shares left to redeem
+            if (request.navAtRequestTime != MAX_NAV_UNITS) {
+                NAV_UNIT navOfSharesLeftToRedeem = request.navAtRequestTime.mulDiv(sharesLeftToRedeem, request.shares, Math.Rounding.Floor);
+                $.userToNonceToRedemptionRequest[_user][_requestNonce].navAtRequestTime = navOfSharesLeftToRedeem;
+                request.navAtRequestTime = request.navAtRequestTime - navOfSharesLeftToRedeem;
+            }
+        }
+
+        // If this is a self-redemption or there is no executor bonus configured, withdraw assets directly to the specified recipient
+        uint256 userSharesRedeemed;
+        uint256 forfeitedYieldShares;
+        AssetClaims memory bonusClaims;
+        if (_user == msg.sender || request.baseRequest.executorBonusWAD == 0) {
+            // Redeem shares and route yield directly to the receiver
+            (userSharesRedeemed, forfeitedYieldShares, userClaims) =
+                _redeemWithYieldRouting(tranche, config, _sharesToRedeem, request.navAtRequestTime, request.baseRequest.receiver);
+        }
+        // If this is a third party execution, withdraw the assets, handle any yield as configured, and remit the executor bonus
+        else {
+            // Ensure that the user has opted into third party execution
+            require(request.baseRequest.executorBonusWAD != type(uint64).max, THIRD_PARTY_EXECUTION_DISABLED());
+
+            // Redeem shares and route yield to this contract for bonus calculation
+            (userSharesRedeemed, forfeitedYieldShares, userClaims) =
+                _redeemWithYieldRouting(tranche, config, _sharesToRedeem, request.navAtRequestTime, address(this));
+
+            // Scale the asset claims to compute the executor bonus and the receiver's portion
+            bonusClaims = UtilsLib.scaleAssetClaims(userClaims, request.baseRequest.executorBonusWAD, WAD);
+            userClaims.stAssets = userClaims.stAssets - bonusClaims.stAssets;
+            userClaims.jtAssets = userClaims.jtAssets - bonusClaims.jtAssets;
+            userClaims.nav = userClaims.nav - bonusClaims.nav;
+
+            // Transfer bonus and remaining assets to executor and receiver respectively
+            address kernel = IRoycoVaultTranche(tranche).KERNEL();
+            address stAsset = IRoycoKernel(kernel).ST_ASSET();
+            address jtAsset = IRoycoKernel(kernel).JT_ASSET();
+            if (stAsset == jtAsset) {
+                // Batch transfer if same asset
+                TRANCHE_UNIT totalBonus = bonusClaims.stAssets + bonusClaims.jtAssets;
+                TRANCHE_UNIT totalUserAssets = userClaims.stAssets + userClaims.jtAssets;
+                if (totalBonus != ZERO_TRANCHE_UNITS) IERC20(stAsset).safeTransfer(msg.sender, toUint256(totalBonus));
+                if (totalUserAssets != ZERO_TRANCHE_UNITS) IERC20(stAsset).safeTransfer(request.baseRequest.receiver, toUint256(totalUserAssets));
+            } else {
+                // Transfer each asset separately
+                if (bonusClaims.stAssets != ZERO_TRANCHE_UNITS) IERC20(stAsset).safeTransfer(msg.sender, toUint256(bonusClaims.stAssets));
+                if (bonusClaims.jtAssets != ZERO_TRANCHE_UNITS) IERC20(jtAsset).safeTransfer(msg.sender, toUint256(bonusClaims.jtAssets));
+                if (userClaims.stAssets != ZERO_TRANCHE_UNITS) IERC20(stAsset).safeTransfer(request.baseRequest.receiver, toUint256(userClaims.stAssets));
+                if (userClaims.jtAssets != ZERO_TRANCHE_UNITS) IERC20(jtAsset).safeTransfer(request.baseRequest.receiver, toUint256(userClaims.jtAssets));
+            }
+        }
+
+        // Emit the redemption execution event
+        emit RedemptionExecuted(_user, _requestNonce, msg.sender, userSharesRedeemed, forfeitedYieldShares, userClaims, bonusClaims);
+    }
 
     /**
      * @dev Asserts that a request exists and is executable (not executed already or cancelled)

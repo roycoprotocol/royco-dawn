@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
-import { IStakedUSDai } from "../interfaces/external/usdai/IStakedUSDai.sol";
 import { IStakedUSDat } from "../interfaces/external/usdat/IStakedUSDat.sol";
 import { WAD } from "../libraries/Constants.sol";
 import { Math } from "../libraries/Units.sol";

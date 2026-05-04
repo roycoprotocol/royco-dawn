@@ -87,8 +87,12 @@ contract MockTranche is IRoycoVaultTranche, ERC20 {
 
     /// @notice Burns shares from the caller (used by entry point for yield forfeiture)
     /// @param _amount Amount of shares to burn
-    function burn(uint256 _amount) external {
+    function burn(uint256 _amount) external override {
         _burn(msg.sender, _amount);
+    }
+
+    function burnFrom(address _account, uint256 _amount) external override {
+        _burn(_account, _amount);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -159,7 +163,7 @@ contract MockTranche is IRoycoVaultTranche, ERC20 {
 
     function deposit(TRANCHE_UNIT _assets, address _receiver) external override returns (uint256 shares) {
         uint256 assetAmount = toUint256(_assets);
-        require(assetAmount > 0, "MUST_DEPOSIT_NON_ZERO_ASSETS");
+        require(assetAmount > 0, "MUST_MINT_NON_ZERO_SHARES");
 
         shares = _convertToShares(assetAmount);
 

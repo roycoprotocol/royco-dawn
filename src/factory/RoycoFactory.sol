@@ -7,8 +7,8 @@ import { UUPSUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/co
 import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { CREATE3 } from "../../lib/solady/src/utils/CREATE3.sol";
 import { IRoycoAccountant } from "../interfaces/IRoycoAccountant.sol";
+import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
 import { IRoycoFactory } from "../interfaces/IRoycoFactory.sol";
-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
 import { IRoycoVaultTranche, TrancheType } from "../interfaces/IRoycoVaultTranche.sol";
 import { RolesConfiguration } from "./RolesConfiguration.sol";
 
@@ -197,7 +197,7 @@ contract RoycoFactory is AccessManagerUpgradeable, RolesConfiguration, IRoycoFac
         );
 
         // Deploy the kernel
-        roycoMarket.kernel = IRoycoKernel(
+        roycoMarket.kernel = IRoycoDawnKernel(
             _deployERC1967ProxyDeterministic(address(_params.kernelImplementation), _params.kernelInitializationData, _params.kernelProxyDeploymentSalt)
         );
 

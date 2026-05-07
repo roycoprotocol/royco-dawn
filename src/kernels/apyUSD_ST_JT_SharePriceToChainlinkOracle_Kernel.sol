@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
 import { IAddressList, IApyUSD } from "../interfaces/external/apyx/IApyUSD.sol";
 import { WAD } from "../libraries/Constants.sol";
 import { Math } from "../libraries/Units.sol";
 import { Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel } from "./Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
-import { RoycoKernel } from "./base/RoycoKernel.sol";
+import { RoycoDawnKernel } from "./base/RoycoDawnKernel.sol";
 
 /**
  * @title apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel
@@ -20,10 +20,10 @@ contract apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel is Identical_ERC4626_ST
 
     /// @notice Constructs the kernel state
     /// @param _params The standard construction parameters for the Royco kernel
-    constructor(RoycoKernelConstructionParams memory _params) Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel(_params) { }
+    constructor(RoycoDawnKernelConstructionParams memory _params) Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel(_params) { }
 
-    /// @inheritdoc RoycoKernel
-    function _preTrancheBalanceUpdate(address _caller, address _from, address _to, uint256) internal view override(RoycoKernel) {
+    /// @inheritdoc RoycoDawnKernel
+    function _preTrancheBalanceUpdate(address _caller, address _from, address _to, uint256) internal view override(RoycoDawnKernel) {
         // Query the blacklist for apyUSD and return preemptively if not set
         IAddressList blackList = IApyUSD(ST_ASSET).denyList();
         if (address(blackList) == address(0)) return;

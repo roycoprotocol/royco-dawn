@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "../../../../libraries/Units.sol";
-import { RoycoKernel } from "../../RoycoKernel.sol";
+import { RoycoDawnKernel } from "../../RoycoDawnKernel.sol";
 
 /**
  * @title IdenticalAssetsOracleQuoter
@@ -14,7 +14,7 @@ import { RoycoKernel } from "../../RoycoKernel.sol";
  *      Supported use-cases include:
  *      - Identical Yield Bearing ERC20 for ST And JT: Yield Bearing ERC20 and Tranche Unit (FalconXUSDC, reUSD, etc.), NAV Unit (USD)
  */
-abstract contract IdenticalAssetsOracleQuoter is RoycoKernel {
+abstract contract IdenticalAssetsOracleQuoter is RoycoDawnKernel {
     using UnitsMathLib for NAV_UNIT;
     using UnitsMathLib for TRANCHE_UNIT;
 
@@ -67,23 +67,23 @@ abstract contract IdenticalAssetsOracleQuoter is RoycoKernel {
         emit ConversionRateUpdated(_initialConversionRateWAD);
     }
 
-    /// @inheritdoc RoycoKernel
-    function stConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _stAssets) public view override(RoycoKernel) returns (NAV_UNIT nav) {
+    /// @inheritdoc RoycoDawnKernel
+    function stConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _stAssets) public view override(RoycoDawnKernel) returns (NAV_UNIT nav) {
         return _convertTrancheUnitsToNAVUnits(_stAssets);
     }
 
-    /// @inheritdoc RoycoKernel
-    function jtConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _jtAssets) public view override(RoycoKernel) returns (NAV_UNIT nav) {
+    /// @inheritdoc RoycoDawnKernel
+    function jtConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _jtAssets) public view override(RoycoDawnKernel) returns (NAV_UNIT nav) {
         return _convertTrancheUnitsToNAVUnits(_jtAssets);
     }
 
-    /// @inheritdoc RoycoKernel
-    function stConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) public view override(RoycoKernel) returns (TRANCHE_UNIT stAssets) {
+    /// @inheritdoc RoycoDawnKernel
+    function stConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) public view override(RoycoDawnKernel) returns (TRANCHE_UNIT stAssets) {
         return _convertNAVUnitsToTrancheUnits(_navAssets);
     }
 
-    /// @inheritdoc RoycoKernel
-    function jtConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) public view override(RoycoKernel) returns (TRANCHE_UNIT jtAssets) {
+    /// @inheritdoc RoycoDawnKernel
+    function jtConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) public view override(RoycoDawnKernel) returns (TRANCHE_UNIT jtAssets) {
         return _convertNAVUnitsToTrancheUnits(_navAssets);
     }
 

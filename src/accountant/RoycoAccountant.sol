@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { RoycoBase } from "../base/RoycoBase.sol";
 import { IRoycoAccountant } from "../interfaces/IRoycoAccountant.sol";
-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
 import { IYDM } from "../interfaces/IYDM.sol";
 import { MAX_COVERAGE_WAD, MAX_PROTOCOL_FEE_WAD, MIN_COVERAGE_WAD, WAD, ZERO_NAV_UNITS } from "../libraries/Constants.sol";
 import { MarketState, NAV_UNIT, Operation, SyncedAccountingState } from "../libraries/Types.sol";
@@ -37,7 +37,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
 
     /// @dev Synchronizes the market's accounting to reconcile unrealized PNL at the start of the call
     modifier withSyncedAccounting() {
-        IRoycoKernel(KERNEL).syncTrancheAccounting();
+        IRoycoDawnKernel(KERNEL).syncTrancheAccounting();
         _;
     }
 

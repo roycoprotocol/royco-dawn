@@ -2,10 +2,10 @@
 pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
 import { IIdleCDO } from "../interfaces/external/idle-finance/IIdleCDO.sol";
 import { WAD_DECIMALS } from "../libraries/Constants.sol";
-import { RoycoKernel } from "./base/RoycoKernel.sol";
+import { RoycoDawnKernel } from "./base/RoycoDawnKernel.sol";
 import { IdenticalAssetsOracleQuoter } from "./base/quoter/base/IdenticalAssetsOracleQuoter.sol";
 
 /**
@@ -15,7 +15,7 @@ import { IdenticalAssetsOracleQuoter } from "./base/quoter/base/IdenticalAssetsO
  * @dev Example: Pareto's Falconx's Prime Brokerage Vault at https://app.pareto.credit/vault#0xC26A6Fa2C37b38E549a4a1807543801Db684f99C
  * @dev https://docs.idle.finance/
  */
-contract Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel is RoycoKernel, IdenticalAssetsOracleQuoter {
+contract Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel is RoycoDawnKernel, IdenticalAssetsOracleQuoter {
     /// @notice The address of the IdleCDO
     address public immutable IDLE_CDO;
 
@@ -30,7 +30,7 @@ contract Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel is RoycoKernel, Id
      * @param _params The standard construction parameters for the Royco kernel
      * @param _idleCDO The address of the IdleCDO
      */
-    constructor(RoycoKernelConstructionParams memory _params, address _idleCDO) RoycoKernel(_params) {
+    constructor(RoycoDawnKernelConstructionParams memory _params, address _idleCDO) RoycoDawnKernel(_params) {
         require(_idleCDO != address(0), NULL_ADDRESS());
         IDLE_CDO = _idleCDO;
 
@@ -47,9 +47,9 @@ contract Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel is RoycoKernel, Id
      * @notice Initializes the Royco Kernel
      * @param _params The standard initialization parameters for the Royco Kernel
      */
-    function initialize(IRoycoKernel.RoycoKernelInitParams calldata _params) external initializer {
+    function initialize(IRoycoDawnKernel.RoycoDawnKernelInitParams calldata _params) external initializer {
         // Initialize the base kernel state
-        __RoycoKernel_init(_params);
+        __RoycoDawnKernel_init(_params);
         // The initial conversion rate is set to the sentinel value so that the IdleCDO's AA tranche virtual price is queried directly from the IdleCDO
         __IdenticalAssetsOracleQuoter_init_unchained(SENTINEL_CONVERSION_RATE);
     }

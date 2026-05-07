@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { AssetClaims, SyncedAccountingState, TrancheType } from "../libraries/Types.sol";
+import { AssetClaims, KernelType, SyncedAccountingState, TrancheType } from "../libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT } from "../libraries/Units.sol";
 
 /**
- * @title IRoycoKernel
- * @notice Interface for the base Royco kernel contract
- * @dev The kernel contract is responsible for orchestrating all operations for both tranches in a Royco market
+ * @title IRoycoDawnKernel
+ * @notice Interface for the base Royco Dawn kernel contract
+ * @dev The kernel contract is responsible for orchestrating all operations for both tranches in a Royco Dawn market
  */
-interface IRoycoKernel {
+interface IRoycoDawnKernel {
     /**
      * @notice Construction parameters for the Royco Kernel
      * @custom:field seniorTranche - The address of the Royco senior tranche associated with this kernel
@@ -19,7 +19,7 @@ interface IRoycoKernel {
      * @custom:field accountant - The address of the accountant for the Royco market
      * @custom:field enforceVaultSharesTransferWhitelist Whether to enforce the vault shares transfer whitelist
      */
-    struct RoycoKernelConstructionParams {
+    struct RoycoDawnKernelConstructionParams {
         address seniorTranche;
         address stAsset;
         address juniorTranche;
@@ -34,14 +34,14 @@ interface IRoycoKernel {
      * @custom:field protocolFeeRecipient - The market's protocol fee recipient
      * @custom:field stSelfLiquidationBonusWAD - The market's configured ST self-liquidation bonus remitted to redeeming ST LPs when liquidation utilization threshold has been breached, scaled to WAD precision
      */
-    struct RoycoKernelInitParams {
+    struct RoycoDawnKernelInitParams {
         address initialAuthority;
         address protocolFeeRecipient;
         uint64 stSelfLiquidationBonusWAD;
     }
 
     /**
-     * @notice Storage state for the Royco Kernel
+     * @notice Storage state for the Royco Dawn Kernel
      * @custom:storage-location erc7201:Royco.storage.RoycoKernelState
      * @custom:field protocolFeeRecipient - The market's configured protocol fee recipient
      * @custom:field stSelfLiquidationBonusWAD - The market's configured ST self-liquidation bonus remitted to redeeming ST LPs when liquidation utilization threshold has been breached, scaled to WAD precision
@@ -50,7 +50,7 @@ interface IRoycoKernel {
      * @custom:field isBlacklistEnabled - A boolean indicating whether the blacklist is enforced for this market
      * @custom:field isBlacklisted - A mapping of accounts to a boolean indicating if they are blacklisted
      */
-    struct RoycoKernelState {
+    struct RoycoDawnKernelState {
         address protocolFeeRecipient;
         uint64 stSelfLiquidationBonusWAD;
         TRANCHE_UNIT stOwnedYieldBearingAssets;
@@ -60,7 +60,7 @@ interface IRoycoKernel {
     }
 
     /// @notice Viewable state for the Royco Kernel
-    struct RoycoKernelStateView {
+    struct RoycoDawnKernelStateView {
         bool isBlacklistEnabled;
         address protocolFeeRecipient;
         uint64 stSelfLiquidationBonusWAD;
@@ -141,6 +141,12 @@ interface IRoycoKernel {
     error EMPTY_ARRAY();
 
     /**
+     * @notice Returns the kernel type indicating the configuration of the Royco market and the purpose(s) of the junior tranche
+     * @return kernelType An enumerator indicating DAWN or DUSK kernel type
+     */
+    function KERNEL_TYPE() external pure returns (KernelType kernelType);
+
+    /**
      * @notice Retrieves the senior tranche address
      * @return seniorTranche The address of the senior tranche for this Royco market
      */
@@ -213,7 +219,7 @@ interface IRoycoKernel {
      * @notice Retrieves the state of the Royco kernel
      * @return state The Royco kernel's state, including the protocol fee recipient and the kernel's controlled tranche and base assets
      */
-    function getState() external view returns (RoycoKernelStateView memory state);
+    function getState() external view returns (RoycoDawnKernelStateView memory state);
 
     /**
      * @notice Converts the specified ST assets denominated in its tranche units to the kernel's NAV units

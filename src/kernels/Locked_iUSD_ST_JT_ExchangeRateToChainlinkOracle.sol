@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import { IInfiniFiGateway } from "../interfaces/external/infinifi/IInfiniFiGateway.sol";
 import { ILockingController } from "../interfaces/external/infinifi/ILockingController.sol";
 import { WAD } from "../libraries/Constants.sol";
-import { IRoycoKernel, Math, RoycoKernel } from "./base/RoycoKernel.sol";
+import { IRoycoDawnKernel, Math, RoycoDawnKernel } from "./base/RoycoDawnKernel.sol";
 import { IdenticalAssetsChainlinkOracleQuoter, IdenticalAssetsOracleQuoter } from "./base/quoter/base/IdenticalAssetsChainlinkOracleQuoter.sol";
 
 /**
@@ -35,7 +35,7 @@ contract Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle is IdenticalAssetsChain
      * @param _infiniFiGateway The address of InfiniFi's gateway
      * @param _trancheAssetUnwindingEpochs The unwinding epochs for the locked iUSD token (tranche assets)
      */
-    constructor(RoycoKernelConstructionParams memory _params, address _infiniFiGateway, uint32 _trancheAssetUnwindingEpochs) RoycoKernel(_params) {
+    constructor(RoycoDawnKernelConstructionParams memory _params, address _infiniFiGateway, uint32 _trancheAssetUnwindingEpochs) RoycoDawnKernel(_params) {
         // Set the immutable state
         INFINIFI_GATEWAY = _infiniFiGateway;
         TRANCHE_ASSET_UNWINDING_EPOCHS = _trancheAssetUnwindingEpochs;
@@ -55,7 +55,7 @@ contract Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle is IdenticalAssetsChain
      * @param _stalenessThresholdSeconds The staleness threshold in seconds for the oracle
      */
     function initialize(
-        IRoycoKernel.RoycoKernelInitParams calldata _params,
+        IRoycoDawnKernel.RoycoDawnKernelInitParams calldata _params,
         uint256 _initialIUSDToNAVUnitsConversionRateWAD,
         address _iUSDToNAVUnitsOracle,
         uint48 _stalenessThresholdSeconds
@@ -64,7 +64,7 @@ contract Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle is IdenticalAssetsChain
         initializer
     {
         // Initialize the base kernel state
-        __RoycoKernel_init(_params);
+        __RoycoDawnKernel_init(_params);
         // Initialize the identical assets oracle quoter
         __IdenticalAssetsOracleQuoter_init_unchained(_initialIUSDToNAVUnitsConversionRateWAD);
         // Initialize the identical assets chainlink oracle quoter

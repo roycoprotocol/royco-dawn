@@ -106,3 +106,16 @@ enum TrancheType {
     JUNIOR
 }
 
+/**
+ * @title KernelType
+ * @dev Defines the two types of Royco Kernels
+ * @custom:type DAWN - The identifier for a Royco Dawn Kernel
+ *              Dawn kernels transform the risk profile of an asset: junior tranches serve as first-loss capital
+ * @custom:type DUSK - The identifier for a Royco Dusk Kernel
+ *              Dusk kernels transform the risk and liquidity profile of an asset: junior tranches serve as first-loss capital and secondary liquidity for senior tranches
+ */
+enum KernelType {
+    DAWN,
+    DUSK
+}
+

@@ -11,8 +11,8 @@ import { MarketDeploymentConfig } from "../../script/config/MarketDeploymentConf
 import { RoycoAccountant } from "../../src/accountant/RoycoAccountant.sol";
 import { RoycoFactory } from "../../src/factory/RoycoFactory.sol";
 import { IRoycoAccountant } from "../../src/interfaces/IRoycoAccountant.sol";
+import { IRoycoDawnKernel } from "../../src/interfaces/IRoycoDawnKernel.sol";
 import { IRoycoFactory } from "../../src/interfaces/IRoycoFactory.sol";
-import { IRoycoKernel } from "../../src/interfaces/IRoycoKernel.sol";
 import { IRoycoVaultTranche } from "../../src/interfaces/IRoycoVaultTranche.sol";
 import { Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel } from "../../src/kernels/Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel.sol";
 import { WAD } from "../../src/libraries/Constants.sol";
@@ -143,7 +143,7 @@ contract UpgradabilityTestSuite is BaseTest {
         newAccountantImpl = new RoycoAccountant(address(KERNEL));
         vm.label(address(newAccountantImpl), "NewAccountantImpl");
 
-        IRoycoKernel.RoycoKernelConstructionParams memory constructionParams = IRoycoKernel.RoycoKernelConstructionParams({
+        IRoycoDawnKernel.RoycoDawnKernelConstructionParams memory constructionParams = IRoycoDawnKernel.RoycoDawnKernelConstructionParams({
             seniorTranche: address(ST),
             stAsset: SNUSD,
             juniorTranche: address(JT),
@@ -216,7 +216,7 @@ contract UpgradabilityTestSuite is BaseTest {
 
     /// @notice Test that Kernel implementation cannot be initialized
     function test_kernelImplementation_cannotBeInitialized() external {
-        IRoycoKernel.RoycoKernelInitParams memory params = IRoycoKernel.RoycoKernelInitParams({
+        IRoycoDawnKernel.RoycoDawnKernelInitParams memory params = IRoycoDawnKernel.RoycoDawnKernelInitParams({
             initialAuthority: address(FACTORY), protocolFeeRecipient: PROTOCOL_FEE_RECIPIENT_ADDRESS, stSelfLiquidationBonusWAD: 0
         });
 
@@ -264,7 +264,7 @@ contract UpgradabilityTestSuite is BaseTest {
 
     /// @notice Test that new Kernel implementation cannot be initialized
     function test_newKernelImplementation_cannotBeInitialized() external {
-        IRoycoKernel.RoycoKernelInitParams memory params = IRoycoKernel.RoycoKernelInitParams({
+        IRoycoDawnKernel.RoycoDawnKernelInitParams memory params = IRoycoDawnKernel.RoycoDawnKernelInitParams({
             initialAuthority: address(FACTORY), protocolFeeRecipient: PROTOCOL_FEE_RECIPIENT_ADDRESS, stSelfLiquidationBonusWAD: 0
         });
 

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { IRoycoAccountant } from "./IRoycoAccountant.sol";
-import { IRoycoKernel } from "./IRoycoKernel.sol";
+import { IRoycoDawnKernel } from "./IRoycoDawnKernel.sol";
 import { IRoycoVaultTranche } from "./IRoycoVaultTranche.sol";
 
 /// @title IRoycoFactory
@@ -126,7 +126,7 @@ interface IRoycoFactory {
         // Implementation Addresses
         IRoycoVaultTranche seniorTrancheImplementation;
         IRoycoVaultTranche juniorTrancheImplementation;
-        IRoycoKernel kernelImplementation;
+        IRoycoDawnKernel kernelImplementation;
         IRoycoAccountant accountantImplementation;
         // Proxy Initialization Data
         bytes seniorTrancheInitializationData;
@@ -164,7 +164,7 @@ interface IRoycoFactory {
     struct RoycoMarket {
         IRoycoVaultTranche seniorTranche;
         IRoycoVaultTranche juniorTranche;
-        IRoycoKernel kernel;
+        IRoycoDawnKernel kernel;
         IRoycoAccountant accountant;
     }
 

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
 import { IStakedUSDai } from "../interfaces/external/usdai/IStakedUSDai.sol";
 import { IUSDai } from "../interfaces/external/usdai/IUSDai.sol";
 import { WAD } from "../libraries/Constants.sol";
 import { Math } from "../libraries/Units.sol";
-import { RoycoKernel } from "./base/RoycoKernel.sol";
+import { RoycoDawnKernel } from "./base/RoycoDawnKernel.sol";
 import { IdenticalAssetsAdminOracleQuoter, IdenticalAssetsOracleQuoter } from "./base/quoter/base/IdenticalAssetsAdminOracleQuoter.sol";
 
 /**
@@ -16,7 +16,7 @@ import { IdenticalAssetsAdminOracleQuoter, IdenticalAssetsOracleQuoter } from ".
  * @notice Tranche share transfers are restricted to addresses not blacklisted by USDai
  * @dev NAV computations employ the conservative valuation methodology used for valuing sUSDai redemptions in terms of USDai and convert the USDai to USD using an admin set exchange rate
  */
-contract sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel is RoycoKernel, IdenticalAssetsAdminOracleQuoter {
+contract sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel is RoycoDawnKernel, IdenticalAssetsAdminOracleQuoter {
     using Math for uint256;
 
     /// @notice The address of the USDai token
@@ -27,7 +27,7 @@ contract sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel is RoycoKernel, I
 
     /// @notice Constructs the kernel state
     /// @param _params The standard construction parameters for the Royco kernel
-    constructor(RoycoKernelConstructionParams memory _params) RoycoKernel(_params) {
+    constructor(RoycoDawnKernelConstructionParams memory _params) RoycoDawnKernel(_params) {
         // Set the address of USDai (the base asset of sUSDai)
         USDAI = IStakedUSDai(ST_ASSET).asset();
     }
@@ -37,9 +37,9 @@ contract sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel is RoycoKernel, I
      * @param _params The standard initialization parameters for the Royco Kernel
      * @param _initialConversionRateWAD The initial USDai to USD conversion rate, scaled to WAD precision
      */
-    function initialize(IRoycoKernel.RoycoKernelInitParams calldata _params, uint256 _initialConversionRateWAD) external initializer {
+    function initialize(IRoycoDawnKernel.RoycoDawnKernelInitParams calldata _params, uint256 _initialConversionRateWAD) external initializer {
         // Initialize the base kernel state
-        __RoycoKernel_init(_params);
+        __RoycoDawnKernel_init(_params);
         // Initialize the identical assets admin oracle quoter
         __IdenticalAssetsAdminOracleQuoter_init(_initialConversionRateWAD);
     }
@@ -58,8 +58,8 @@ contract sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel is RoycoKernel, I
         sUSDaiToUSDConversionRateWAD = sUSDaiToUSDaiConversionRateWAD.mulDiv(usdaiToUSDConversionRateWAD, WAD, Math.Rounding.Floor);
     }
 
-    /// @inheritdoc RoycoKernel
-    function _preTrancheBalanceUpdate(address _caller, address _from, address _to, uint256) internal view override(RoycoKernel) {
+    /// @inheritdoc RoycoDawnKernel
+    function _preTrancheBalanceUpdate(address _caller, address _from, address _to, uint256) internal view override(RoycoDawnKernel) {
         // Check if the caller is blacklisted
         require(!IUSDai(USDAI).isBlacklisted(_caller), ACCOUNT_ON_USDAI_BLACKLIST(_caller));
         // Only check blacklisted status for the sender on redeem and recipient on mint

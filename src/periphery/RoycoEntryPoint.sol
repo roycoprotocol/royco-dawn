@@ -5,9 +5,9 @@ import { ERC20BurnableUpgradeable } from "../../lib/openzeppelin-contracts-upgra
 import { IERC20, SafeERC20 } from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import { RoycoBase } from "../base/RoycoBase.sol";
+import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
 import { IRoycoEntryPoint } from "../interfaces/IRoycoEntryPoint.sol";
 import { IRoycoFactory } from "../interfaces/IRoycoFactory.sol";
-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
 import { IRoycoVaultTranche, TrancheType } from "../interfaces/IRoycoVaultTranche.sol";
 import { MAX_NAV_UNITS, MAX_TRANCHE_UNITS, WAD, ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "../libraries/Constants.sol";
 import { AssetClaims } from "../libraries/Types.sol";
@@ -474,8 +474,8 @@ contract RoycoEntryPoint is RoycoBase, IRoycoEntryPoint {
 
             // Transfer bonus and remaining assets to executor and receiver respectively
             address kernel = IRoycoVaultTranche(tranche).KERNEL();
-            address stAsset = IRoycoKernel(kernel).ST_ASSET();
-            address jtAsset = IRoycoKernel(kernel).JT_ASSET();
+            address stAsset = IRoycoDawnKernel(kernel).ST_ASSET();
+            address jtAsset = IRoycoDawnKernel(kernel).JT_ASSET();
             if (stAsset == jtAsset) {
                 // Batch transfer if same asset
                 TRANCHE_UNIT totalBonus = bonusClaims.stAssets + bonusClaims.jtAssets;

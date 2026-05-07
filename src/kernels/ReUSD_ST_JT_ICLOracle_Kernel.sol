@@ -2,10 +2,10 @@
 pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
 import { IInsuranceCapitalLayer } from "../interfaces/external/reUSD/IInsuranceCapitalLayer.sol";
 import { WAD_DECIMALS } from "../libraries/Constants.sol";
-import { RoycoKernel } from "./base/RoycoKernel.sol";
+import { RoycoDawnKernel } from "./base/RoycoDawnKernel.sol";
 import { IdenticalAssetsOracleQuoter } from "./base/quoter/base/IdenticalAssetsOracleQuoter.sol";
 
 /**
@@ -15,7 +15,7 @@ import { IdenticalAssetsOracleQuoter } from "./base/quoter/base/IdenticalAssetsO
  * @notice The NAV can be expressed in any quote token supported by reUSD's Insurance Capital Layer (ICL)
  * @dev https://docs.re.xyz/insurance-capital-layers/what-is-reUSD
  */
-contract ReUSD_ST_JT_ICLOracle_Kernel is RoycoKernel, IdenticalAssetsOracleQuoter {
+contract ReUSD_ST_JT_ICLOracle_Kernel is RoycoDawnKernel, IdenticalAssetsOracleQuoter {
     /// @notice The address of the reUSD token
     address public immutable REUSD;
 
@@ -35,7 +35,14 @@ contract ReUSD_ST_JT_ICLOracle_Kernel is RoycoKernel, IdenticalAssetsOracleQuote
      * @param _reUSDQuoteToken The address of the token in which the NAV is expressed in
      * @param _insuranceCapitalLayer The address of the reUSD insurance capital layer
      */
-    constructor(RoycoKernelConstructionParams memory _params, address _reUSD, address _reUSDQuoteToken, address _insuranceCapitalLayer) RoycoKernel(_params) {
+    constructor(
+        RoycoDawnKernelConstructionParams memory _params,
+        address _reUSD,
+        address _reUSDQuoteToken,
+        address _insuranceCapitalLayer
+    )
+        RoycoDawnKernel(_params)
+    {
         // Set the reUSD specific state
         require(_reUSD != address(0) && _reUSDQuoteToken != address(0) && _insuranceCapitalLayer != address(0), NULL_ADDRESS());
         REUSD = _reUSD;
@@ -48,9 +55,9 @@ contract ReUSD_ST_JT_ICLOracle_Kernel is RoycoKernel, IdenticalAssetsOracleQuote
 
     /// @notice Initializes the Royco Kernel
     /// @param _params The standard initialization parameters for the Royco Kernel
-    function initialize(IRoycoKernel.RoycoKernelInitParams calldata _params) external initializer {
+    function initialize(IRoycoDawnKernel.RoycoDawnKernelInitParams calldata _params) external initializer {
         // Initialize the base kernel state
-        __RoycoKernel_init(_params);
+        __RoycoDawnKernel_init(_params);
         // The initial conversion rate is set to the sentinel value so that the reUSD -> REUSD_QUOTE_TOKEN conversion rate is queried directly from the insurance capital layer
         __IdenticalAssetsOracleQuoter_init_unchained(SENTINEL_CONVERSION_RATE);
     }

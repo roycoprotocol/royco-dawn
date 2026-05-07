@@ -9,8 +9,8 @@ import { DeployScript } from "../../script/Deploy.s.sol";
 import { RoycoAccountant } from "../../src/accountant/RoycoAccountant.sol";
 import { RolesConfiguration, RoycoFactory } from "../../src/factory/RoycoFactory.sol";
 import { IRoycoAccountant } from "../../src/interfaces/IRoycoAccountant.sol";
+import { IRoycoDawnKernel } from "../../src/interfaces/IRoycoDawnKernel.sol";
 import { IRoycoFactory } from "../../src/interfaces/IRoycoFactory.sol";
-import { IRoycoKernel } from "../../src/interfaces/IRoycoKernel.sol";
 import { IRoycoVaultTranche } from "../../src/interfaces/IRoycoVaultTranche.sol";
 import { IYDM } from "../../src/interfaces/IYDM.sol";
 import { AssetClaims, TrancheType } from "../../src/libraries/Types.sol";
@@ -134,7 +134,7 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions {
     address internal KERNEL_IMPL;
     IRoycoVaultTranche internal ST;
     IRoycoVaultTranche internal JT;
-    IRoycoKernel internal KERNEL;
+    IRoycoDawnKernel internal KERNEL;
     IRoycoAccountant internal ACCOUNTANT;
 
     // -----------------------------------------

@@ -6,8 +6,8 @@ import { RoycoAccountant } from "../src/accountant/RoycoAccountant.sol";
 import { RolesConfiguration, RoycoFactory } from "../src/factory/RoycoFactory.sol";
 import { IRoycoAccountant } from "../src/interfaces/IRoycoAccountant.sol";
 import { IRoycoAuth } from "../src/interfaces/IRoycoAuth.sol";
+import { IRoycoDawnKernel } from "../src/interfaces/IRoycoDawnKernel.sol";
 import { IRoycoFactory } from "../src/interfaces/IRoycoFactory.sol";
-import { IRoycoKernel } from "../src/interfaces/IRoycoKernel.sol";
 import { IRoycoVaultTranche } from "../src/interfaces/IRoycoVaultTranche.sol";
 import { IYDM } from "../src/interfaces/IYDM.sol";
 import { Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel } from "../src/kernels/Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel.sol";
@@ -168,7 +168,7 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         IRoycoVaultTranche seniorTranche;
         IRoycoVaultTranche juniorTranche;
         IRoycoAccountant accountant;
-        IRoycoKernel kernel;
+        IRoycoDawnKernel kernel;
     }
 
     /// @notice Addresses for role assignments
@@ -439,7 +439,7 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         bytes4[] memory selectors = new bytes4[](11);
         uint64[] memory roleValues = new uint64[](11);
 
-        selectors[0] = IRoycoKernel.setProtocolFeeRecipient.selector;
+        selectors[0] = IRoycoDawnKernel.setProtocolFeeRecipient.selector;
         roleValues[0] = ADMIN_KERNEL_ROLE;
         selectors[1] = IRoycoAuth.pause.selector;
         roleValues[1] = ADMIN_PAUSER_ROLE;
@@ -451,15 +451,15 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         roleValues[4] = ADMIN_ORACLE_QUOTER_ROLE;
         selectors[5] = UUPSUpgradeable.upgradeToAndCall.selector;
         roleValues[5] = ADMIN_UPGRADER_ROLE;
-        selectors[6] = IRoycoKernel.syncTrancheAccounting.selector;
+        selectors[6] = IRoycoDawnKernel.syncTrancheAccounting.selector;
         roleValues[6] = SYNC_ROLE;
-        selectors[7] = IRoycoKernel.setSeniorTrancheSelfLiquidationBonus.selector;
+        selectors[7] = IRoycoDawnKernel.setSeniorTrancheSelfLiquidationBonus.selector;
         roleValues[7] = ADMIN_KERNEL_ROLE;
-        selectors[8] = IRoycoKernel.blacklistAccounts.selector;
+        selectors[8] = IRoycoDawnKernel.blacklistAccounts.selector;
         roleValues[8] = TRANSFER_AGENT_ROLE;
-        selectors[9] = IRoycoKernel.unblacklistAccounts.selector;
+        selectors[9] = IRoycoDawnKernel.unblacklistAccounts.selector;
         roleValues[9] = TRANSFER_AGENT_ROLE;
-        selectors[10] = IRoycoKernel.setBlacklistStatus.selector;
+        selectors[10] = IRoycoDawnKernel.setBlacklistStatus.selector;
         roleValues[10] = TRANSFER_AGENT_ROLE;
 
         return IRoycoFactory.RolesTargetConfiguration({ target: _kernel, selectors: selectors, roles: roleValues });
@@ -713,7 +713,7 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
             juniorTrancheSymbol: _config.juniorTrancheSymbol,
             seniorTrancheImplementation: IRoycoVaultTranche(address(stImpl)),
             juniorTrancheImplementation: IRoycoVaultTranche(address(jtImpl)),
-            kernelImplementation: IRoycoKernel(address(kernelImpl)),
+            kernelImplementation: IRoycoDawnKernel(address(kernelImpl)),
             accountantImplementation: IRoycoAccountant(address(accountantImpl)),
             seniorTrancheInitializationData: seniorTrancheInitializationData,
             juniorTrancheInitializationData: juniorTrancheInitializationData,
@@ -895,7 +895,7 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         internal
         returns (address)
     {
-        IRoycoKernel.RoycoKernelConstructionParams memory cp = IRoycoKernel.RoycoKernelConstructionParams({
+        IRoycoDawnKernel.RoycoDawnKernelConstructionParams memory cp = IRoycoDawnKernel.RoycoDawnKernelConstructionParams({
             seniorTranche: _expectedSeniorTrancheAddress,
             stAsset: _seniorAsset,
             juniorTranche: _expectedJuniorTrancheAddress,
@@ -925,7 +925,7 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
     function _buildKernelCreationCode(
         KernelType _kernelType,
         bytes memory _kernelSpecificParams,
-        IRoycoKernel.RoycoKernelConstructionParams memory _cp
+        IRoycoDawnKernel.RoycoDawnKernelConstructionParams memory _cp
     )
         private
         pure
@@ -984,7 +984,7 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         pure
         returns (bytes memory)
     {
-        IRoycoKernel.RoycoKernelInitParams memory kernelParams = IRoycoKernel.RoycoKernelInitParams({
+        IRoycoDawnKernel.RoycoDawnKernelInitParams memory kernelParams = IRoycoDawnKernel.RoycoDawnKernelInitParams({
             initialAuthority: _factoryAddress, protocolFeeRecipient: _protocolFeeRecipient, stSelfLiquidationBonusWAD: _stSelfLiquidationBonusWAD
         });
 

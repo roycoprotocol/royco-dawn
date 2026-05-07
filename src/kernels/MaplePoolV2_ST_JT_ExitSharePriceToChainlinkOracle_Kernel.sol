@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
 import { IMapleGlobals } from "../interfaces/external/maple/IMapleGlobals.sol";
 import { IMaplePool } from "../interfaces/external/maple/IMaplePool.sol";
 import { IMaplePoolManager } from "../interfaces/external/maple/IMaplePoolManager.sol";
@@ -12,7 +12,7 @@ import {
     IdenticalERC4626SharesToChainlinkOracleQuoter,
     Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
 } from "./Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
-import { AssetClaims, IRoycoVaultTranche, Math, RoycoKernel } from "./base/RoycoKernel.sol";
+import { AssetClaims, IRoycoVaultTranche, Math, RoycoDawnKernel } from "./base/RoycoDawnKernel.sol";
 
 /**
  * @title MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel
@@ -41,7 +41,7 @@ contract MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel is Identical_E
 
     /// @notice Constructs the kernel state
     /// @param _params The standard construction parameters for the Royco kernel
-    constructor(RoycoKernelConstructionParams memory _params) Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel(_params) {
+    constructor(RoycoDawnKernelConstructionParams memory _params) Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel(_params) {
         // Set the address of the Maple pool's manager
         MAPLE_POOL_MANAGER = IMaplePool(ST_ASSET).manager();
     }
@@ -70,9 +70,9 @@ contract MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel is Identical_E
             maplePoolTokenToBaseAssetsConversionRateWAD.mulDiv(baseAssetToNAVUnitConversionRateWAD, WAD, Math.Rounding.Floor);
     }
 
-    /// @inheritdoc RoycoKernel
+    /// @inheritdoc RoycoDawnKernel
     /// @dev Simulates Maple pool token transfer permissions as a compliance proxy
-    function _preTrancheBalanceUpdate(address _caller, address _from, address _to, uint256) internal view override(RoycoKernel) {
+    function _preTrancheBalanceUpdate(address _caller, address _from, address _to, uint256) internal view override(RoycoDawnKernel) {
         // Deposit to self: caller and kernel are validated by Maple on the pool token transfer
         if (_from == address(0) && _caller == _to) return;
 

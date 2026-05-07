@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel, RoycoKernel } from "./Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel.sol";
+import { Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel, RoycoDawnKernel } from "./Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel.sol";
 
 /**
  * @title Identical_ERC20_ST_JT_ChainlinkToAdminOracle_SoulBoundTrancheShares_Kernel
@@ -15,14 +15,14 @@ contract Identical_ERC20_ST_JT_ChainlinkToAdminOracle_SoulBoundTrancheShares_Ker
 
     /// @notice Constructs the kernel state
     /// @param _params The standard construction parameters for the Royco kernel
-    constructor(RoycoKernelConstructionParams memory _params) Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(_params) { }
+    constructor(RoycoDawnKernelConstructionParams memory _params) Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(_params) { }
 
-    /// @inheritdoc RoycoKernel
-    function _preTrancheBalanceUpdate(address _caller, address _from, address _to, uint256) internal view override(RoycoKernel) {
+    /// @inheritdoc RoycoDawnKernel
+    function _preTrancheBalanceUpdate(address _caller, address _from, address _to, uint256) internal view override(RoycoDawnKernel) {
         // If minting, ensure that the caller is the recipient
         // The exception is for the kernel contract itself, which can mint protocol fee shares on behalf of the protocol fee recipient
         if (_from == address(0)) {
-            require(_to == _caller || (_to == _getRoycoKernelStorage().protocolFeeRecipient && _caller == address(this)), TRANCHE_SHARES_ARE_SOUL_BOUND());
+            require(_to == _caller || (_to == _getRoycoDawnKernelStorage().protocolFeeRecipient && _caller == address(this)), TRANCHE_SHARES_ARE_SOUL_BOUND());
         }
         // If it's not a mint, enforce that it's a burn, otherwise the transfer is invalid
         else {

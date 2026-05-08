@@ -6,7 +6,7 @@ import { IRoycoAccountant } from "../interfaces/IRoycoAccountant.sol";
 import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
 import { IYDM } from "../interfaces/IYDM.sol";
 import { MAX_COVERAGE_WAD, MAX_PROTOCOL_FEE_WAD, MIN_COVERAGE_WAD, WAD, ZERO_NAV_UNITS } from "../libraries/Constants.sol";
-import { MarketState, NAV_UNIT, Operation, SyncedAccountingState } from "../libraries/Types.sol";
+import { AccountingStateCheckpoint, MarketState, NAV_UNIT, Operation, SyncedAccountingState } from "../libraries/Types.sol";
 import { UnitsMathLib, toNAVUnits, toUint256 } from "../libraries/Units.sol";
 import { Math, UtilsLib } from "../libraries/UtilsLib.sol";
 
@@ -836,6 +836,19 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
     // =============================
     // Accountant State Accessor Functions
     // =============================
+
+    /// @inheritdoc IRoycoAccountant
+    function getLastAccountingStateCheckpoint() external view override(IRoycoAccountant) returns (AccountingStateCheckpoint memory) {
+        RoycoAccountantState storage $ = _getRoycoAccountantStorage();
+        return AccountingStateCheckpoint({
+            lastSTRawNAV: $.lastSTRawNAV,
+            lastJTRawNAV: $.lastJTRawNAV,
+            lastSTEffectiveNAV: $.lastSTEffectiveNAV,
+            lastJTEffectiveNAV: $.lastJTEffectiveNAV,
+            lastSTImpermanentLoss: $.lastSTImpermanentLoss,
+            lastJTImpermanentLoss: $.lastJTImpermanentLoss
+        });
+    }
 
     /// @inheritdoc IRoycoAccountant
     function getState() external pure override(IRoycoAccountant) returns (RoycoAccountantState memory) {

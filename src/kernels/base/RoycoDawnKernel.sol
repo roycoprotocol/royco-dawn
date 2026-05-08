@@ -947,7 +947,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
     // =============================
 
     /// @inheritdoc IRoycoDawnKernel
-    function getState() external view override(IRoycoDawnKernel) returns (RoycoDawnKernelStateView memory) {
+    function getState() external view virtual override(IRoycoDawnKernel) returns (RoycoDawnKernelStateView memory) {
         RoycoDawnKernelState storage $ = _getRoycoDawnKernelStorage();
         return RoycoDawnKernelStateView({
             isBlacklistEnabled: $.isBlacklistEnabled,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { NAV_UNIT, TRANCHE_UNIT } from "./Units.sol";
+import { NAV_UNIT, QUOTE_UNIT, TRANCHE_UNIT } from "./Units.sol";
 
 /**
  * @title MarketState
@@ -39,8 +39,19 @@ struct AssetClaims {
 }
 
 /**
+ * @title LiquidityPositionClaims
+ * @dev A struct representing liquidity position claims on senior tranche shares and quote assets for Royco Dusk Kernel
+ * @custom:field stShares - The claim on senior tranche shares that the liquidity position holds
+ * @custom:field quoteAssets - The claim on quote assets that the liquidity position holds denominated in quote units
+ */
+struct LiquidityPositionClaims {
+    uint256 stShares;
+    QUOTE_UNIT quoteAssets;
+}
+
+/**
  * @title SyncedAccountingState
- * @dev Contains all current mark-to-market NAV accounting data for the market's tranches
+ * @dev Contains all current mark-to-market NAV accounting data, metrics, and coverage configuration for the market's tranches
  * @custom:field marketState - The current state of the Royco market (perpetual or fixed term)
  * @custom:field stRawNAV - The senior tranche's current raw NAV: the pure value of its invested assets
  * @custom:field jtRawNAV - The junior tranche's current raw NAV: the pure value of its invested assets
@@ -78,6 +89,27 @@ struct SyncedAccountingState {
     uint256 coverageWAD;
     uint256 betaWAD;
     uint256 liquidationUtilizationWAD;
+}
+
+/**
+ * @title AccountingStateCheckpoint
+ * @dev Contains the last checkpointed mark-to-market NAV accounting data for the market's tranches
+ * @custom:field lastSTRawNAV - The last recorded pure NAV (excluding any coverage taken and yield shared) of the senior tranche
+ * @custom:field lastJTRawNAV - The last recorded pure NAV (excluding any coverage given and yield shared) of the junior tranche
+ * @custom:field lastSTEffectiveNAV - The last recorded effective NAV (including any prior applied coverage, ST yield distribution, and uncovered losses) of the senior tranche
+ * @custom:field lastJTEffectiveNAV - The last recorded effective NAV (including any prior provided coverage, JT yield, ST yield distribution, and JT losses) of the junior tranche
+ * @custom:field lastSTImpermanentLoss - The impermanent loss that ST has suffered after exhausting JT's loss-absorption buffer
+ *                                       This represents the first claim on capital that the senior tranche has on future ST and JT recoveries
+ * @custom:field lastJTImpermanentLoss - The impermanent loss that JT has suffered after providing coverage for ST losses
+ *                                       This represents the second claim on capital that the junior tranche has on future ST recoveries
+ */
+struct AccountingStateCheckpoint {
+    NAV_UNIT lastSTRawNAV;
+    NAV_UNIT lastJTRawNAV;
+    NAV_UNIT lastSTEffectiveNAV;
+    NAV_UNIT lastJTEffectiveNAV;
+    NAV_UNIT lastSTImpermanentLoss;
+    NAV_UNIT lastJTImpermanentLoss;
 }
 
 /**

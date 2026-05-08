@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { MarketState, Operation, SyncedAccountingState } from "../libraries/Types.sol";
+import { AccountingStateCheckpoint, MarketState, Operation, SyncedAccountingState } from "../libraries/Types.sol";
 import { NAV_UNIT } from "../libraries/Units.sol";
 
 /**
@@ -59,9 +59,9 @@ interface IRoycoAccountant {
      * @custom:field lastSTEffectiveNAV - The last recorded effective NAV (including any prior applied coverage, ST yield distribution, and uncovered losses) of the senior tranche
      * @custom:field lastJTEffectiveNAV - The last recorded effective NAV (including any prior provided coverage, JT yield, ST yield distribution, and JT losses) of the junior tranche
      * @custom:field lastSTImpermanentLoss - The impermanent loss that ST has suffered after exhausting JT's loss-absorption buffer
-     *                                   This represents the first claim on capital that the senior tranche has on future ST and JT recoveries
+     *                                       This represents the first claim on capital that the senior tranche has on future ST and JT recoveries
      * @custom:field lastJTImpermanentLoss - The impermanent loss that JT has suffered after providing coverage for ST losses
-     *                                           This represents the second claim on capital that the junior tranche has on future ST recoveries
+     *                                       This represents the second claim on capital that the junior tranche has on future ST recoveries
      * @custom:field twJTYieldShareAccruedWAD - The time-weighted junior tranche yield share (YDM output) since the last yield distribution, scaled to WAD precision
      * @custom:field lastAccrualTimestamp - The timestamp at which the time-weighted JT yield share accumulator was last updated
      * @custom:field lastDistributionTimestamp - The timestamp at which the last ST yield distribution occurred
@@ -385,6 +385,12 @@ interface IRoycoAccountant {
      * @param _jtNAVDustTolerance The JT NAV tolerance for rounding discrepancies
      */
     function setJuniorTrancheDustTolerance(NAV_UNIT _jtNAVDustTolerance) external;
+
+    /**
+     * @notice Returns the last checkpointed accounting state persisted from the most recent NAV synchronization
+     * @return state The last checkpointed raw NAVs, effective NAVs, and impermanent losses for both tranches
+     */
+    function getLastAccountingStateCheckpoint() external view returns (AccountingStateCheckpoint memory state);
 
     /**
      * @notice Returns the state of the accountant

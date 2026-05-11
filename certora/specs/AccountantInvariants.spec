@@ -10,6 +10,10 @@ methods {
     function _.jtYieldShare(RoycoAccountant.MarketState,RoycoAccountant.NAV_UNIT,RoycoAccountant.NAV_UNIT,uint256,uint256,RoycoAccountant.NAV_UNIT) external => NONDET;
 }
 
+definition WAD() returns mathint = 10^18;
+definition MIN_COVERAGE_WAD() returns mathint = 10^16;   // 1 %
+definition MAX_COVERAGE_WAD() returns mathint = 10^18-1; // 99.9999999999999999 %
+
 // Ghost variable that tracks the last timestamp.
 ghost mathint lastTimestamp;
 
@@ -108,3 +112,24 @@ invariant noFeesWhenFixedTerm()
     && roycoAccountant.ext_Royco_storage_RoycoAccountantState.jtProtocolFeeAccrued == 0
     filtered { f -> excludeUpgradeAndCall(f)}
 */
+
+invariant liquidationGreaterThanOne()
+    roycoAccountant.ext_Royco_storage_RoycoAccountantState.liquidationUtilizationWAD > WAD()
+    filtered { f -> excludeUpgradeAndCall(f) }
+
+invariant coverageBetaLessThanOne()
+    roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD *
+    roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD < WAD()*WAD()
+    filtered { f -> excludeUpgradeAndCall(f) }
+
+/* @title Coverage is always at least the min coverage.
+ * @notice The code contract doesn't satisfy the property and we need to exclude it by checking if _initialized is max_uint64.
+ */
+invariant coverageGreaterEqualMin()
+    roycoAccountant.ext_openzeppelin_storage_Initializable._initialized != max_uint64 =>
+    roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD >= MIN_COVERAGE_WAD()
+    filtered { f -> excludeUpgradeAndCall(f) }
+
+invariant coverageLessEqualMax()
+    roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD <= MAX_COVERAGE_WAD()
+    filtered { f -> excludeUpgradeAndCall(f) }

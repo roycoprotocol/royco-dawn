@@ -29,6 +29,8 @@ links {
 methods {
     function seniorTranche.allowance(address owner, address spender) external returns (uint256) envfree;
     function juniorTranche.allowance(address owner, address spender) external returns (uint256) envfree;
+    function seniorTranche.totalSupply() external returns (uint256) envfree;
+    function juniorTranche.totalSupply() external returns (uint256) envfree;
     function _.canCall(address,address,bytes4) external => canCallCVL() expect bool;
     function _.consumeScheduledOp(address,bytes) external => NONDET;
     function _.syncTrancheAccounting() external => DISPATCHER(true);
@@ -73,14 +75,11 @@ ghost jtYieldShareCVL(RoycoAccountant.NAV_UNIT, RoycoAccountant.NAV_UNIT, uint25
         jtYieldShareCVL(stRawNAV, jtRawNAV, beta, coverage, jtEffectiveNAV) < WAD());
 }
 
-rule stDepositMaxDoesNotRevert(env e) {
+rule jtTokenValueDoesNotWorsen(env e) {
     uint256 someAmount;
     address receiver;
     method f;
-    env e;
     calldataarg args;
-
-    require e.msg.value == 0, "Not payable";
 
     // force synchronisation by depositing 0 tokens.
     juniorTranche.deposit(e, 0, receiver);
@@ -99,5 +98,31 @@ rule stDepositMaxDoesNotRevert(env e) {
     uint256 jtTotalAfter = juniorTranche.totalSupply();
     uint256 stTotalAfter = seniorTranche.totalSupply();
 
-    assert jtEffectiveNAVBefore * jtTotalAfter <= jtEffectiveNAVAfter * stTotalBefore;
+    assert jtEffectiveNAVBefore * jtTotalAfter <= jtEffectiveNAVAfter * jtTotalBefore;
+}
+
+rule stTokenValueDoesNotWorsen(env e) {
+    uint256 someAmount;
+    address receiver;
+    method f;
+    calldataarg args;
+
+    // force synchronisation by depositing 0 tokens.
+    juniorTranche.deposit(e, 0, receiver);
+
+    // get the current token value
+    RoycoAccountant.NAV_UNIT jtEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
+    RoycoAccountant.NAV_UNIT stEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV;
+    uint256 jtTotalBefore = juniorTranche.totalSupply();
+    uint256 stTotalBefore = seniorTranche.totalSupply();
+
+    f(e, args);
+
+    // get the token value after
+    RoycoAccountant.NAV_UNIT jtEffectiveNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
+    RoycoAccountant.NAV_UNIT stEffectiveNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV;
+    uint256 jtTotalAfter = juniorTranche.totalSupply();
+    uint256 stTotalAfter = seniorTranche.totalSupply();
+
+    assert stEffectiveNAVBefore * stTotalAfter <= stEffectiveNAVAfter * stTotalBefore;
 }

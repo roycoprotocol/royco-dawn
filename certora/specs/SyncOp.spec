@@ -38,6 +38,8 @@ rule preSyncNoYieldMeansNoFee()
     RoycoAccountant.NAV_UNIT newJtRawNAV;
     RoycoAccountant.SyncedAccountingState state;
 
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.stNAVDustTolerance == 0, "Assume no Dust limit";
+
     state = roycoAccountant.preOpSyncTrancheAccounting(e, newStRawNAV, newJtRawNAV);
 
     assert state.stProtocolFeeAccrued != 0 || state.jtProtocolFeeAccrued != 0 =>

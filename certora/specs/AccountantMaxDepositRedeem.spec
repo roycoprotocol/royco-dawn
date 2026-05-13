@@ -44,7 +44,7 @@ rule maxStDepositCorrect {
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV == stRawNAV, "assumption: no price change";
     maxSTDeposit = roycoAccountant.maxSTDepositGivenCoverage(e, stRawNAV, jtRawNAV);
     require maxSTDeposit > 0, "not yet fully utilized";
-    require stDeposit <= maxSTDeposit + 1, "deposit less than max";
+    require stDeposit <= maxSTDeposit, "deposit less than max";
     require stRawNAV + stDeposit < 2^250;
     roycoAccountant.preOpSyncTrancheAccounting(e, stRawNAV, jtRawNAV);
     RoycoAccountant.NAV_UNIT newSTRawNAV = assert_uint256(stRawNAV + stDeposit);

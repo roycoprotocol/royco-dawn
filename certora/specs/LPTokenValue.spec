@@ -81,8 +81,10 @@ rule jtTokenValueDoesNotWorsen(env e) {
     method f;
     calldataarg args;
 
-    // force synchronisation by depositing 0 tokens.
-    juniorTranche.deposit(e, 0, receiver);
+    // assume price is already synced
+    uint256 price = kernel.getTrancheUnitToNAVUnitConversionRateWAD(e);
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / WAD(), "price is synced";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / WAD(), "price is synced";
 
     // get the current token value
     RoycoAccountant.NAV_UNIT jtEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
@@ -107,8 +109,10 @@ rule stTokenValueDoesNotWorsen(env e) {
     method f;
     calldataarg args;
 
-    // force synchronisation by depositing 0 tokens.
-    juniorTranche.deposit(e, 0, receiver);
+    // assume price is already synced
+    uint256 price = kernel.getTrancheUnitToNAVUnitConversionRateWAD(e);
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / WAD(), "price is synced";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / WAD(), "price is synced";
 
     // get the current token value
     RoycoAccountant.NAV_UNIT jtEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;

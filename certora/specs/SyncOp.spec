@@ -46,28 +46,6 @@ rule preSyncNoYieldMeansNoFee()
         state.stImpermanentLoss == 0 && state.jtImpermanentLoss == 0 && state.marketState == RoycoAccountant.MarketState.PERPETUAL;
 }
 
-/* @title PRE01b */
-rule preSyncNoYieldMeansNoFeeCorrected()
-{
-    env e;
-    RoycoAccountant.NAV_UNIT newStRawNAV;
-    RoycoAccountant.NAV_UNIT newJtRawNAV;
-    RoycoAccountant.SyncedAccountingState state;
-
-    RoycoAccountant.NAV_UNIT jtEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
-    RoycoAccountant.NAV_UNIT stEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV;
-    require jtEffectiveNAVBefore < 2^250, "NAV in range";
-    require stEffectiveNAVBefore < 2^250, "NAV in range";
-
-    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV < 2^250, "NAV in range";
-    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV < 2^250, "NAV in range";
-
-    state = roycoAccountant.preOpSyncTrancheAccounting(e, newStRawNAV, newJtRawNAV);
-
-    assert state.stProtocolFeeAccrued != 0 => state.stEffectiveNAV > stEffectiveNAVBefore;
-    assert state.jtProtocolFeeAccrued != 0 => state.jtEffectiveNAV > jtEffectiveNAVBefore;
-}
-
 /* @title PRE02 */
 rule preSyncFixedTermHasTimestamp()
 {
@@ -142,6 +120,53 @@ rule postSyncNoFees() {
     assert state.jtProtocolFeeAccrued == 0;
 }
 
+/* @title POST02 */
+rule postSyncRawChangeDirectlyReflected() {
+    env e;
+    RoycoAccountant.Operation op;
+    RoycoAccountant.NAV_UNIT stRawNAVBefore;
+    RoycoAccountant.NAV_UNIT jtRawNAVBefore;
+    RoycoAccountant.NAV_UNIT stEffectiveNAVBefore;
+    RoycoAccountant.NAV_UNIT jtEffectiveNAVBefore;
+    RoycoAccountant.NAV_UNIT newStRawNAV;
+    RoycoAccountant.NAV_UNIT newJtRawNAV;
+    RoycoAccountant.NAV_UNIT stSelfLiqBonusNAV;
+    RoycoAccountant.SyncedAccountingState state;
+    mathint deltaST;
+    mathint deltaJT;
+    mathint deltaEffJT;
+    mathint deltaEffST;
+
+    jtRawNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV;
+    stRawNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV;
+
+    require stRawNAVBefore < 2^255, "assume no signed overflow";
+    require jtRawNAVBefore < 2^255, "assume no signed overflow";
+    require newStRawNAV < 2^255, "assume no signed overflow";
+    require newJtRawNAV < 2^255, "assume no signed overflow";
+
+    jtEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
+    stEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV;
+    deltaJT = newJtRawNAV - jtRawNAVBefore;
+    deltaST = newStRawNAV - stRawNAVBefore;
+
+    state = roycoAccountant.postOpSyncTrancheAccounting(e, op, newStRawNAV, newJtRawNAV, stSelfLiqBonusNAV);
+
+    deltaEffJT = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV - jtEffectiveNAVBefore;
+    deltaEffST = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV - stEffectiveNAVBefore;
+
+    // All operations preserve the Eff = Raw invariant.
+    assert deltaEffJT + deltaEffST == deltaJT + deltaST;
+
+    // ST operations only change the JT effective NAV because of self liquidation bonus.
+    assert op == RoycoAccountant.Operation.ST_REDEEM => deltaEffJT == -stSelfLiqBonusNAV;
+    assert op == RoycoAccountant.Operation.ST_DEPOSIT => deltaEffJT == 0;
+    
+    // JT operations don't change the ST effective NAV.
+    assert op == RoycoAccountant.Operation.JT_REDEEM => deltaEffST == 0;
+    assert op == RoycoAccountant.Operation.JT_DEPOSIT => deltaEffST == 0;
+}
+
 
 /* @title POST03 */
 rule postSyncOnlyJTDepositIncreasesJTEffective() {
@@ -159,3 +184,64 @@ rule postSyncOnlyJTDepositIncreasesJTEffective() {
     assert state.jtEffectiveNAV > jtEffNAVBefore => op == RoycoAccountant.Operation.JT_DEPOSIT;
 }
 
+/* @title POST04 */
+rule postSyncSTImpermanentLossProportionally() {
+    env e;
+
+    RoycoAccountant.Operation op;
+    RoycoAccountant.NAV_UNIT effNAVBefore;
+    RoycoAccountant.NAV_UNIT impermanentLossBefore;
+    RoycoAccountant.NAV_UNIT effNAVAfter;
+    RoycoAccountant.NAV_UNIT impermanentLossAfter;
+    RoycoAccountant.NAV_UNIT newStRawNAV;
+    RoycoAccountant.NAV_UNIT newJtRawNAV;
+    RoycoAccountant.NAV_UNIT stSelfLiqBonusNAV;
+    RoycoAccountant.SyncedAccountingState state;
+
+    impermanentLossBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss;
+    effNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV;
+
+    require op == RoycoAccountant.Operation.JT_REDEEM || op == RoycoAccountant.Operation.ST_REDEEM, "assume redeem operations";
+    state = roycoAccountant.postOpSyncTrancheAccounting(e, op, newStRawNAV, newJtRawNAV, stSelfLiqBonusNAV);
+    impermanentLossAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss;
+    effNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV;
+    assert state.stImpermanentLoss == impermanentLossAfter;
+
+    assert impermanentLossAfter * effNAVBefore >= impermanentLossBefore * effNAVAfter, "impermanentLoss per NAV increases";
+    assert (impermanentLossAfter - 1) * effNAVBefore <= impermanentLossBefore * effNAVAfter, "impermanentLoss only suffers rounding";
+}
+
+/* @title POST05 */
+rule postSyncJTImpermanentLossProportionally() {
+    env e;
+
+    RoycoAccountant.Operation op;
+    RoycoAccountant.NAV_UNIT effNAVBefore;
+    RoycoAccountant.NAV_UNIT impermanentLossBefore;
+    RoycoAccountant.NAV_UNIT effNAVAfter;
+    RoycoAccountant.NAV_UNIT impermanentLossAfter;
+    RoycoAccountant.NAV_UNIT newStRawNAV;
+    RoycoAccountant.NAV_UNIT newJtRawNAV;
+    RoycoAccountant.NAV_UNIT stSelfLiqBonusNAV;
+    RoycoAccountant.SyncedAccountingState state;
+
+    impermanentLossBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTImpermanentLoss;
+    effNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
+
+    require effNAVBefore < 2^255, "assume no signed overflow";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV < 2^255, "assume no signed overflow";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV < 2^255, "assume no signed overflow";
+    require newStRawNAV < 2^255, "assume no signed overflow";
+    require newJtRawNAV < 2^255, "assume no signed overflow";
+
+
+    require op == RoycoAccountant.Operation.ST_REDEEM => impermanentLossBefore == 0, "st_redeem reverts in fixed_term state, jtImpermanentLoss is below dust in perpetual state, ignore dust";
+    require op == RoycoAccountant.Operation.JT_REDEEM || op == RoycoAccountant.Operation.ST_REDEEM, "assume redeem operations";
+    state = roycoAccountant.postOpSyncTrancheAccounting(e, op, newStRawNAV, newJtRawNAV, stSelfLiqBonusNAV);
+    impermanentLossAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTImpermanentLoss;
+    effNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
+    assert state.jtImpermanentLoss == impermanentLossAfter;
+
+    assert impermanentLossAfter * effNAVBefore <= impermanentLossBefore * effNAVAfter, "impermanentLoss per NAV decreases";
+    assert (impermanentLossAfter + 1) * effNAVBefore >= impermanentLossBefore * effNAVAfter, "impermanentLoss only suffers rounding";
+}

@@ -32,6 +32,7 @@ import { RoycoSeniorTranche } from "../src/tranches/RoycoSeniorTranche.sol";
 import { AdaptiveCurveYDM_V1 } from "../src/ydm/AdaptiveCurveYDM_V1.sol";
 import { AdaptiveCurveYDM_V2 } from "../src/ydm/AdaptiveCurveYDM_V2.sol";
 import { StaticCurveYDM } from "../src/ydm/StaticCurveYDM.sol";
+import { ExtraRoles } from "./config/ExtraRoles.sol";
 import { MarketDeploymentConfig } from "./config/MarketDeploymentConfig.sol";
 import { Create2DeployUtils } from "./utils/Create2DeployUtils.sol";
 import { Script } from "lib/forge-std/src/Script.sol";
@@ -45,7 +46,7 @@ import { console2 } from "lib/forge-std/src/console2.sol";
 ///   - Create2DeployUtils (deterministic deployments via CREATE2)
 ///   - RolesConfiguration (role constants and config)
 ///   - MarketDeploymentConfig (per-chain and per-market configuration)
-contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketDeploymentConfig {
+contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketDeploymentConfig, ExtraRoles {
     // Custom errors
     error UnsupportedKernelType(KernelType kernelType);
     error UnsupportedYDMType(YDMType ydmType);
@@ -61,6 +62,8 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
 
     // Whether to print deployment parameters
     bool ENABLE_LOGGING = false;
+
+    RoycoFactory constant ROYCO_FACTORY_PRE_DEPLOYED = RoycoFactory(0x7cC6fB28eC7b5e7afC3cB3986141797ffc27253C);
 
     /// @notice Enum for kernel types
     enum KernelType {
@@ -174,6 +177,7 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
     /// @notice Addresses for role assignments
     struct RoleAssignmentAddresses {
         address pauserAddress;
+        address unpauserAddress;
         address upgraderAddress;
         address syncRoleAddress;
         address adminKernelAddress;
@@ -214,6 +218,7 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         IRoycoFactory.RoleAssignmentConfiguration[] memory roleAssignments = generateRolesAssignments(
             RoleAssignmentAddresses({
                 pauserAddress: chainConfig.pauserAddress,
+                unpauserAddress: chainConfig.unpauserAddress,
                 upgraderAddress: chainConfig.upgraderAddress,
                 syncRoleAddress: chainConfig.syncRoleAddress,
                 adminKernelAddress: chainConfig.adminKernelAddress,
@@ -326,8 +331,25 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         // Deploy implementations using CREATE2
         IYDM ydm = _deployYDM(_config.ydmType);
 
-        // Deploy factory with factory admin as admin and deployer as deployer
-        RoycoFactory factory = _deployFactory(_factoryAdmin, deployer, _scheduledOperationsExpirySeconds, _roleAssignments);
+        // Use an existing factory if it exists, otherwise deploy a new one
+        RoycoFactory factory;
+        if (address(ROYCO_FACTORY_PRE_DEPLOYED).code.length > 0) {
+            console2.log("Using pre-deployed factory at address:", address(ROYCO_FACTORY_PRE_DEPLOYED));
+            factory = ROYCO_FACTORY_PRE_DEPLOYED;
+
+            // When forking from a state where the factory is already deployed (i.e. on-chain),
+            // the test wallets do not hold the roles that `factory.initialize(...)` would have
+            // granted to them. Replay the role grants by pranking as the on-chain admin
+            // (ROOT_MULTISIG holds role 0, which is the admin for every role with
+            // `adminRole: _ADMIN_ROLE` in RolesConfiguration).
+            //
+            // In production, the supplied wallets are expected to already hold their roles
+            // on-chain, so each `hasRole` check returns true and the prank is skipped.
+            _replayRoleAssignmentsForPreDeployedFactory(factory, deployer, _roleAssignments, _deployerPrivateKey);
+        } else {
+            console2.log("Deploying factory...");
+            factory = _deployFactory(_factoryAdmin, deployer, _scheduledOperationsExpirySeconds, _roleAssignments);
+        }
 
         // Deploy all implementations. Then deploy the market using the factory
         (
@@ -398,8 +420,9 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
     }
 
     /// @notice Builds selector-to-role mappings for a tranche contract.
-    /// @dev Maps deposit/redeem to the LP role, pause/unpause to ADMIN_PAUSER_ROLE,
-    ///      upgradeToAndCall to ADMIN_UPGRADER_ROLE, and seize functions to TRANSFER_AGENT_ROLE.
+    /// @dev Maps deposit/redeem to the LP role, pause to ADMIN_PAUSER_ROLE, unpause to
+    ///      ADMIN_UNPAUSER_ROLE, upgradeToAndCall to ADMIN_UPGRADER_ROLE, and seize functions
+    ///      to TRANSFER_AGENT_ROLE.
     /// @param _tranche The address of the tranche contract
     /// @param _lpRole The role value for the LP role
     /// @return The roles configuration for the tranche contract
@@ -414,7 +437,7 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         selectors[2] = IRoycoAuth.pause.selector;
         roleValues[2] = ADMIN_PAUSER_ROLE;
         selectors[3] = IRoycoAuth.unpause.selector;
-        roleValues[3] = ADMIN_PAUSER_ROLE;
+        roleValues[3] = ADMIN_UNPAUSER_ROLE;
         selectors[4] = UUPSUpgradeable.upgradeToAndCall.selector;
         roleValues[4] = ADMIN_UPGRADER_ROLE;
         selectors[5] = IRoycoVaultTranche.seizeShares.selector;
@@ -431,8 +454,8 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
 
     /// @notice Builds selector-to-role mappings for the kernel contract.
     /// @dev Maps admin functions to ADMIN_KERNEL_ROLE, oracle quoter functions to ADMIN_ORACLE_QUOTER_ROLE,
-    ///      sync to SYNC_ROLE, pause/unpause to ADMIN_PAUSER_ROLE, upgrade to ADMIN_UPGRADER_ROLE,
-    ///      and blacklist functions to TRANSFER_AGENT_ROLE.
+    ///      sync to SYNC_ROLE, pause to ADMIN_PAUSER_ROLE, unpause to ADMIN_UNPAUSER_ROLE,
+    ///      upgrade to ADMIN_UPGRADER_ROLE, and blacklist functions to TRANSFER_AGENT_ROLE.
     /// @param _kernel The address of the kernel contract
     /// @return The roles configuration for the kernel contract
     function _buildKernelRolesConfig(address _kernel) private pure returns (IRoycoFactory.RolesTargetConfiguration memory) {
@@ -444,7 +467,7 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         selectors[1] = IRoycoAuth.pause.selector;
         roleValues[1] = ADMIN_PAUSER_ROLE;
         selectors[2] = IRoycoAuth.unpause.selector;
-        roleValues[2] = ADMIN_PAUSER_ROLE;
+        roleValues[2] = ADMIN_UNPAUSER_ROLE;
         selectors[3] = IdenticalAssetsOracleQuoter.setConversionRate.selector;
         roleValues[3] = ADMIN_ORACLE_QUOTER_ROLE;
         selectors[4] = IdenticalAssetsChainlinkOracleQuoter.setChainlinkOracle.selector;
@@ -492,7 +515,7 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         selectors[7] = IRoycoAuth.pause.selector;
         roleValues[7] = ADMIN_PAUSER_ROLE;
         selectors[8] = IRoycoAuth.unpause.selector;
-        roleValues[8] = ADMIN_PAUSER_ROLE;
+        roleValues[8] = ADMIN_UNPAUSER_ROLE;
         selectors[9] = UUPSUpgradeable.upgradeToAndCall.selector;
         roleValues[9] = ADMIN_UPGRADER_ROLE;
         selectors[10] = IRoycoAccountant.setSeniorTrancheDustTolerance.selector;
@@ -516,6 +539,10 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         pure
         returns (IRoycoFactory.RoleAssignmentConfiguration[] memory roleAssignments)
     {
+        // ADMIN_UNPAUSER_ROLE lives in `ExtraRoles` and is intentionally NOT wired through
+        // `factory.initialize` (canonical `RolesConfiguration` no longer knows it, so the
+        // init loop's `getRoleConfig` would revert). Tests grant it post-init in `BaseTest`;
+        // production wires it via `ApplySecurityMigration`.
         roleAssignments = new IRoycoFactory.RoleAssignmentConfiguration[](14);
 
         // Get role configs from RolesConfiguration
@@ -867,6 +894,48 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         }
 
         return RoycoFactory(factoryProxyAddress);
+    }
+
+    /// @notice Replays the role assignments that `factory.initialize(...)` would have applied,
+    ///         for the case where the factory is already deployed at the canonical CREATE2 address.
+    /// @dev Only relevant in test/fork mode. In production every wallet is expected to already
+    ///      hold its role on-chain, so each `hasRole` check short-circuits and `vm.prank` is
+    ///      never reached.
+    /// @param _factory The pre-deployed factory
+    /// @param _deployer The deployer address that should hold DEPLOYER_ROLE
+    /// @param _roleAssignments The role assignments that would have been passed to `initialize`
+    /// @param _deployerPrivateKey The deployer key used to resume the outer broadcast
+    function _replayRoleAssignmentsForPreDeployedFactory(
+        RoycoFactory _factory,
+        address _deployer,
+        IRoycoFactory.RoleAssignmentConfiguration[] memory _roleAssignments,
+        uint256 _deployerPrivateKey
+    )
+        internal
+    {
+        // Pause the outer broadcast so we can prank as the on-chain admin
+        vm.stopBroadcast();
+
+        // 1. DEPLOYER_ROLE — granted unconditionally by `__RoycoFactory_init_unchained` to `_deployer`
+        (bool deployerHasRole,) = _factory.hasRole(DEPLOYER_ROLE, _deployer);
+        if (!deployerHasRole) {
+            vm.prank(ROOT_MULTISIG);
+            _factory.grantRole(DEPLOYER_ROLE, _deployer, 0);
+            if (ENABLE_LOGGING) console2.log("Granted DEPLOYER_ROLE to test deployer:", _deployer);
+        }
+
+        // 2. All caller-supplied role assignments
+        for (uint256 i = 0; i < _roleAssignments.length; i++) {
+            IRoycoFactory.RoleAssignmentConfiguration memory ra = _roleAssignments[i];
+            if (ra.assignee == address(0)) continue;
+            (bool assigneeHasRole,) = _factory.hasRole(ra.role, ra.assignee);
+            if (assigneeHasRole) continue;
+            vm.prank(ROOT_MULTISIG);
+            _factory.grantRole(ra.role, ra.assignee, ra.executionDelay);
+        }
+
+        // Resume the outer broadcast
+        vm.startBroadcast(_deployerPrivateKey);
     }
 
     /// @notice Deploys the kernel implementation via CREATE2. Generates creation code based on kernel type,

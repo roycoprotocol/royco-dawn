@@ -20,3 +20,6 @@ broadcast
 
 # Deployment script output
 output/
+
+# Claude output
+.claude

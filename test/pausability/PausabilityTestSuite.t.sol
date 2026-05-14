@@ -154,51 +154,60 @@ contract PausabilityTestSuite is BaseTest {
         assertTrue(PausableUpgradeable(address(ACCOUNTANT)).paused(), "Accountant should be paused after pause()");
     }
 
+    /// @notice Schedules + waits + executes `unpause()` on the given target.
+    /// @dev `unpause` is gated on `ADMIN_UNPAUSER_ROLE` (Standard, 24h delay), so a direct
+    ///      call from `UNPAUSER_ADDRESS` would revert. Tests use this helper to run the
+    ///      full schedule → warp → execute flow against the factory.
+    function _scheduleAndExecuteUnpause(address _target) internal {
+        bytes memory data = abi.encodeCall(IRoycoAuth.unpause, ());
+        vm.prank(UNPAUSER_ADDRESS);
+        FACTORY.schedule(_target, data, 0);
+        vm.warp(vm.getBlockTimestamp() + 1 days);
+        vm.prank(UNPAUSER_ADDRESS);
+        FACTORY.execute(_target, data);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SECTION 2: UNPAUSING BY PAUSER ROLE SUCCEEDS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Test that ST can be unpaused by pauser
+    /// @notice Test that ST can be unpaused by unpauser (after the Standard 24h delay)
     function test_stTranche_canBeUnpausedByPauser() external {
         vm.prank(PAUSER_ADDRESS);
         IRoycoAuth(address(ST)).pause();
         assertTrue(PausableUpgradeable(address(ST)).paused(), "ST should be paused");
 
-        vm.prank(PAUSER_ADDRESS);
-        IRoycoAuth(address(ST)).unpause();
+        _scheduleAndExecuteUnpause(address(ST));
         assertFalse(PausableUpgradeable(address(ST)).paused(), "ST should be unpaused after unpause()");
     }
 
-    /// @notice Test that JT can be unpaused by pauser
+    /// @notice Test that JT can be unpaused by unpauser (after the Standard 24h delay)
     function test_jtTranche_canBeUnpausedByPauser() external {
         vm.prank(PAUSER_ADDRESS);
         IRoycoAuth(address(JT)).pause();
         assertTrue(PausableUpgradeable(address(JT)).paused(), "JT should be paused");
 
-        vm.prank(PAUSER_ADDRESS);
-        IRoycoAuth(address(JT)).unpause();
+        _scheduleAndExecuteUnpause(address(JT));
         assertFalse(PausableUpgradeable(address(JT)).paused(), "JT should be unpaused after unpause()");
     }
 
-    /// @notice Test that Kernel can be unpaused by pauser
+    /// @notice Test that Kernel can be unpaused by unpauser (after the Standard 24h delay)
     function test_kernel_canBeUnpausedByPauser() external {
         vm.prank(PAUSER_ADDRESS);
         IRoycoAuth(address(KERNEL)).pause();
         assertTrue(PausableUpgradeable(address(KERNEL)).paused(), "Kernel should be paused");
 
-        vm.prank(PAUSER_ADDRESS);
-        IRoycoAuth(address(KERNEL)).unpause();
+        _scheduleAndExecuteUnpause(address(KERNEL));
         assertFalse(PausableUpgradeable(address(KERNEL)).paused(), "Kernel should be unpaused after unpause()");
     }
 
-    /// @notice Test that Accountant can be unpaused by pauser
+    /// @notice Test that Accountant can be unpaused by unpauser (after the Standard 24h delay)
     function test_accountant_canBeUnpausedByPauser() external {
         vm.prank(PAUSER_ADDRESS);
         IRoycoAuth(address(ACCOUNTANT)).pause();
         assertTrue(PausableUpgradeable(address(ACCOUNTANT)).paused(), "Accountant should be paused");
 
-        vm.prank(PAUSER_ADDRESS);
-        IRoycoAuth(address(ACCOUNTANT)).unpause();
+        _scheduleAndExecuteUnpause(address(ACCOUNTANT));
         assertFalse(PausableUpgradeable(address(ACCOUNTANT)).paused(), "Accountant should be unpaused after unpause()");
     }
 
@@ -422,8 +431,7 @@ contract PausabilityTestSuite is BaseTest {
         vm.prank(PAUSER_ADDRESS);
         IRoycoAuth(address(JT)).pause();
 
-        vm.prank(PAUSER_ADDRESS);
-        IRoycoAuth(address(JT)).unpause();
+        _scheduleAndExecuteUnpause(address(JT));
 
         // Deposit should work
         vm.startPrank(ALICE_ADDRESS);
@@ -448,8 +456,7 @@ contract PausabilityTestSuite is BaseTest {
         vm.prank(PAUSER_ADDRESS);
         IRoycoAuth(address(KERNEL)).pause();
 
-        vm.prank(PAUSER_ADDRESS);
-        IRoycoAuth(address(KERNEL)).unpause();
+        _scheduleAndExecuteUnpause(address(KERNEL));
 
         // Sync should work
         vm.prank(SYNC_ROLE_ADDRESS);
@@ -470,8 +477,7 @@ contract PausabilityTestSuite is BaseTest {
         vm.prank(PAUSER_ADDRESS);
         IRoycoAuth(address(JT)).pause();
 
-        vm.prank(PAUSER_ADDRESS);
-        IRoycoAuth(address(JT)).unpause();
+        _scheduleAndExecuteUnpause(address(JT));
 
         // Transfer should work
         vm.prank(ALICE_ADDRESS);
@@ -538,13 +544,20 @@ contract PausabilityTestSuite is BaseTest {
     }
 
     /// @notice Test that Unpaused event is emitted when unpausing
+    /// @dev The unpause is routed through the AccessManager's scheduled-execute path, so the
+    ///      `Unpaused` event sender is the factory, not the unpauser EOA.
     function test_unpause_emitsUnpausedEvent() external {
         vm.prank(PAUSER_ADDRESS);
         IRoycoAuth(address(JT)).pause();
 
-        vm.prank(PAUSER_ADDRESS);
+        bytes memory data = abi.encodeCall(IRoycoAuth.unpause, ());
+        vm.prank(UNPAUSER_ADDRESS);
+        FACTORY.schedule(address(JT), data, 0);
+        vm.warp(vm.getBlockTimestamp() + 1 days);
+
         vm.expectEmit(true, true, true, true, address(JT));
-        emit Pausable.Unpaused(PAUSER_ADDRESS);
-        IRoycoAuth(address(JT)).unpause();
+        emit Pausable.Unpaused(address(FACTORY));
+        vm.prank(UNPAUSER_ADDRESS);
+        FACTORY.execute(address(JT), data);
     }
 }

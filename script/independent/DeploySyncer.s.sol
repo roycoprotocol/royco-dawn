@@ -5,6 +5,7 @@ import { UUPSUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/co
 import { RolesConfiguration } from "../../src/factory/RolesConfiguration.sol";
 import { IRoycoAuth } from "../../src/interfaces/IRoycoAuth.sol";
 import { RoycoMarketSyncer } from "../../src/periphery/RoycoMarketSyncer.sol";
+import { ExtraRoles } from "../config/ExtraRoles.sol";
 import { SyncerDeploymentConfig } from "../config/SyncerDeploymentConfig.sol";
 import { AccessManagerConfigUtils } from "../utils/AccessManagerConfigUtils.sol";
 import { Create2DeployUtils } from "../utils/Create2DeployUtils.sol";
@@ -17,7 +18,7 @@ import { console2 } from "lib/forge-std/src/console2.sol";
  *      Also generates a Safe-compatible JSON file containing the factory configuration transactions
  *      needed to make the syncer operational.
  */
-contract DeploySyncerScript is SyncerDeploymentConfig, AccessManagerConfigUtils, Create2DeployUtils, RolesConfiguration {
+contract DeploySyncerScript is SyncerDeploymentConfig, AccessManagerConfigUtils, Create2DeployUtils, RolesConfiguration, ExtraRoles {
     // ═══════════════════════════════════════════════════════════════════════════
     // DEPLOYMENT CONSTANTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -153,9 +154,10 @@ contract DeploySyncerScript is SyncerDeploymentConfig, AccessManagerConfigUtils,
         pure
         returns (SafeTransaction[] memory transactions)
     {
-        // Base transactions: 3 for setTargetFunctionRole + 1 for granting syncer SYNC_ROLE
+        // Base transactions: 4 for setTargetFunctionRole (SYNC, pause, unpause, upgrade)
+        //                  + 1 for granting syncer SYNC_ROLE
         // Plus 1 grantRole per sync operator
-        uint256 numTransactions = 4 + _syncOperators.length;
+        uint256 numTransactions = 5 + _syncOperators.length;
         transactions = new SafeTransaction[](numTransactions);
 
         // Transaction 1: SYNC_ROLE functions
@@ -166,23 +168,27 @@ contract DeploySyncerScript is SyncerDeploymentConfig, AccessManagerConfigUtils,
         syncSelectors[3] = RoycoMarketSyncer.removeMarketKernels.selector;
         transactions[0] = buildSetTargetFunctionRole(_factory, _syncer, syncSelectors, SYNC_ROLE);
 
-        // Transaction 2: ADMIN_PAUSER_ROLE functions
-        bytes4[] memory pauserSelectors = new bytes4[](2);
-        pauserSelectors[0] = IRoycoAuth.pause.selector;
-        pauserSelectors[1] = IRoycoAuth.unpause.selector;
-        transactions[1] = buildSetTargetFunctionRole(_factory, _syncer, pauserSelectors, ADMIN_PAUSER_ROLE);
+        // Transaction 2: pause -> ADMIN_PAUSER_ROLE
+        bytes4[] memory pauseSelectors = new bytes4[](1);
+        pauseSelectors[0] = IRoycoAuth.pause.selector;
+        transactions[1] = buildSetTargetFunctionRole(_factory, _syncer, pauseSelectors, ADMIN_PAUSER_ROLE);
 
-        // Transaction 3: ADMIN_UPGRADER_ROLE functions
+        // Transaction 3: unpause -> ADMIN_UNPAUSER_ROLE
+        bytes4[] memory unpauseSelectors = new bytes4[](1);
+        unpauseSelectors[0] = IRoycoAuth.unpause.selector;
+        transactions[2] = buildSetTargetFunctionRole(_factory, _syncer, unpauseSelectors, ADMIN_UNPAUSER_ROLE);
+
+        // Transaction 4: ADMIN_UPGRADER_ROLE functions
         bytes4[] memory upgraderSelectors = new bytes4[](1);
         upgraderSelectors[0] = UUPSUpgradeable.upgradeToAndCall.selector;
-        transactions[2] = buildSetTargetFunctionRole(_factory, _syncer, upgraderSelectors, ADMIN_UPGRADER_ROLE);
+        transactions[3] = buildSetTargetFunctionRole(_factory, _syncer, upgraderSelectors, ADMIN_UPGRADER_ROLE);
 
-        // Transaction 4: Grant SYNC_ROLE to the syncer (required to call syncTrancheAccounting on kernels)
-        transactions[3] = buildGrantRole(_factory, SYNC_ROLE, _syncer, 0);
+        // Transaction 5: Grant SYNC_ROLE to the syncer (required to call syncTrancheAccounting on kernels)
+        transactions[4] = buildGrantRole(_factory, SYNC_ROLE, _syncer, 0);
 
-        // Transactions 5+: Grant SYNC_ROLE to each operator
+        // Transactions 6+: Grant SYNC_ROLE to each operator
         for (uint256 i = 0; i < _syncOperators.length; i++) {
-            transactions[4 + i] = buildGrantRole(_factory, SYNC_ROLE, _syncOperators[i], 0);
+            transactions[5 + i] = buildGrantRole(_factory, SYNC_ROLE, _syncOperators[i], 0);
         }
     }
 }

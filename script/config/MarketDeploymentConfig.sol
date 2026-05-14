@@ -49,6 +49,7 @@ abstract contract MarketDeploymentConfig {
     string public constant LIUSD_4W = "liUSD-4w";
     string public constant SUSDAT = "sUSDat";
     string public constant EEARN = "eEARN";
+    string public constant MAKINA_MGLOBAL = "DMG";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CHAIN-SPECIFIC CONFIG (defined once per chain)
@@ -947,6 +948,42 @@ abstract contract MarketDeploymentConfig {
                     jtYieldShareAtTargetUtilWAD: 0.11e18,
                     jtYieldShareAtFullUtilWAD: 0.31e18,
                     maxAdaptationSpeedWAD: uint64(50e18 / uint256(365 days))
+                })
+            ),
+            transferAgentAddress: address(0)
+        });
+
+        _marketConfigs[MAKINA_MGLOBAL] = MarketConfig({
+            marketName: MAKINA_MGLOBAL,
+            chainId: MAINNET,
+            seniorTrancheName: _seniorTrancheName(MAKINA_MGLOBAL),
+            seniorTrancheSymbol: _seniorTrancheSymbol(MAKINA_MGLOBAL),
+            juniorTrancheName: _juniorTrancheName(MAKINA_MGLOBAL),
+            juniorTrancheSymbol: _juniorTrancheSymbol(MAKINA_MGLOBAL),
+            seniorAsset: 0x761C3B16a5Afdd7A1869C4B979cFF3383d5Fe98B,
+            juniorAsset: 0x761C3B16a5Afdd7A1869C4B979cFF3383d5Fe98B,
+            // The machine's convertToAssets() quotes in USDC (6 decimals) so dust = 5 * 10^(18-6)
+            stDustTolerance: 5 * 10 ** 12,
+            jtDustTolerance: 5 * 10 ** 12,
+            kernelType: DeployScript.KernelType.Identical_Makina_ST_JT_MachineToAdminOracle_Kernel,
+            enforceVaultSharesTransferWhitelist: false,
+            kernelSpecificParams: abi.encode(
+                DeployScript.IdenticalMakinaSTMakinaJTKernelParams({
+                    makinaMachine: 0xC4fFab8540AC27E40D4e2930517aA711e9C00c5b, initialConversionRateWAD: 1e18
+                })
+            ),
+            stSelfLiquidationBonusWAD: 0.01e18,
+            stProtocolFeeWAD: 0.1e18,
+            jtProtocolFeeWAD: 0,
+            jtYieldShareProtocolFeeWAD: 0.45e18,
+            coverageWAD: 0.08e18,
+            betaWAD: 1e18,
+            liquidationUtilizationWAD: 1.0011514e18,
+            fixedTermDurationSeconds: 0,
+            ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
+            ydmSpecificParams: abi.encode(
+                DeployScript.AdaptiveCurveYDM_V2_Params({
+                    jtYieldShareAtZeroUtilWAD: 0.2e18, jtYieldShareAtTargetUtilWAD: 0.2e18, jtYieldShareAtFullUtilWAD: 0.45e18, maxAdaptationSpeedWAD: 0
                 })
             ),
             transferAgentAddress: address(0)

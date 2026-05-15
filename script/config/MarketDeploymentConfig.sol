@@ -973,9 +973,9 @@ abstract contract MarketDeploymentConfig {
                 })
             ),
             stSelfLiquidationBonusWAD: 0.01e18,
-            stProtocolFeeWAD: 0.1e18,
+            stProtocolFeeWAD: 0,
             jtProtocolFeeWAD: 0,
-            jtYieldShareProtocolFeeWAD: 0.45e18,
+            jtYieldShareProtocolFeeWAD: 0,
             coverageWAD: 0.08e18,
             betaWAD: 1e18,
             liquidationUtilizationWAD: 1.0011514e18,

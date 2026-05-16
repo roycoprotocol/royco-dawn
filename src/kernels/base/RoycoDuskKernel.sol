@@ -30,7 +30,7 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
         // Ensure that the quote asset address is not null
         require(_params.quoteAsset != address(0), NULL_ADDRESS());
         // Ensure that the senior tranche shares are not the quote asset for the liquidity position
-        require(SENIOR_TRANCHE != _params.quoteAsset, TRANCHE_ASSETS_MUST_NOT_BE_IDENTICAL());
+        require(_params.quoteAsset != SENIOR_TRANCHE, QUOTE_ASSET_MUST_NOT_BE_SENIOR_TRANCHE_SHARE());
 
         // Set the kernel's quote asset
         QUOTE_ASSET = _params.quoteAsset;

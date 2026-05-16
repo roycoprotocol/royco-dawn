@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { BalancerPoolToken, IVault } from "../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BalancerPoolToken.sol";
+import { BaseHooks } from "../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BaseHooks.sol";
 import { IERC20 } from "../../../../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import { Math, QUOTE_UNIT, TRANCHE_UNIT, UnitsMathLib, toQuoteUnits, toUint256 } from "../../../../../libraries/Units.sol";
 import { LiquidityPositionClaims, RoycoDuskKernel } from "../../../RoycoDuskKernel.sol";
@@ -13,7 +14,7 @@ import { LiquidityPositionClaims, RoycoDuskKernel } from "../../../RoycoDuskKern
  * @dev The Junior Tranche's BPT (Balancer Pool Token) represents its liquidity position in the pool
  *      This quoter reads the pool's current raw token balances from the Balancer V3 Vault and derives JT's pro-rata claim from the ratio of JT's BPT holdings to total BPT supply
  */
-abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel {
+abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks {
     using UnitsMathLib for uint256;
     using UnitsMathLib for QUOTE_UNIT;
     using Math for uint256;
@@ -61,8 +62,8 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel {
     }
 
     /**
-     * @notice Converts the Junior Tranche's BPT holdings into their pro-rata claim on the pool's constituent tokens
-     * @dev Pro-rata math against live V3 Vault state:
+     * @notice Converts the specificed amount of BPTs into their pro-rata claim on the pool's constituent tokens
+     * @dev Pro-rata math against live Balancer V3 Vault state:
      *         stShares    = poolBalances[ST_SHARE] * jtBPTBalance / bptTotalSupply
      *         quoteAssets = poolBalances[QUOTE] * jtBPTBalance / bptTotalSupply
      * @dev Returns zero claims when the pool has no outstanding claims on its constituent tokens
@@ -82,7 +83,7 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel {
         // Preemptively return if the pool has no outstanding claims on its constituent tokens
         if (bptTotalSupply == 0) return claims;
 
-        // Convert specified BPTs (JT assets) to pro-rata claims of the pool's total constituent tokens
+        // Convert the specified BPTs (JT assets) to pro-rata claims of the pool's total constituent tokens
         claims.stShares = constituentTokenBalances[ST_SHARE_INDEX].mulDiv(toUint256(_jtAssets), bptTotalSupply, Math.Rounding.Floor);
         claims.quoteAssets = toQuoteUnits(constituentTokenBalances[QUOTE_ASSET_INDEX]).mulDiv(toUint256(_jtAssets), bptTotalSupply, Math.Rounding.Floor);
     }

@@ -33,6 +33,9 @@ interface IRoycoDuskKernel is IRoycoDawnKernel {
     /// @notice Thrown when the senior and junior tranche assets are identical (Dusk requires distinct assets)
     error TRANCHE_ASSETS_MUST_NOT_BE_IDENTICAL();
 
+    /// @notice Thrown when the quote asset is set as the senior tranche share
+    error QUOTE_ASSET_MUST_NOT_BE_SENIOR_TRANCHE_SHARE();
+
     /**
      * @notice Retrieves the quote asset address
      * @return quoteAsset The address of the quote asset used by the junior tranche to buy/sell ST shares

@@ -6,7 +6,7 @@ import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
 import { IInsuranceCapitalLayer } from "../interfaces/external/reUSD/IInsuranceCapitalLayer.sol";
 import { WAD_DECIMALS } from "../libraries/Constants.sol";
 import { RoycoDawnKernel } from "./base/RoycoDawnKernel.sol";
-import { IdenticalAssetsOracleQuoter } from "./base/quoter/base/IdenticalAssetsOracleQuoter.sol";
+import { IdenticalAssetsOracleQuoter } from "./base/quoter/dawn/base/IdenticalAssetsOracleQuoter.sol";
 
 /**
  * @title ReUSD_ST_JT_ICLOracle_Kernel

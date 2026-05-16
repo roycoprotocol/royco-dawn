@@ -7,7 +7,7 @@ import { IUSDai } from "../interfaces/external/usdai/IUSDai.sol";
 import { WAD } from "../libraries/Constants.sol";
 import { Math } from "../libraries/Units.sol";
 import { RoycoDawnKernel } from "./base/RoycoDawnKernel.sol";
-import { IdenticalAssetsAdminOracleQuoter, IdenticalAssetsOracleQuoter } from "./base/quoter/base/IdenticalAssetsAdminOracleQuoter.sol";
+import { IdenticalAssetsAdminOracleQuoter, IdenticalAssetsOracleQuoter } from "./base/quoter/dawn/base/IdenticalAssetsAdminOracleQuoter.sol";
 
 /**
  * @title sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel

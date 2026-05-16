@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { RoycoAccountant } from "../../../src/accountant/RoycoAccountant.sol";
 import { IRoycoAccountant } from "../../../src/interfaces/IRoycoAccountant.sol";
-import { IRoycoKernel } from "../../../src/interfaces/IRoycoKernel.sol";
+import { IRoycoDawnKernel } from "../../../src/interfaces/IRoycoDawnKernel.sol";
 import { IRoycoVaultTranche } from "../../../src/interfaces/IRoycoVaultTranche.sol";
 import { SyncedAccountingState } from "../../../src/libraries/Types.sol";
 import { NAV_UNIT } from "../../../src/libraries/Units.sol";
@@ -51,8 +51,8 @@ contract UpgradeAccountantModule is UpgradeModuleBase {
 
         // Strong type check: call an accountant-specific view. Reverts if the proxy is not actually
         // a `RoycoAccountant` (e.g. if an address was mis-entered in `UpgradeConfig`).
-        NAV_UNIT stRawNAV = IRoycoVaultTranche(IRoycoKernel(kernel).SENIOR_TRANCHE()).getRawNAV();
-        NAV_UNIT jtRawNAV = IRoycoVaultTranche(IRoycoKernel(kernel).JUNIOR_TRANCHE()).getRawNAV();
+        NAV_UNIT stRawNAV = IRoycoVaultTranche(IRoycoDawnKernel(kernel).SENIOR_TRANCHE()).getRawNAV();
+        NAV_UNIT jtRawNAV = IRoycoVaultTranche(IRoycoDawnKernel(kernel).JUNIOR_TRANCHE()).getRawNAV();
         a.previewSyncTrancheAccounting(stRawNAV, jtRawNAV);
 
         address oldImpl = _readImplementation(proxy);
@@ -84,7 +84,7 @@ contract UpgradeAccountantModule is UpgradeModuleBase {
     /// @inheritdoc UpgradeModuleBase
     function snapshotState(address _proxy) external view override returns (bytes memory) {
         IRoycoAccountant a = IRoycoAccountant(_proxy);
-        IRoycoKernel kernel = IRoycoKernel(a.KERNEL());
+        IRoycoDawnKernel kernel = IRoycoDawnKernel(a.KERNEL());
 
         NAV_UNIT stRawNAV = IRoycoVaultTranche(kernel.SENIOR_TRANCHE()).getRawNAV();
         NAV_UNIT jtRawNAV = IRoycoVaultTranche(kernel.JUNIOR_TRANCHE()).getRawNAV();

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IERC20Metadata } from "../../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
-import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "../../../../libraries/Units.sol";
-import { RoycoDawnKernel } from "../../RoycoDawnKernel.sol";
+import { IERC20Metadata } from "../../../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
+import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "../../../../../libraries/Units.sol";
+import { RoycoDawnKernel } from "../../../RoycoDawnKernel.sol";
 
 /**
  * @title IdenticalAssetsOracleQuoter
@@ -128,7 +128,7 @@ abstract contract IdenticalAssetsOracleQuoter is RoycoDawnKernel {
      * @dev Should be called at the start of a transaction
      * @dev This function is called at the start of a transaction to initialize the cached tranche unit to NAV unit conversion rate
      */
-    function _initializeQuoterCache() internal virtual override {
+    function _initializeQuoterCache() internal virtual override(RoycoDawnKernel) {
         // Get the tranche unit to NAV unit conversion rate and set the cached flag
         cachedTrancheUnitToNAVUnitConversionRateWAD = getTrancheUnitToNAVUnitConversionRateWAD() | CACHED_TRANCHE_UNIT_TO_NAV_UNIT_CONVERSION_RATE_MASK;
     }

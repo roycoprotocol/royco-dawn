@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IRoycoKernel } from "../../../../src/interfaces/IRoycoKernel.sol";
+import { IRoycoDawnKernel } from "../../../../src/interfaces/IRoycoDawnKernel.sol";
 import {
     Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
 } from "../../../../src/kernels/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
@@ -37,7 +37,7 @@ contract UpgradeIdenticalErc4626KernelModule is UpgradeKernelBaseModule {
         return "Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel";
     }
 
-    function _kernelCreationCodeWith(IRoycoKernel.RoycoKernelConstructionParams memory cp) internal pure virtual override returns (bytes memory) {
+    function _kernelCreationCodeWith(IRoycoDawnKernel.RoycoDawnKernelConstructionParams memory cp) internal pure virtual override returns (bytes memory) {
         return abi.encodePacked(type(Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel).creationCode, abi.encode(cp));
     }
 

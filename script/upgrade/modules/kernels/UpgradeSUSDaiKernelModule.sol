@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IRoycoKernel } from "../../../../src/interfaces/IRoycoKernel.sol";
+import { IRoycoDawnKernel } from "../../../../src/interfaces/IRoycoDawnKernel.sol";
 import { sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel } from "../../../../src/kernels/sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel.sol";
 
 import { UpgradeKernelBaseModule } from "./UpgradeKernelBaseModule.sol";
@@ -30,7 +30,7 @@ contract UpgradeSUSDaiKernelModule is UpgradeKernelBaseModule {
         return "sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel";
     }
 
-    function _kernelCreationCodeWith(IRoycoKernel.RoycoKernelConstructionParams memory cp) internal pure override returns (bytes memory) {
+    function _kernelCreationCodeWith(IRoycoDawnKernel.RoycoDawnKernelConstructionParams memory cp) internal pure override returns (bytes memory) {
         return abi.encodePacked(type(sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel).creationCode, abi.encode(cp));
     }
 

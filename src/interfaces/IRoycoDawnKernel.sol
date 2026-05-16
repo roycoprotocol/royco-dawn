@@ -11,7 +11,7 @@ import { NAV_UNIT, TRANCHE_UNIT } from "../libraries/Units.sol";
  */
 interface IRoycoDawnKernel {
     /**
-     * @notice Construction parameters for the Royco Kernel
+     * @notice Construction parameters for the Royco Dawn Kernel
      * @custom:field seniorTranche - The address of the Royco senior tranche associated with this kernel
      * @custom:field stAsset - The address of the base asset of the senior tranche
      * @custom:field juniorTranche - The address of the Royco junior tranche associated with this kernel

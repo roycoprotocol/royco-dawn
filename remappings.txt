@@ -1,1 +1,13 @@
 lib/Pendle-SY-Public/:@openzeppelin/contracts/=lib/openzeppelin-contracts-v4/contracts/
+@balancer-labs/v3-interfaces/=lib/balancer-v3-monorepo/pkg/interfaces/
+@balancer-labs/v3-vault/=lib/balancer-v3-monorepo/pkg/vault/
+@balancer-labs/v3-solidity-utils/=lib/balancer-v3-monorepo/pkg/solidity-utils/
+@balancer-labs/v3-pool-utils/=lib/balancer-v3-monorepo/pkg/pool-utils/
+@balancer-labs/v3-pool-stable/=lib/balancer-v3-monorepo/pkg/pool-stable/
+@balancer-labs/v3-pool-weighted/=lib/balancer-v3-monorepo/pkg/pool-weighted/
+@balancer-labs/v3-pool-gyro/=lib/balancer-v3-monorepo/pkg/pool-gyro/
+@balancer-labs/v3-pool-hooks/=lib/balancer-v3-monorepo/pkg/pool-hooks/
+@balancer-labs/v3-pool-cow/=lib/balancer-v3-monorepo/pkg/pool-cow/
+@balancer-labs/v3-standalone-utils/=lib/balancer-v3-monorepo/pkg/standalone-utils/
+@balancer-labs/v3-oracles/=lib/balancer-v3-monorepo/pkg/oracles/
+@balancer-labs/v3-governance-scripts/=lib/balancer-v3-monorepo/pkg/governance-scripts/

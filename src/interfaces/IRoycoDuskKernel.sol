@@ -12,13 +12,32 @@ import { IRoycoDawnKernel } from "./IRoycoDawnKernel.sol";
  */
 interface IRoycoDuskKernel is IRoycoDawnKernel {
     /**
+     * @notice Construction parameters for the Royco Dusk Kernel
+     * @custom:field dawnKernelParams - Construction parameters for the Royco Dawn Kernel
+     * @custom:field quoteAsset - The address of the quote asset used by the junior tranche to buy/sell ST shares
+     */
+    struct RoycoDuskKernelConstructionParams {
+        RoycoDawnKernelConstructionParams dawnKernelParams;
+        address quoteAsset;
+    }
+
+    /**
      * @notice Storage state for the Royco Dusk Kernel
      * @custom:storage-location erc7201:Royco.storage.RoycoDuskKernelState
-     * @custom:field jtOwnedSTShares - The senior tranche shares owned by the junior tranche's AMM LP position
+     * @custom:field jtOwnedSTShares - The senior tranche shares owned by the junior tranche's LP position
      */
     struct RoycoDuskKernelState {
-        uint256 jtOwnedSTShares;
+        uint256 lastJTOwnedSTShares;
     }
+
+    /// @notice Thrown when the senior and junior tranche assets are identical (Dusk requires distinct assets)
+    error TRANCHE_ASSETS_MUST_NOT_BE_IDENTICAL();
+
+    /**
+     * @notice Retrieves the quote asset address
+     * @return quoteAsset The address of the quote asset used by the junior tranche to buy/sell ST shares
+     */
+    function QUOTE_ASSET() external view returns (address quoteAsset);
 
     /**
      * @notice Converts the specified JT assets (LP tokens) denominated in its tranche units to the liquidity postion's claims

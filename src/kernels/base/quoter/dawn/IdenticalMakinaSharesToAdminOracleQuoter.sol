@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IERC20Metadata } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
-import { Math } from "../../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
-import { IMachine } from "../../../interfaces/external/makina/IMachine.sol";
-import { WAD, WAD_DECIMALS } from "../../../libraries/Constants.sol";
+import { IERC20Metadata } from "../../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
+import { Math } from "../../../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import { IMachine } from "../../../../interfaces/external/makina/IMachine.sol";
+import { WAD, WAD_DECIMALS } from "../../../../libraries/Constants.sol";
 import { IdenticalAssetsAdminOracleQuoter, IdenticalAssetsOracleQuoter } from "./base/IdenticalAssetsAdminOracleQuoter.sol";
 
 /**

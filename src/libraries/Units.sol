@@ -133,6 +133,18 @@ library UnitsMathLib {
     }
 
     /**
+     * @notice Computes `(_a * _b) / _c` where `_b` is tranche-denominated and `_a`/`_c` are scalars, with explicit rounding
+     * @param _a The scalar multiplicand
+     * @param _b The multiplier, tranche-denominated
+     * @param _c The scalar divisor
+     * @param _rounding The rounding direction to apply to the division
+     * @return The tranche-denominated quotient `(_a * _b) / _c`
+     */
+    function mulDiv(uint256 _a, TRANCHE_UNIT _b, uint256 _c, Math.Rounding _rounding) internal pure returns (TRANCHE_UNIT) {
+        return toTrancheUnits(Math.mulDiv(_a, toUint256(_b), _c, _rounding));
+    }
+
+    /**
      * @notice Computes `(_a * _b) / _c` where `_a` is quote-denominated and `_b`/`_c` are NAV-denominated, with explicit rounding
      * @param _a The multiplicand, quote-denominated
      * @param _b The multiplier, NAV-denominated

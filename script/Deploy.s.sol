@@ -22,8 +22,8 @@ import { Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle } from "../src/kernels/
 import { MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel } from "../src/kernels/MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel.sol";
 import { ReUSD_ST_JT_ICLOracle_Kernel } from "../src/kernels/ReUSD_ST_JT_ICLOracle_Kernel.sol";
 import { apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel } from "../src/kernels/apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
-import { IdenticalAssetsChainlinkOracleQuoter } from "../src/kernels/base/quoter/base/IdenticalAssetsChainlinkOracleQuoter.sol";
-import { IdenticalAssetsOracleQuoter } from "../src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol";
+import { IdenticalAssetsChainlinkOracleQuoter } from "../src/kernels/base/quoter/dawn/base/IdenticalAssetsChainlinkOracleQuoter.sol";
+import { IdenticalAssetsOracleQuoter } from "../src/kernels/base/quoter/dawn/base/IdenticalAssetsOracleQuoter.sol";
 import { sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel } from "../src/kernels/sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel.sol";
 import { sUSDat_ST_JT_SharePriceToChainlinkOracle_Kernel } from "../src/kernels/sUSDat_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
 import { toNAVUnits } from "../src/libraries/Units.sol";

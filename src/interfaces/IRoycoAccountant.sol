@@ -217,19 +217,38 @@ interface IRoycoAccountant {
      * @dev Must be called before any NAV mutating operation
      * @dev Accrues JT yield share over time based on the market's YDM output
      * @dev Persists updated NAV and impermanent loss checkpoints for the next sync to use as reference
+     * @param _checkpoint The mark-to-market NAV accounting checkpoint to use as the starting state for the synchronization
+     *                    Contains the last checkpointed raw NAVs, effective NAVs, and impermanent losses for both tranches
+     *                    May be the accountant's persisted checkpoint (Dawn) or a recomposed checkpoint reflecting an internal/external ST share partition shift (Dusk)
      * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
      * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
-    function preOpSyncTrancheAccounting(NAV_UNIT _stRawNAV, NAV_UNIT _jtRawNAV) external returns (SyncedAccountingState memory state);
+    function preOpSyncTrancheAccounting(
+        AccountingStateCheckpoint memory _checkpoint,
+        NAV_UNIT _stRawNAV,
+        NAV_UNIT _jtRawNAV
+    )
+        external
+        returns (SyncedAccountingState memory state);
 
     /**
      * @notice Previews a synchronization of the effective NAVs and impermanent losses of both tranches by marking them to market
+     * @param _checkpoint The mark-to-market NAV accounting checkpoint to use as the starting state for the synchronization
+     *                    Contains the last checkpointed raw NAVs, effective NAVs, and impermanent losses for both tranches
+     *                    May be the accountant's persisted checkpoint (Dawn) or a recomposed checkpoint reflecting an internal/external ST share partition shift (Dusk)
      * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
      * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
-    function previewSyncTrancheAccounting(NAV_UNIT _stRawNAV, NAV_UNIT _jtRawNAV) external view returns (SyncedAccountingState memory state);
+    function previewSyncTrancheAccounting(
+        AccountingStateCheckpoint memory _checkpoint,
+        NAV_UNIT _stRawNAV,
+        NAV_UNIT _jtRawNAV
+    )
+        external
+        view
+        returns (SyncedAccountingState memory state);
 
     /**
      * @notice Applies post-operation (deposit or redemption) raw NAV deltas to effective NAV checkpoints
@@ -276,15 +295,28 @@ interface IRoycoAccountant {
     /**
      * @notice Returns the maximum assets depositable into the senior tranche without violating the market's coverage requirement
      * @dev Always rounds in favor of senior tranche protection
+     * @param _checkpoint The mark-to-market NAV accounting checkpoint to use as the starting state for the synchronization
+     *                    Contains the last checkpointed raw NAVs, effective NAVs, and impermanent losses for both tranches
+     *                    May be the accountant's persisted checkpoint (Dawn) or a recomposed checkpoint reflecting an internal/external ST share partition shift (Dusk)
      * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
      * @return maxSTDeposit The maximum assets depositable into the senior tranche without violating the market's coverage requirement
      */
-    function maxSTDepositGivenCoverage(NAV_UNIT _stRawNAV, NAV_UNIT _jtRawNAV) external view returns (NAV_UNIT maxSTDeposit);
+    function maxSTDepositGivenCoverage(
+        AccountingStateCheckpoint memory _checkpoint,
+        NAV_UNIT _stRawNAV,
+        NAV_UNIT _jtRawNAV
+    )
+        external
+        view
+        returns (NAV_UNIT maxSTDeposit);
 
     /**
      * @notice Returns the maximum assets withdrawable from the junior tranche without violating the market's coverage requirement
      * @dev Always rounds in favor of senior tranche protection
+     * @param _checkpoint The mark-to-market NAV accounting checkpoint to use as the starting state for the synchronization
+     *                    Contains the last checkpointed raw NAVs, effective NAVs, and impermanent losses for both tranches
+     *                    May be the accountant's persisted checkpoint (Dawn) or a recomposed checkpoint reflecting an internal/external ST share partition shift (Dusk)
      * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtClaimOnStUnits The total claims on ST assets that the junior tranche has denominated in NAV units
@@ -294,6 +326,7 @@ interface IRoycoAccountant {
      * @return jtClaimable The maximum claims on JT assets that the junior tranche can withdraw, denominated in NAV units
      */
     function maxJTWithdrawalGivenCoverage(
+        AccountingStateCheckpoint memory _checkpoint,
         NAV_UNIT _stRawNAV,
         NAV_UNIT _jtRawNAV,
         NAV_UNIT _jtClaimOnStUnits,

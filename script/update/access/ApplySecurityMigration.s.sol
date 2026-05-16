@@ -6,7 +6,7 @@ import { console2 } from "lib/forge-std/src/console2.sol";
 
 import { RolesConfiguration } from "../../../src/factory/RolesConfiguration.sol";
 import { IRoycoAuth } from "../../../src/interfaces/IRoycoAuth.sol";
-import { IRoycoKernel } from "../../../src/interfaces/IRoycoKernel.sol";
+import { IRoycoDawnKernel } from "../../../src/interfaces/IRoycoDawnKernel.sol";
 
 import { ExtraRoles } from "../../config/ExtraRoles.sol";
 import { AccessManagerConfigUtils } from "../../utils/AccessManagerConfigUtils.sol";

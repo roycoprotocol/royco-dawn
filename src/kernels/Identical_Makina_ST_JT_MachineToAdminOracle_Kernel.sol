@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
 import { RoycoDawnKernel } from "./base/RoycoDawnKernel.sol";
-import { IdenticalMakinaSharesToAdminOracleQuoter } from "./base/quoter/IdenticalMakinaSharesToAdminOracleQuoter.sol";
+import { IdenticalMakinaSharesToAdminOracleQuoter } from "./base/quoter/dawn/IdenticalMakinaSharesToAdminOracleQuoter.sol";
 
 /**
  * @title Identical_Makina_ST_JT_MachineToAdminOracle_Kernel

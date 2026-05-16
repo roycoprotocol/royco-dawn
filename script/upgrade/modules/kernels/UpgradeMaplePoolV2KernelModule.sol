@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IRoycoKernel } from "../../../../src/interfaces/IRoycoKernel.sol";
+import { IRoycoDawnKernel } from "../../../../src/interfaces/IRoycoDawnKernel.sol";
 import { MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel } from "../../../../src/kernels/MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel.sol";
 
 import { UpgradeIdenticalErc4626KernelModule } from "./UpgradeIdenticalErc4626KernelModule.sol";
@@ -28,7 +28,7 @@ contract UpgradeMaplePoolV2KernelModule is UpgradeIdenticalErc4626KernelModule {
         return "MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel";
     }
 
-    function _kernelCreationCodeWith(IRoycoKernel.RoycoKernelConstructionParams memory cp) internal pure override returns (bytes memory) {
+    function _kernelCreationCodeWith(IRoycoDawnKernel.RoycoDawnKernelConstructionParams memory cp) internal pure override returns (bytes memory) {
         return abi.encodePacked(type(MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel).creationCode, abi.encode(cp));
     }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IRoycoKernel } from "../../../src/interfaces/IRoycoKernel.sol";
+import { IRoycoDawnKernel } from "../../../src/interfaces/IRoycoDawnKernel.sol";
 
 /**
  * @title UpdateConfig
@@ -112,7 +112,7 @@ abstract contract UpdateConfig {
         addrs.kernel = _deployedKernels[block.chainid][_marketName];
         require(addrs.kernel != address(0), MarketNotFound(_marketName, block.chainid));
 
-        IRoycoKernel kernel = IRoycoKernel(addrs.kernel);
+        IRoycoDawnKernel kernel = IRoycoDawnKernel(addrs.kernel);
         addrs.accountant = kernel.ACCOUNTANT();
         addrs.seniorTranche = kernel.SENIOR_TRANCHE();
         addrs.juniorTranche = kernel.JUNIOR_TRANCHE();

@@ -6,7 +6,7 @@ import { IERC20Metadata } from "../../../../lib/openzeppelin-contracts/contracts
 import { Math } from "../../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 import { IIdleCDO } from "../../../../src/interfaces/external/idle-finance/IIdleCDO.sol";
-import { IdenticalAssetsOracleQuoter } from "../../../../src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol";
+import { IdenticalAssetsOracleQuoter } from "../../../../src/kernels/base/quoter/dawn/base/IdenticalAssetsOracleQuoter.sol";
 import { WAD, WAD_DECIMALS, ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "../../../../src/libraries/Constants.sol";
 import { AssetClaims } from "../../../../src/libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toTrancheUnits, toUint256 } from "../../../../src/libraries/Units.sol";

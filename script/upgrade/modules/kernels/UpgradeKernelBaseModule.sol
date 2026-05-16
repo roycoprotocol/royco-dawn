@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IRoycoKernel } from "../../../../src/interfaces/IRoycoKernel.sol";
+import { IRoycoDawnKernel } from "../../../../src/interfaces/IRoycoDawnKernel.sol";
 import { NAV_UNIT, TRANCHE_UNIT } from "../../../../src/libraries/Units.sol";
 
 import { UpgradeModuleBase } from "../UpgradeModuleBase.sol";
 
 /// @notice Minimal interface to read the immutable bool that's exposed on the concrete `RoycoKernel`
-///         but not on `IRoycoKernel`. Avoids importing the full `RoycoKernel` here.
+///         but not on `IRoycoDawnKernel`. Avoids importing the full `RoycoKernel` here.
 interface IKernelExtra {
     function ENFORCE_TRANCHE_SHARES_TRANSFER_WHITELIST() external view returns (bool);
 }
@@ -24,7 +24,7 @@ interface IKernelExtra {
  *      The base module:
  *        1. Resolves the kernel proxy via `getMarketAddresses(chainId, marketName).kernel`
  *        2. Validates the proxy is a kernel (immutables non-zero, getState() succeeds)
- *        3. Reads the `RoycoKernelConstructionParams` off the existing impl
+ *        3. Reads the `RoycoDawnKernelConstructionParams` off the existing impl
  *        4. Lets the subclass build the new impl creation code from those params
  *        5. Predicts the new impl's CREATE2 address using the subclass-supplied kernel contract name
  *
@@ -47,7 +47,7 @@ abstract contract UpgradeKernelBaseModule is UpgradeModuleBase {
     function _kernelContractName() internal pure virtual returns (string memory);
 
     /// @notice Creation code for the new kernel impl, given the construction params read off the proxy.
-    function _kernelCreationCodeWith(IRoycoKernel.RoycoKernelConstructionParams memory cp) internal pure virtual returns (bytes memory);
+    function _kernelCreationCodeWith(IRoycoDawnKernel.RoycoDawnKernelConstructionParams memory cp) internal pure virtual returns (bytes memory);
 
     /// @notice Module-specific snapshot bytes (e.g. quoter config, kernel-type immutables).
     function _snapshotKernelSpecific(address proxy) internal view virtual returns (bytes memory);
@@ -66,12 +66,12 @@ abstract contract UpgradeKernelBaseModule is UpgradeModuleBase {
         MarketAddresses memory addrs = getMarketAddresses(_chainId, marketName);
         address proxy = addrs.kernel;
 
-        IRoycoKernel.RoycoKernelConstructionParams memory cp = _readConstructionParams(proxy);
+        IRoycoDawnKernel.RoycoDawnKernelConstructionParams memory cp = _readConstructionParams(proxy);
         require(
             cp.seniorTranche != address(0) && cp.juniorTranche != address(0) && cp.accountant != address(0), UpgradeKernelBaseModule__NotAKernelProxy(proxy)
         );
         // Sanity-check: the kernel must report state (proves the proxy is initialized + is a kernel)
-        IRoycoKernel(proxy).getState();
+        IRoycoDawnKernel(proxy).getState();
 
         address oldImpl = _readImplementation(proxy);
         bytes memory creationCode = _kernelCreationCodeWith(cp);
@@ -98,8 +98,8 @@ abstract contract UpgradeKernelBaseModule is UpgradeModuleBase {
         });
     }
 
-    function _readConstructionParams(address _proxy) internal view returns (IRoycoKernel.RoycoKernelConstructionParams memory cp) {
-        IRoycoKernel k = IRoycoKernel(_proxy);
+    function _readConstructionParams(address _proxy) internal view returns (IRoycoDawnKernel.RoycoDawnKernelConstructionParams memory cp) {
+        IRoycoDawnKernel k = IRoycoDawnKernel(_proxy);
         cp.seniorTranche = k.SENIOR_TRANCHE();
         cp.stAsset = k.ST_ASSET();
         cp.juniorTranche = k.JUNIOR_TRANCHE();
@@ -128,8 +128,8 @@ abstract contract UpgradeKernelBaseModule is UpgradeModuleBase {
     ///      `1e18` tranche units; `block.timestamp` is the same for snapshot and verify (orchestrator
     ///      calls them back-to-back), so any oracle-driven math is reproducible.
     function _snapshotCommon(address _proxy) internal view returns (bytes memory) {
-        IRoycoKernel k = IRoycoKernel(_proxy);
-        IRoycoKernel.RoycoKernelStateView memory state = k.getState();
+        IRoycoDawnKernel k = IRoycoDawnKernel(_proxy);
+        IRoycoDawnKernel.RoycoDawnKernelStateView memory state = k.getState();
         uint256 stConv = NAV_UNIT.unwrap(k.stConvertTrancheUnitsToNAVUnits(_oneTrancheUnit()));
         uint256 jtConv = NAV_UNIT.unwrap(k.jtConvertTrancheUnitsToNAVUnits(_oneTrancheUnit()));
         return abi.encode(
@@ -153,12 +153,12 @@ abstract contract UpgradeKernelBaseModule is UpgradeModuleBase {
             address jtAsset,
             address accountant,
             bool enforceWhitelist,
-            IRoycoKernel.RoycoKernelStateView memory state,
+            IRoycoDawnKernel.RoycoDawnKernelStateView memory state,
             uint256 stConvRate,
             uint256 jtConvRate
-        ) = abi.decode(_snap, (address, address, address, address, address, bool, IRoycoKernel.RoycoKernelStateView, uint256, uint256));
+        ) = abi.decode(_snap, (address, address, address, address, address, bool, IRoycoDawnKernel.RoycoDawnKernelStateView, uint256, uint256));
 
-        IRoycoKernel k = IRoycoKernel(_proxy);
+        IRoycoDawnKernel k = IRoycoDawnKernel(_proxy);
         require(k.SENIOR_TRANCHE() == senior, UpgradeKernelBaseModule__ImmutableChanged("SENIOR_TRANCHE"));
         require(k.ST_ASSET() == stAsset, UpgradeKernelBaseModule__ImmutableChanged("ST_ASSET"));
         require(k.JUNIOR_TRANCHE() == junior, UpgradeKernelBaseModule__ImmutableChanged("JUNIOR_TRANCHE"));
@@ -169,7 +169,7 @@ abstract contract UpgradeKernelBaseModule is UpgradeModuleBase {
             UpgradeKernelBaseModule__ImmutableChanged("ENFORCE_TRANCHE_SHARES_TRANSFER_WHITELIST")
         );
 
-        IRoycoKernel.RoycoKernelStateView memory post = k.getState();
+        IRoycoDawnKernel.RoycoDawnKernelStateView memory post = k.getState();
         require(post.isBlacklistEnabled == state.isBlacklistEnabled, UpgradeKernelBaseModule__StateChanged("isBlacklistEnabled"));
         require(post.protocolFeeRecipient == state.protocolFeeRecipient, UpgradeKernelBaseModule__StateChanged("protocolFeeRecipient"));
         require(post.stSelfLiquidationBonusWAD == state.stSelfLiquidationBonusWAD, UpgradeKernelBaseModule__StateChanged("stSelfLiquidationBonusWAD"));

@@ -41,6 +41,16 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         _;
     }
 
+    /// @dev Enforces the NAV conservation property of the checkpoint passed into the accountant's synchronization and view functions
+    /// @param _checkpoint The candidate accounting checkpoint to validate before consumption
+    modifier enforceNAVConservation(AccountingStateCheckpoint memory _checkpoint) {
+        require(
+            (_checkpoint.lastSTRawNAV + _checkpoint.lastJTRawNAV) == (_checkpoint.lastSTEffectiveNAV + _checkpoint.lastJTEffectiveNAV),
+            NAV_CONSERVATION_VIOLATION()
+        );
+        _;
+    }
+
     // =============================
     // Construction and Initialization Functions
     // =============================
@@ -103,12 +113,14 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
 
     /// @inheritdoc IRoycoAccountant
     function preOpSyncTrancheAccounting(
+        AccountingStateCheckpoint memory _checkpoint,
         NAV_UNIT _stRawNAV,
         NAV_UNIT _jtRawNAV
     )
         public
         override(IRoycoAccountant)
         onlyRoycoKernel
+        enforceNAVConservation(_checkpoint)
         returns (SyncedAccountingState memory state)
     {
         // Get the storage pointer to the accountant state
@@ -118,7 +130,8 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         MarketState initialMarketState;
         bool yieldDistributed;
         NAV_UNIT jtImpermanentLossErased;
-        (state, initialMarketState, yieldDistributed, jtImpermanentLossErased) = _previewSyncTrancheAccounting(_stRawNAV, _jtRawNAV, _accrueJTYieldShare());
+        (state, initialMarketState, yieldDistributed, jtImpermanentLossErased) =
+            _previewSyncTrancheAccounting(_checkpoint, _stRawNAV, _jtRawNAV, _accrueJTYieldShare());
 
         // ST yield was split between ST and JT
         if (yieldDistributed) {
@@ -154,15 +167,17 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
 
     /// @inheritdoc IRoycoAccountant
     function previewSyncTrancheAccounting(
+        AccountingStateCheckpoint memory _checkpoint,
         NAV_UNIT _stRawNAV,
         NAV_UNIT _jtRawNAV
     )
         public
         view
         override(IRoycoAccountant)
+        enforceNAVConservation(_checkpoint)
         returns (SyncedAccountingState memory state)
     {
-        (state,,,) = _previewSyncTrancheAccounting(_stRawNAV, _jtRawNAV, _previewJTYieldShareAccrual());
+        (state,,,) = _previewSyncTrancheAccounting(_checkpoint, _stRawNAV, _jtRawNAV, _previewJTYieldShareAccrual());
     }
 
     /// @inheritdoc IRoycoAccountant
@@ -295,11 +310,21 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
      * @dev Max assets depositable into ST, x: JT_EFFECTIVE_NAV = ((ST_RAW_NAV + x) + (JT_RAW_NAV * β)) * COV
      *      Isolate x: x = (JT_EFFECTIVE_NAV / COV) - (JT_RAW_NAV * β) - ST_RAW_NAV
      */
-    function maxSTDepositGivenCoverage(NAV_UNIT _stRawNAV, NAV_UNIT _jtRawNAV) external view override(IRoycoAccountant) returns (NAV_UNIT maxSTDeposit) {
+    function maxSTDepositGivenCoverage(
+        AccountingStateCheckpoint memory _checkpoint,
+        NAV_UNIT _stRawNAV,
+        NAV_UNIT _jtRawNAV
+    )
+        external
+        view
+        override(IRoycoAccountant)
+        enforceNAVConservation(_checkpoint)
+        returns (NAV_UNIT maxSTDeposit)
+    {
         // Get the storage pointer to the accountant state
         RoycoAccountantState storage $ = _getRoycoAccountantStorage();
         // Preview a NAV sync to get the market's current state
-        (SyncedAccountingState memory state,,,) = _previewSyncTrancheAccounting(_stRawNAV, _jtRawNAV, _previewJTYieldShareAccrual());
+        (SyncedAccountingState memory state,,,) = _previewSyncTrancheAccounting(_checkpoint, _stRawNAV, _jtRawNAV, _previewJTYieldShareAccrual());
         // Solve for x, rounding in favor of senior protection
         // Compute the total covered assets by the junior tranche loss absorption buffer
         NAV_UNIT totalCoveredAssets = state.jtEffectiveNAV.mulDiv(WAD, $.coverageWAD, Math.Rounding.Floor);
@@ -322,6 +347,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
      *      Isolate y: y = (JT_EFFECTIVE_NAV - (COV * (ST_RAW_NAV + (JT_RAW_NAV * β)))) / (1 - (COV * (K_S + β * K_J)))
      */
     function maxJTWithdrawalGivenCoverage(
+        AccountingStateCheckpoint memory _checkpoint,
         NAV_UNIT _stRawNAV,
         NAV_UNIT _jtRawNAV,
         NAV_UNIT _jtClaimOnStUnits,
@@ -330,13 +356,14 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         external
         view
         override(IRoycoAccountant)
+        enforceNAVConservation(_checkpoint)
         returns (NAV_UNIT totalNAVClaimable, NAV_UNIT stClaimable, NAV_UNIT jtClaimable)
     {
         RoycoAccountantState storage $ = _getRoycoAccountantStorage();
 
         // Get the surplus JT assets in NAV units
         // Preview a NAV sync to get the market's current state
-        (SyncedAccountingState memory state,,,) = _previewSyncTrancheAccounting(_stRawNAV, _jtRawNAV, _previewJTYieldShareAccrual());
+        (SyncedAccountingState memory state,,,) = _previewSyncTrancheAccounting(_checkpoint, _stRawNAV, _jtRawNAV, _previewJTYieldShareAccrual());
         uint256 betaWAD = $.betaWAD;
         // Compute the total covered exposure of the underlying investment, rounding in favor of senior protection
         NAV_UNIT totalCoveredExposure = _stRawNAV + _jtRawNAV.mulDiv(betaWAD, WAD, Math.Rounding.Ceil);
@@ -401,6 +428,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
      * @return jtImpermanentLossErased The amount of JT coverage loss erased (reset to 0)
      */
     function _previewSyncTrancheAccounting(
+        AccountingStateCheckpoint memory _checkpoint,
         NAV_UNIT _stRawNAV,
         NAV_UNIT _jtRawNAV,
         uint192 _twJTYieldShareAccruedWAD
@@ -414,17 +442,17 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
 
         // Cache the last checkpointed market state, effective NAV, and impermanent losses for each tranche
         initialMarketState = $.lastMarketState;
-        NAV_UNIT stEffectiveNAV = $.lastSTEffectiveNAV;
-        NAV_UNIT jtEffectiveNAV = $.lastJTEffectiveNAV;
-        NAV_UNIT stImpermanentLoss = $.lastSTImpermanentLoss;
-        NAV_UNIT jtImpermanentLoss = $.lastJTImpermanentLoss;
+        NAV_UNIT stEffectiveNAV = _checkpoint.lastSTEffectiveNAV;
+        NAV_UNIT jtEffectiveNAV = _checkpoint.lastJTEffectiveNAV;
+        NAV_UNIT stImpermanentLoss = _checkpoint.lastSTImpermanentLoss;
+        NAV_UNIT jtImpermanentLoss = _checkpoint.lastJTImpermanentLoss;
         NAV_UNIT stProtocolFeeAccrued;
         NAV_UNIT jtProtocolFeeAccrued;
 
         // Compute the deltas in the raw NAVs of each tranche
         // The deltas represent the unrealized PNL of the underlying investment since the last NAV checkpoints
-        int256 deltaST = UnitsMathLib.computeNAVDelta(_stRawNAV, $.lastSTRawNAV);
-        int256 deltaJT = UnitsMathLib.computeNAVDelta(_jtRawNAV, $.lastJTRawNAV);
+        int256 deltaST = UnitsMathLib.computeNAVDelta(_stRawNAV, _checkpoint.lastSTRawNAV);
+        int256 deltaJT = UnitsMathLib.computeNAVDelta(_jtRawNAV, _checkpoint.lastJTRawNAV);
 
         // The net JT gains after ST IL recovery. The JT protocol fee accrued is calculated using this NAV.
         NAV_UNIT jtNetGain = ZERO_NAV_UNITS;
@@ -522,9 +550,10 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
                 // If the last yield distribution happened in the same block, use the instantaneous JT yield share. Else, use the time-weighted average JT yield share since the last distribution
                 NAV_UNIT yieldShare;
                 if (elapsed == 0) {
-                    // Get the instantaneous YDM output and ensure that the yield share cannot be more than 100% of senior appreciation
+                    // Get the instantaneous YDM output
                     uint256 instantaneousJtYieldShareWAD =
                         IYDM($.ydm).previewJTYieldShare(initialMarketState, $.lastSTRawNAV, $.lastJTRawNAV, $.betaWAD, $.coverageWAD, $.lastJTEffectiveNAV);
+                    // Ensure that the yield share cannot be more than 100% of senior appreciation
                     if (instantaneousJtYieldShareWAD > WAD) instantaneousJtYieldShareWAD = WAD;
                     yieldShare = stGain.mulDiv(instantaneousJtYieldShareWAD, WAD, Math.Rounding.Floor);
                 } else {

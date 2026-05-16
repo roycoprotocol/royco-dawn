@@ -75,8 +75,30 @@ contract SetProtocolFees is ParameterUpdateBase {
      *      ```
      */
     function _initializeConfigs() internal {
+        // Turn off all protocol fees across every deployed market — zero on all three legs.
+        // One config per market (mirrors `UpdateConfig._initializeDeployedMarkets`).
+
+        // ── Mainnet ──────────────────────────────────────────────────────────
+        _pushZeroFees(MAINNET, SNUSD);
+        _pushZeroFees(MAINNET, AUTOUSD);
+        _pushZeroFees(MAINNET, SMOKEHOUSE_USDC);
+        _pushZeroFees(MAINNET, SYRUP_USDC);
+        _pushZeroFees(MAINNET, STCUSD);
+        _pushZeroFees(MAINNET, PARETO_FALCONX);
+        _pushZeroFees(MAINNET, APYUSD);
+        _pushZeroFees(MAINNET, eEARN);
+
+        // ── Avalanche ────────────────────────────────────────────────────────
+        _pushZeroFees(AVALANCHE, SAVUSD);
+
+        // ── Arbitrum ─────────────────────────────────────────────────────────
+        _pushZeroFees(ARBITRUM, SUSDAI);
+    }
+
+    /// @dev Push a config that zeroes all three protocol fees for a market.
+    function _pushZeroFees(uint256 _chainId, string memory _marketName) internal {
         _configs.push(
-            SetProtocolFeesConfig({ chainId: MAINNET, marketName: APYUSD, stProtocolFeeWAD: 0.1e18, jtProtocolFeeWAD: 0, yieldShareProtocolFeeWAD: 0.1e18 })
+            SetProtocolFeesConfig({ chainId: _chainId, marketName: _marketName, stProtocolFeeWAD: 0, jtProtocolFeeWAD: 0, yieldShareProtocolFeeWAD: 0 })
         );
     }
 

@@ -60,15 +60,50 @@ contract SetYDM is ParameterUpdateBase {
      *      with `maxAdaptationSpeedWAD` forced to 0.
      */
     function _initializeConfigs() internal {
-        // apyUSD on Ethereum
         _configs.push(
             SetYDMConfig({
                 chainId: MAINNET,
-                marketName: APYUSD,
+                marketName: AUTOUSD,
                 ydm: ADAPTIVE_CURVE_YDM_V2,
-                jtYieldShareAtZeroUtilWAD: 0.15e18,
-                jtYieldShareAtTargetUtilWAD: 0.15e18,
-                jtYieldShareAtFullUtilWAD: 0.4e18,
+                jtYieldShareAtZeroUtilWAD: 0.11e18,
+                jtYieldShareAtTargetUtilWAD: 0.11e18,
+                jtYieldShareAtFullUtilWAD: 0.31e18,
+                maxAdaptationSpeedWAD: uint64(40e18 / uint256(365 days))
+            })
+        );
+
+        _configs.push(
+            SetYDMConfig({
+                chainId: AVALANCHE,
+                marketName: SAVUSD,
+                ydm: ADAPTIVE_CURVE_YDM_V2,
+                jtYieldShareAtZeroUtilWAD: 0.07e18,
+                jtYieldShareAtTargetUtilWAD: 0.07e18,
+                jtYieldShareAtFullUtilWAD: 0.21e18,
+                maxAdaptationSpeedWAD: uint64(40e18 / uint256(365 days))
+            })
+        );
+
+        _configs.push(
+            SetYDMConfig({
+                chainId: MAINNET,
+                marketName: SNUSD,
+                ydm: ADAPTIVE_CURVE_YDM_V2,
+                jtYieldShareAtZeroUtilWAD: 0.11e18,
+                jtYieldShareAtTargetUtilWAD: 0.11e18,
+                jtYieldShareAtFullUtilWAD: 0.31e18,
+                maxAdaptationSpeedWAD: uint64(40e18 / uint256(365 days))
+            })
+        );
+
+        _configs.push(
+            SetYDMConfig({
+                chainId: MAINNET,
+                marketName: SYRUP_USDC,
+                ydm: ADAPTIVE_CURVE_YDM_V2,
+                jtYieldShareAtZeroUtilWAD: 0.07e18,
+                jtYieldShareAtTargetUtilWAD: 0.07e18,
+                jtYieldShareAtFullUtilWAD: 0.11e18,
                 maxAdaptationSpeedWAD: uint64(40e18 / uint256(365 days))
             })
         );

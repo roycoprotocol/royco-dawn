@@ -124,11 +124,11 @@ abstract contract UpdateConfig {
 
     function _initializeDeployedMarkets() internal {
         // ── Mainnet ──────────────────────────────────────────────────────────
-        _deployedKernels[MAINNET][STCUSD] = 0x9911F227E9428964D8A35B852513919C8DF92038;
         _deployedKernels[MAINNET][SNUSD] = 0x0aE0978B868804929fd4C06B3B22D9197B8cd3c6;
         _deployedKernels[MAINNET][AUTOUSD] = 0x8748D1c21CC550B435487F473d9Aaf6C84dA46A6;
         _deployedKernels[MAINNET][SMOKEHOUSE_USDC] = 0x6dBdf6EBdF02F50ec6a7d6F782850996928176F9;
         _deployedKernels[MAINNET][SYRUP_USDC] = 0xde1Ce2cF64808e50d000F93058784270E412B3A4;
+        _deployedKernels[MAINNET][STCUSD] = 0x9911F227E9428964D8A35B852513919C8DF92038;
         _deployedKernels[MAINNET][PARETO_FALCONX] = 0x15bb63C07740ff972F76716cAcC5766f0C641791;
         _deployedKernels[MAINNET][APYUSD] = 0xcFbdEA0990F21b103c8D123d0D5273B4ea269cb4;
         _deployedKernels[MAINNET][eEARN] = 0x36c1d7CaFa9A220fc1450fA070277aED69F8c9B2;

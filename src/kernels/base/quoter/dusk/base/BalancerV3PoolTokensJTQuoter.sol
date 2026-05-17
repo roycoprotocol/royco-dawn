@@ -35,6 +35,9 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
     /// @notice Index of the quote asset in the pool's token registration order
     uint256 internal immutable QUOTE_ASSET_POOL_INDEX;
 
+    /// @dev Thrown when the pool invoking a hook isn't this market's junior tranche pool
+    error ONLY_JUNIOR_TRANCHE_BALANCER_POOL();
+
     /// @notice Thrown when the Balancer pool is not registered with the Balancer V3 Vault
     error POOL_NOT_REGISTERED();
 
@@ -43,6 +46,13 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
 
     /// @notice Thrown when the pool's tokens don't match the kernel's configured ST asset and quote asset
     error INVALID_POOL_TOKEN_CONFIGURATION();
+
+    /// @dev Ensures that the pool invoking a hook is this market's junior tranche pool
+    /// @param _pool The pool invoking the hook
+    modifier onlyJuniorTrancheBalancerPool(address _pool) {
+        require(_pool == JT_ASSET, ONLY_JUNIOR_TRANCHE_BALANCER_POOL());
+        _;
+    }
 
     /**
      * @notice Constructs the Balancer V3 pool tokens JT quoter
@@ -102,25 +112,25 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
     // =============================
 
     /// @inheritdoc IHooks
-    function onRegister(address, address, TokenConfig[] memory, LiquidityManagement calldata) public override(BaseHooks) returns (bool) {
+    function onRegister(address, address, TokenConfig[] memory, LiquidityManagement calldata) public override(BaseHooks) onlyVault returns (bool) {
         // By default, deny all factories. This method must be overwritten by the hook contract.
         return false;
     }
 
     /// @inheritdoc IHooks
-    function onBeforeInitialize(uint256[] memory, bytes memory) public override(BaseHooks) returns (bool) {
+    function onBeforeInitialize(uint256[] memory, bytes memory) public override(BaseHooks) onlyVault returns (bool) {
         return false;
     }
 
     /// @inheritdoc IHooks
-    function onAfterInitialize(uint256[] memory, uint256, bytes memory) public override(BaseHooks) returns (bool) {
+    function onAfterInitialize(uint256[] memory, uint256, bytes memory) public override(BaseHooks) onlyVault returns (bool) {
         return false;
     }
 
     /// @inheritdoc IHooks
     function onBeforeAddLiquidity(
         address,
-        address,
+        address _pool,
         AddLiquidityKind,
         uint256[] memory,
         uint256,
@@ -129,15 +139,17 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
     )
         public
         override(BaseHooks)
+        onlyVault
+        onlyJuniorTrancheBalancerPool(_pool)
         returns (bool)
     {
-        return false;
+        _preOpSyncTrancheAccounting();
     }
 
     /// @inheritdoc IHooks
     function onAfterAddLiquidity(
         address,
-        address,
+        address _pool,
         AddLiquidityKind,
         uint256[] memory,
         uint256[] memory amountsInRaw,
@@ -147,6 +159,8 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
     )
         public
         override(BaseHooks)
+        onlyVault
+        onlyJuniorTrancheBalancerPool(_pool)
         returns (bool, uint256[] memory)
     {
         return (false, amountsInRaw);
@@ -155,7 +169,7 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
     /// @inheritdoc IHooks
     function onBeforeRemoveLiquidity(
         address,
-        address,
+        address _pool,
         RemoveLiquidityKind,
         uint256,
         uint256[] memory,
@@ -164,15 +178,17 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
     )
         public
         override(BaseHooks)
+        onlyVault
+        onlyJuniorTrancheBalancerPool(_pool)
         returns (bool)
     {
-        return false;
+        _preOpSyncTrancheAccounting();
     }
 
     /// @inheritdoc IHooks
     function onAfterRemoveLiquidity(
         address,
-        address,
+        address _pool,
         RemoveLiquidityKind,
         uint256,
         uint256[] memory,
@@ -182,26 +198,45 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
     )
         public
         override(BaseHooks)
+        onlyVault
+        onlyJuniorTrancheBalancerPool(_pool)
         returns (bool, uint256[] memory)
     {
         return (false, amountsOutRaw);
     }
 
     /// @inheritdoc IHooks
-    function onBeforeSwap(PoolSwapParams calldata, address) public override(BaseHooks) returns (bool) {
+    function onBeforeSwap(PoolSwapParams calldata, address _pool) public override(BaseHooks) onlyVault onlyJuniorTrancheBalancerPool(_pool) returns (bool) {
         // return false to trigger an error if shouldCallBeforeSwap is true but this function is not overridden.
         return false;
     }
 
     /// @inheritdoc IHooks
-    function onAfterSwap(AfterSwapParams calldata) public override(BaseHooks) returns (bool, uint256) {
+    function onAfterSwap(AfterSwapParams calldata _params)
+        public
+        override(BaseHooks)
+        onlyVault
+        onlyJuniorTrancheBalancerPool(_params.pool)
+        returns (bool, uint256)
+    {
         // return false to trigger an error if shouldCallAfterSwap is true but this function is not overridden.
         // The second argument is not used.
         return (false, 0);
     }
 
     /// @inheritdoc IHooks
-    function onComputeDynamicSwapFeePercentage(PoolSwapParams calldata, address, uint256) public view override(BaseHooks) returns (bool, uint256) {
+    function onComputeDynamicSwapFeePercentage(
+        PoolSwapParams calldata,
+        address _pool,
+        uint256
+    )
+        public
+        view
+        override(BaseHooks)
+        onlyVault
+        onlyJuniorTrancheBalancerPool(_pool)
+        returns (bool, uint256)
+    {
         return (false, 0);
     }
 
@@ -211,7 +246,9 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
             enableHookAdjustedAmounts: false,
             shouldCallBeforeInitialize: true,
             shouldCallAfterInitialize: false,
+            // Set in case this kernel employs dynamically computed swap fees based on the market's state
             shouldCallComputeDynamicSwapFee: true,
+            // The before* hooks run a PNL accounting sync before any operation on the pool and the after* hooks run a recomposition sync to reconcile the new distribution between internal and external shares
             shouldCallBeforeSwap: true,
             shouldCallAfterSwap: true,
             shouldCallBeforeAddLiquidity: true,

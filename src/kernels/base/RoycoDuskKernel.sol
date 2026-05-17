@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+import { IERC20Metadata } from "../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import { IRoycoDuskKernel } from "../../interfaces/IRoycoDuskKernel.sol";
 import { ZERO_NAV_UNITS, ZERO_QUOTE_UNITS } from "../../libraries/Constants.sol";
 import { AccountingStateCheckpoint, AssetClaims, KernelType, LiquidityPositionClaims, SyncedAccountingState, TrancheType } from "../../libraries/Types.sol";
-import { Math, NAV_UNIT, QUOTE_UNIT, TRANCHE_UNIT, UnitsMathLib, toUint256 } from "../../libraries/Units.sol";
+import { Math, NAV_UNIT, QUOTE_UNIT, TRANCHE_UNIT, UnitsMathLib, toTrancheUnits, toUint256 } from "../../libraries/Units.sol";
 import { IRoycoAccountant, IRoycoDawnKernel, IRoycoVaultTranche, RoycoDawnKernel } from "./RoycoDawnKernel.sol";
 
 /**
@@ -19,8 +20,17 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
     // keccak256(abi.encode(uint256(keccak256("Royco.storage.RoycoDuskKernelState")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant ROYCO_DUSK_KERNEL_STORAGE_SLOT = 0xe95dd20a4d0edb62fc02826796060a0e1d8e3ce973dfc64f20cdf50cf478ef00;
 
+    /// @dev This mask is set on the cached junior tranche unit to NAV unit conversion rate to indicate that it is cached
+    uint256 internal constant CACHED_JUNIOR_TRANCHE_UNIT_TO_NAV_UNIT_CONVERSION_RATE_MASK = 1 << 255;
+
     /// @inheritdoc IRoycoDuskKernel
     address public immutable override(IRoycoDuskKernel) QUOTE_ASSET;
+
+    /// @dev One whole junior tranche asset (10 ^ JUNIOR_TRANCHE_UNITS_DECIMALS)
+    uint256 internal immutable ONE_WHOLE_JUNIOR_ASSET;
+
+    /// @dev The cached junior tranche unit to NAV unit conversion rate
+    uint256 internal transient cachedJuniorTrancheUnitToNAVUnitConversionRateWAD;
 
     /// @notice Constructs the base Royco kernel state
     /// @param _params The standard construction parameters for the Royco Dusk kernel
@@ -34,6 +44,7 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
 
         // Set the kernel's quote asset
         QUOTE_ASSET = _params.quoteAsset;
+        ONE_WHOLE_JUNIOR_ASSET = 10 ** IERC20Metadata(JT_ASSET).decimals();
     }
 
     // =============================
@@ -58,7 +69,10 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
     }
 
     /// @inheritdoc IRoycoDawnKernel
-    function jtConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) public view virtual override(IRoycoDawnKernel, RoycoDawnKernel) returns (TRANCHE_UNIT) { }
+    function jtConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) public view virtual override(IRoycoDawnKernel, RoycoDawnKernel) returns (TRANCHE_UNIT) {
+        return
+            toTrancheUnits(toUint256(_navAssets.mulDiv(ONE_WHOLE_JUNIOR_ASSET, _getCachedJuniorTrancheUnitToNAVUnitConversionRateWAD(), Math.Rounding.Floor)));
+    }
 
     /// @inheritdoc IRoycoDuskKernel
     function jtConvertTrancheUnitsToLPClaims(TRANCHE_UNIT _jtAssets) public view virtual override(IRoycoDuskKernel) returns (LiquidityPositionClaims memory);
@@ -155,6 +169,39 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
     /// @dev Reconciles the ST assets owned by JT owned ST shares and quote assets owned by the JT liquidity position and converts them to NAV units
     function _getJuniorTrancheRawNAV() internal view override(RoycoDawnKernel) returns (NAV_UNIT jtRawNAV) {
         return jtConvertTrancheUnitsToNAVUnits(_getRoycoDawnKernelStorage().jtOwnedYieldBearingAssets);
+    }
+
+    // =============================
+    // Internal Quoter Cache Functions
+    // =============================
+
+    /// @inheritdoc RoycoDawnKernel
+    /// @dev Sets the cache for the conversion rate between one whole junior tranche asset and NAV units
+    function _initializeQuoterCache() internal virtual override(RoycoDawnKernel) {
+        // Get the junior tranche unit to NAV unit conversion rate and set the cached flag
+        cachedJuniorTrancheUnitToNAVUnitConversionRateWAD =
+            (toUint256(jtConvertTrancheUnitsToNAVUnits(toTrancheUnits(ONE_WHOLE_JUNIOR_ASSET)))) | CACHED_JUNIOR_TRANCHE_UNIT_TO_NAV_UNIT_CONVERSION_RATE_MASK;
+    }
+
+    /// @inheritdoc RoycoDawnKernel
+    function _clearQuoterCache() internal virtual override(RoycoDawnKernel) {
+        cachedJuniorTrancheUnitToNAVUnitConversionRateWAD = 0;
+    }
+
+    /**
+     * @notice Returns the cached junior tranche unit to NAV unit conversion rate
+     * @dev If the cache is set (indicated by the mask bit), returns the cached value.
+     *      Otherwise falls back to getTrancheUnitToNAVUnitConversionRateWAD() for view function compatibility.
+     * @return The junior tranche unit to NAV unit conversion rate
+     */
+    function _getCachedJuniorTrancheUnitToNAVUnitConversionRateWAD() internal view returns (uint256) {
+        uint256 _cachedTrancheUnitToNAVUnitConversionRateWAD = cachedJuniorTrancheUnitToNAVUnitConversionRateWAD;
+        // If the cache mask bit is set, use the cached value
+        if (_cachedTrancheUnitToNAVUnitConversionRateWAD & CACHED_JUNIOR_TRANCHE_UNIT_TO_NAV_UNIT_CONVERSION_RATE_MASK != 0) {
+            return _cachedTrancheUnitToNAVUnitConversionRateWAD ^ CACHED_JUNIOR_TRANCHE_UNIT_TO_NAV_UNIT_CONVERSION_RATE_MASK;
+        }
+        // Otherwise fall back to querying the rate directly (for view functions)
+        return toUint256(jtConvertTrancheUnitsToNAVUnits(toTrancheUnits(ONE_WHOLE_JUNIOR_ASSET)));
     }
 
     // =============================

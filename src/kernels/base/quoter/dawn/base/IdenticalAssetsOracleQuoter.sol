@@ -138,7 +138,7 @@ abstract contract IdenticalAssetsOracleQuoter is RoycoDawnKernel {
      * @dev Should be called at the end of a transaction
      * @dev This function is called at the end of a transaction to clear the cached tranche unit to NAV unit conversion rate
      */
-    function _clearQuoterCache() internal virtual override {
+    function _clearQuoterCache() internal virtual override(RoycoDawnKernel) {
         cachedTrancheUnitToNAVUnitConversionRateWAD = 0;
     }
 

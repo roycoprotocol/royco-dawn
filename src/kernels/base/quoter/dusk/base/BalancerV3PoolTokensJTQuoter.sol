@@ -23,10 +23,10 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks {
     IVault public immutable BALANCER_V3_VAULT;
 
     /// @notice Index of the Senior Tranche share token in the pool's token registration order
-    uint256 internal immutable ST_SHARE_INDEX;
+    uint256 internal immutable ST_SHARE_POOL_INDEX;
 
     /// @notice Index of the quote asset in the pool's token registration order
-    uint256 internal immutable QUOTE_ASSET_INDEX;
+    uint256 internal immutable QUOTE_ASSET_POOL_INDEX;
 
     /// @notice Thrown when the Balancer pool is not registered with the Balancer V3 Vault
     error POOL_NOT_REGISTERED();
@@ -56,8 +56,8 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks {
 
         // Resolve and cache the indexes of the ST share and the kernel's quote asset in the pool configuration
         // Revert if the pool is not configured with ST share and the kernel's quote asset as its constituents
-        if (address(tokens[0]) == SENIOR_TRANCHE && address(tokens[1]) == QUOTE_ASSET) QUOTE_ASSET_INDEX = 1;
-        else if (address(tokens[0]) == QUOTE_ASSET && address(tokens[1]) == SENIOR_TRANCHE) ST_SHARE_INDEX = 1;
+        if (address(tokens[0]) == SENIOR_TRANCHE && address(tokens[1]) == QUOTE_ASSET) QUOTE_ASSET_POOL_INDEX = 1;
+        else if (address(tokens[0]) == QUOTE_ASSET && address(tokens[1]) == SENIOR_TRANCHE) ST_SHARE_POOL_INDEX = 1;
         else revert INVALID_POOL_TOKEN_CONFIGURATION();
     }
 
@@ -84,7 +84,7 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks {
         if (bptTotalSupply == 0) return claims;
 
         // Convert the specified BPTs (JT assets) to pro-rata claims of the pool's total constituent tokens
-        claims.stShares = constituentTokenBalances[ST_SHARE_INDEX].mulDiv(toUint256(_jtAssets), bptTotalSupply, Math.Rounding.Floor);
-        claims.quoteAssets = toQuoteUnits(constituentTokenBalances[QUOTE_ASSET_INDEX]).mulDiv(toUint256(_jtAssets), bptTotalSupply, Math.Rounding.Floor);
+        claims.stShares = constituentTokenBalances[ST_SHARE_POOL_INDEX].mulDiv(toUint256(_jtAssets), bptTotalSupply, Math.Rounding.Floor);
+        claims.quoteAssets = toQuoteUnits(constituentTokenBalances[QUOTE_ASSET_POOL_INDEX]).mulDiv(toUint256(_jtAssets), bptTotalSupply, Math.Rounding.Floor);
     }
 }

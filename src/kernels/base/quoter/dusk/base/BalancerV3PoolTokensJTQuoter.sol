@@ -1,8 +1,18 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+import {
+    AddLiquidityKind,
+    AfterSwapParams,
+    HookFlags,
+    LiquidityManagement,
+    PoolSwapParams,
+    RemoveLiquidityKind,
+    TokenConfig
+} from "../../../../../../lib/balancer-v3-monorepo/pkg/interfaces/contracts/vault/VaultTypes.sol";
 import { BalancerPoolToken, IVault } from "../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BalancerPoolToken.sol";
-import { BaseHooks } from "../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BaseHooks.sol";
+import { BaseHooks, IHooks } from "../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BaseHooks.sol";
+import { VaultGuard } from "../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/VaultGuard.sol";
 import { IERC20 } from "../../../../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import { Math, QUOTE_UNIT, TRANCHE_UNIT, UnitsMathLib, toQuoteUnits, toUint256 } from "../../../../../libraries/Units.sol";
 import { LiquidityPositionClaims, RoycoDuskKernel } from "../../../RoycoDuskKernel.sol";
@@ -14,13 +24,10 @@ import { LiquidityPositionClaims, RoycoDuskKernel } from "../../../RoycoDuskKern
  * @dev The Junior Tranche's BPT (Balancer Pool Token) represents its liquidity position in the pool
  *      This quoter reads the pool's current raw token balances from the Balancer V3 Vault and derives JT's pro-rata claim from the ratio of JT's BPT holdings to total BPT supply
  */
-abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks {
+abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, VaultGuard {
     using UnitsMathLib for uint256;
     using UnitsMathLib for QUOTE_UNIT;
     using Math for uint256;
-
-    /// @notice The singleton Balancer V3 Vault that holds the pool's reserves
-    IVault public immutable BALANCER_V3_VAULT;
 
     /// @notice Index of the Senior Tranche share token in the pool's token registration order
     uint256 internal immutable ST_SHARE_POOL_INDEX;
@@ -44,14 +51,12 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks {
      * @dev Resolves token indices by matching the pool's registered tokens against ST_ASSET and
      *      the quote asset surfaced by the sibling quote-asset quoter mixin
      */
-    constructor() {
-        // Set the singleton Balancer V3 Vault
-        BALANCER_V3_VAULT = BalancerPoolToken(JT_ASSET).getVault();
+    constructor() VaultGuard(BalancerPoolToken(JT_ASSET).getVault()) {
         // Ensure that the Balancer V3 Pool is registered with the vault
-        require(BALANCER_V3_VAULT.isPoolRegistered(JT_ASSET), POOL_NOT_REGISTERED());
+        require(_vault.isPoolRegistered(JT_ASSET), POOL_NOT_REGISTERED());
 
         // Retrieve the constituent tokens of this kernel's Balancer V3 pool and ensure that their are exactly 2
-        IERC20[] memory tokens = BALANCER_V3_VAULT.getPoolTokens(JT_ASSET);
+        IERC20[] memory tokens = _vault.getPoolTokens(JT_ASSET);
         require(tokens.length == 2, POOL_MUST_HAVE_TWO_TOKENS());
 
         // Resolve and cache the indexes of the ST share and the kernel's quote asset in the pool configuration
@@ -60,6 +65,10 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks {
         else if (address(tokens[0]) == QUOTE_ASSET && address(tokens[1]) == SENIOR_TRANCHE) ST_SHARE_POOL_INDEX = 1;
         else revert INVALID_POOL_TOKEN_CONFIGURATION();
     }
+
+    // =============================
+    // Junior Tranche Asset Quoter Functions
+    // =============================
 
     /**
      * @notice Converts the specificed amount of BPTs into their pro-rata claim on the pool's constituent tokens
@@ -78,13 +87,137 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks {
         returns (LiquidityPositionClaims memory claims)
     {
         // Get the total constituent token balances of the Balancer V3 pool and the total supply of BPT tokens
-        (,, uint256[] memory constituentTokenBalances,) = BALANCER_V3_VAULT.getPoolTokenInfo(JT_ASSET);
-        uint256 bptTotalSupply = BALANCER_V3_VAULT.totalSupply(JT_ASSET);
+        (,, uint256[] memory constituentTokenBalances,) = _vault.getPoolTokenInfo(JT_ASSET);
+        uint256 bptTotalSupply = _vault.totalSupply(JT_ASSET);
         // Preemptively return if the pool has no outstanding claims on its constituent tokens
         if (bptTotalSupply == 0) return claims;
 
         // Convert the specified BPTs (JT assets) to pro-rata claims of the pool's total constituent tokens
         claims.stShares = constituentTokenBalances[ST_SHARE_POOL_INDEX].mulDiv(toUint256(_jtAssets), bptTotalSupply, Math.Rounding.Floor);
         claims.quoteAssets = toQuoteUnits(constituentTokenBalances[QUOTE_ASSET_POOL_INDEX]).mulDiv(toUint256(_jtAssets), bptTotalSupply, Math.Rounding.Floor);
+    }
+
+    // =============================
+    // Balancer V3 Pool Hooks
+    // =============================
+
+    /// @inheritdoc IHooks
+    function onRegister(address, address, TokenConfig[] memory, LiquidityManagement calldata) public override(BaseHooks) returns (bool) {
+        // By default, deny all factories. This method must be overwritten by the hook contract.
+        return false;
+    }
+
+    /// @inheritdoc IHooks
+    function onBeforeInitialize(uint256[] memory, bytes memory) public override(BaseHooks) returns (bool) {
+        return false;
+    }
+
+    /// @inheritdoc IHooks
+    function onAfterInitialize(uint256[] memory, uint256, bytes memory) public override(BaseHooks) returns (bool) {
+        return false;
+    }
+
+    /// @inheritdoc IHooks
+    function onBeforeAddLiquidity(
+        address,
+        address,
+        AddLiquidityKind,
+        uint256[] memory,
+        uint256,
+        uint256[] memory,
+        bytes memory
+    )
+        public
+        override(BaseHooks)
+        returns (bool)
+    {
+        return false;
+    }
+
+    /// @inheritdoc IHooks
+    function onAfterAddLiquidity(
+        address,
+        address,
+        AddLiquidityKind,
+        uint256[] memory,
+        uint256[] memory amountsInRaw,
+        uint256,
+        uint256[] memory,
+        bytes memory
+    )
+        public
+        override(BaseHooks)
+        returns (bool, uint256[] memory)
+    {
+        return (false, amountsInRaw);
+    }
+
+    /// @inheritdoc IHooks
+    function onBeforeRemoveLiquidity(
+        address,
+        address,
+        RemoveLiquidityKind,
+        uint256,
+        uint256[] memory,
+        uint256[] memory,
+        bytes memory
+    )
+        public
+        override(BaseHooks)
+        returns (bool)
+    {
+        return false;
+    }
+
+    /// @inheritdoc IHooks
+    function onAfterRemoveLiquidity(
+        address,
+        address,
+        RemoveLiquidityKind,
+        uint256,
+        uint256[] memory,
+        uint256[] memory amountsOutRaw,
+        uint256[] memory,
+        bytes memory
+    )
+        public
+        override(BaseHooks)
+        returns (bool, uint256[] memory)
+    {
+        return (false, amountsOutRaw);
+    }
+
+    /// @inheritdoc IHooks
+    function onBeforeSwap(PoolSwapParams calldata, address) public override(BaseHooks) returns (bool) {
+        // return false to trigger an error if shouldCallBeforeSwap is true but this function is not overridden.
+        return false;
+    }
+
+    /// @inheritdoc IHooks
+    function onAfterSwap(AfterSwapParams calldata) public override(BaseHooks) returns (bool, uint256) {
+        // return false to trigger an error if shouldCallAfterSwap is true but this function is not overridden.
+        // The second argument is not used.
+        return (false, 0);
+    }
+
+    /// @inheritdoc IHooks
+    function onComputeDynamicSwapFeePercentage(PoolSwapParams calldata, address, uint256) public view override(BaseHooks) returns (bool, uint256) {
+        return (false, 0);
+    }
+
+    /// @inheritdoc IHooks
+    function getHookFlags() public view override(BaseHooks) returns (HookFlags memory) {
+        return HookFlags({
+            enableHookAdjustedAmounts: false,
+            shouldCallBeforeInitialize: true,
+            shouldCallAfterInitialize: false,
+            shouldCallComputeDynamicSwapFee: true,
+            shouldCallBeforeSwap: true,
+            shouldCallAfterSwap: true,
+            shouldCallBeforeAddLiquidity: true,
+            shouldCallAfterAddLiquidity: true,
+            shouldCallBeforeRemoveLiquidity: true,
+            shouldCallAfterRemoveLiquidity: true
+        });
     }
 }

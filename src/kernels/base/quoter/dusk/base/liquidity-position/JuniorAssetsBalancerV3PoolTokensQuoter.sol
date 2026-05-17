@@ -9,42 +9,31 @@ import {
     PoolSwapParams,
     RemoveLiquidityKind,
     TokenConfig
-} from "../../../../../../lib/balancer-v3-monorepo/pkg/interfaces/contracts/vault/VaultTypes.sol";
-import { BalancerPoolToken, IVault } from "../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BalancerPoolToken.sol";
-import { BaseHooks, IHooks } from "../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BaseHooks.sol";
-import { VaultGuard } from "../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/VaultGuard.sol";
-import { IERC20 } from "../../../../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import { Math, QUOTE_UNIT, TRANCHE_UNIT, UnitsMathLib, toQuoteUnits, toUint256 } from "../../../../../libraries/Units.sol";
-import { IRoycoDuskKernel, LiquidityPositionClaims, RoycoDuskKernel } from "../../../RoycoDuskKernel.sol";
+} from "../../../../../../../lib/balancer-v3-monorepo/pkg/interfaces/contracts/vault/VaultTypes.sol";
+import { BalancerPoolToken, IVault } from "../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BalancerPoolToken.sol";
+import { BaseHooks, IHooks } from "../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BaseHooks.sol";
+import { VaultGuard } from "../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/VaultGuard.sol";
+import { IERC20 } from "../../../../../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import { Math, QUOTE_UNIT, TRANCHE_UNIT, UnitsMathLib, toQuoteUnits, toUint256 } from "../../../../../../libraries/Units.sol";
+import { IRoycoDuskKernel, LiquidityPositionClaims, RoycoDuskKernel } from "../../../../RoycoDuskKernel.sol";
 
 /**
- * @title BalancerV3PoolTokensJTQuoter
+ * @title JuniorAssetsBalancerV3PoolTokensQuoter
  * @notice A quoter for Dusk Kernels using Balancer V3 pools (ST share <> Quote asset) as their secondary liquidity venue
  * @notice The junior tranche asset is a Balancer Pool Token (BPT) between this kernel's senior tranche share and quote asset
  * @dev The Junior Tranche's BPT (Balancer Pool Token) represents its liquidity position in the pool
  *      This quoter reads the pool's current raw token balances from the Balancer V3 Vault and derives JT's pro-rata claim from the ratio of JT's BPT holdings to total BPT supply
  */
-abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, VaultGuard {
+abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, BaseHooks, VaultGuard {
     using UnitsMathLib for uint256;
     using UnitsMathLib for QUOTE_UNIT;
     using Math for uint256;
-
-    /// @dev Storage slot for IdenticalAssetsChainlinkOracleQuoterState using ERC-7201 pattern
-    // keccak256(abi.encode(uint256(keccak256("Royco.storage.IdenticalAssetsChainlinkOracleQuoterState")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant IDENTICAL_ASSETS_CHAINLINK_ORACLE_QUOTER_STORAGE_SLOT = 0x36321e8ea9ef16a1b272d9cece1e9b80ed6532a47572ae703d9c65a3a5fa1800;
 
     /// @notice Index of the Senior Tranche share token in the pool's token registration order
     uint256 internal immutable ST_SHARE_POOL_INDEX;
 
     /// @notice Index of the quote asset in the pool's token registration order
     uint256 internal immutable QUOTE_ASSET_POOL_INDEX;
-
-    /// @dev Storage state for the Royco Balancer V3 Pool JT Quoter
-    /// @custom:storage-location erc7201:Royco.storage.BalancerV3PoolTokensJTQuoterState
-    struct BalancerV3PoolTokensJTQuoterState {
-        address quoteAssetOracle;
-        uint48 stalenessThresholdSeconds;
-    }
 
     /// @dev Thrown when the pool invoking a hook isn't this market's junior tranche pool
     error ONLY_JUNIOR_TRANCHE_BALANCER_POOL();
@@ -66,7 +55,7 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
     }
 
     /**
-     * @notice Constructs the Balancer V3 pool tokens JT quoter
+     * @notice Constructs the Junior Assets Balancer V3 pool tokens quoter
      * @dev Derives the Vault address from the pool via BalancerPoolToken.getVault(), so the pool
      *      address (= JT_ASSET) is the only deployment parameter required
      * @dev Resolves token indices by matching the pool's registered tokens against ST_ASSET and

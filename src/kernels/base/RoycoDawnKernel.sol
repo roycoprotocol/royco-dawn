@@ -30,6 +30,14 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
     // keccak256(abi.encode(uint256(keccak256("Royco.storage.RoycoKernelState")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant ROYCO_KERNEL_STORAGE_SLOT = 0xf8fc0d016168fef0a165a086b5a5dc3ffa533689ceaf1369717758ae5224c600;
 
+    /// @dev Top-bit flag set on a transient quoter cache slot to indicate the slot holds a populated conversion rate
+    /// @dev Shared across all quoter cache implementations in this kernel hierarchy
+    uint256 internal constant CACHED_CONVERSION_RATE_MASK = 1 << 255;
+
+    /// @dev Sentinel value for a stored conversion rate, indicating that the rate should be queried in real time from a configured oracle instead of being read from storage
+    /// @dev Shared across all quoter implementations in this kernel hierarchy
+    uint256 internal constant SENTINEL_CONVERSION_RATE = 0;
+
     /// @inheritdoc IRoycoDawnKernel
     address public immutable override(IRoycoDawnKernel) SENIOR_TRANCHE;
 
@@ -816,13 +824,37 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
         if (jtAssetsToClaim != ZERO_TRANCHE_UNITS) $.jtOwnedYieldBearingAssets = $.jtOwnedYieldBearingAssets - jtAssetsToClaim;
 
         // Credit the yield bearing assets being withdrawn to the receiver
-        // Do one batch transfer if they are the same asset, else do two separate transfers
+        // Do one batch withdrawal if they are the same asset, else do two separate transfers
         if (ST_ASSET == JT_ASSET) {
             IERC20(ST_ASSET).safeTransfer(_receiver, toUint256(stAssetsToClaim + jtAssetsToClaim));
         } else {
-            if (stAssetsToClaim != ZERO_TRANCHE_UNITS) IERC20(ST_ASSET).safeTransfer(_receiver, toUint256(stAssetsToClaim));
-            if (jtAssetsToClaim != ZERO_TRANCHE_UNITS) IERC20(JT_ASSET).safeTransfer(_receiver, toUint256(jtAssetsToClaim));
+            if (stAssetsToClaim != ZERO_TRANCHE_UNITS) _stWithdrawAssets(stAssetsToClaim, _receiver);
+            if (jtAssetsToClaim != ZERO_TRANCHE_UNITS) _jtWithdrawAssets(jtAssetsToClaim, _receiver);
         }
+    }
+
+    /**
+     * @notice Process a withdrawal of senior tranche assets
+     * @dev Withdraws the assets directly to the specified receiver
+     * @dev Should only be called by `_withdrawAssets` since this function does not debit assets from the internal ledger
+     * @param _stAssets The senior tranche assets to be withdrawn to the specified receiver
+     * @param _receiver The receiver of the withdrawn senior tranche asset
+     */
+    function _stWithdrawAssets(TRANCHE_UNIT _stAssets, address _receiver) internal virtual {
+        // Transfer the ST assets to the specified receiver
+        IERC20(ST_ASSET).safeTransfer(_receiver, toUint256(_stAssets));
+    }
+
+    /**
+     * @notice Process a withdrawal of junior tranche assets
+     * @dev Withdraws the assets directly to the specified receiver
+     * @dev Should only be called by `_withdrawAssets` since this function does not debit assets from the internal ledger
+     * @param _jtAssets The junior tranche assets to be withdrawn to the specified receiver
+     * @param _receiver The receiver of the withdrawn junior tranche asset
+     */
+    function _jtWithdrawAssets(TRANCHE_UNIT _jtAssets, address _receiver) internal virtual {
+        // Transfer the JT assets to the specified receiver
+        IERC20(JT_ASSET).safeTransfer(_receiver, toUint256(_jtAssets));
     }
 
     /**
@@ -943,18 +975,32 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
     // =============================
 
     /**
-     * @notice Initializes the quoter
-     * @dev Should be called at the start of a call
-     * @dev Typically used to initialize the cached tranche unit to NAV unit conversion rate
+     * @notice Initializes the quoter cache
+     * @dev Should be called at the start of a call reliant on tranche NAVs
+     * @dev Typically used to initialize any cached conversion rates in transient slots
+     * @dev Every overriding contract should call its parent's variant of this function to ensure all caches are warmed
      */
     function _initializeQuoterCache() internal virtual;
 
     /**
      * @notice Clears the quoter cache
-     * @dev Should be called at the end of a call
-     * @dev Typically used to clear the cached tranche unit to NAV unit conversion rate
+     * @dev Should be called at the end of a call reliant on tranche NAVs
+     * @dev Typically used to clear any cached conversion rates in transient slots
+     * @dev Every overriding contract should call its parent's variant of this function to ensure all caches are cleared
      */
     function _clearQuoterCache() internal virtual;
+
+    /**
+     * @notice Looks up a transient quoter cache slot, returning whether the slot holds a populated conversion rate and the rate itself
+     * @dev Returns (true, conversionRateWAD) on a cache hit (top-bit cache flag set on the slot value), otherwise (false, 0)
+     * @dev Use this helper to look up any quoter cache slot encoded with CACHED_CONVERSION_RATE_MASK
+     * @param _cachedConversionRateSlot The raw value of the transient cache slot
+     * @return cacheHit Whether the slot holds a populated conversion rate
+     * @return conversionRateWAD The cached conversion rate when cacheHit is true, otherwise zero
+     */
+    function _lookupCachedConversionRate(uint256 _cachedConversionRateSlot) internal pure returns (bool cacheHit, uint256 conversionRateWAD) {
+        if (_cachedConversionRateSlot & CACHED_CONVERSION_RATE_MASK != 0) return (true, _cachedConversionRateSlot ^ CACHED_CONVERSION_RATE_MASK);
+    }
 
     // =============================
     // Kernel State Accessor Functions

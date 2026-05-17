@@ -70,33 +70,35 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
     // Internal Tranche Accounting Synchronization Functions
     // =============================
 
+    /**
+     * @notice Synchronizes tranche accounting after an external operation on the JT's underlying position (e.g. swap, add or remove liquidity, vault deposit or redeem)
+     * @dev Designed to run after a pre-operation PNL sync has already captured any oracle drift on the senior side, so the recomposed ST raw NAV is reused
+     *      as the live value, yielding a zero ST delta by construction
+     * @dev The junior tranche raw NAV is read live to capture the operation's JT-side residual: trade fees, slippage, and any coverage premium paid or received
+     * @return state The synchronized accounting state after the recomposition and accountant waterfall have been applied
+     */
     function _postSwapSyncTrancheAccounting() internal virtual returns (SyncedAccountingState memory state) {
         // Retrieve the recomposed accounting checkpoint to apply the PNL sync to after reconciling new external and interal ST shares
-        (bool isCompositionStatic, uint256 currentJTOwnedSTShares, AccountingStateCheckpoint memory checkpoint) = _getRecomposedAccountingCheckpoint();
+        (uint256 currentJTOwnedSTShares, AccountingStateCheckpoint memory checkpoint) = _getRecomposedAccountingCheckpoint();
         // Update the new internal (JT owned) ST share supply if needed
-        if (!isCompositionStatic) _getRoycoDuskKernelStorage().lastJTOwnedSTShares = currentJTOwnedSTShares;
+        _getRoycoDuskKernelStorage().lastJTOwnedSTShares = currentJTOwnedSTShares;
         // Execute the pre-op sync via the accountant using the recomposed accounting checkpoint to handle any
-        state = IRoycoAccountant(ACCOUNTANT).preOpSyncTrancheAccounting(checkpoint, _getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
+        // NOTE: The ST PNL post-swap should be zero since we synced PNL pre-swap. The JT PNL is a combination of coverage bought/sold, swap fees, and slippage
+        state = IRoycoAccountant(ACCOUNTANT).preOpSyncTrancheAccounting(checkpoint, checkpoint.lastSTRawNAV, _getJuniorTrancheRawNAV());
     }
 
     /**
      * @notice Reconciles the distribution of ST shares in circulation (internally and externally owned) into a recomposed tranche NAVs checkpoint
-     * @return isCompositionStatic False if JT owned ST shares have shifted since the last sync and the checkpoints need be recomposed
      * @return currentJTOwnedSTShares The current ST shares owned by the junior tranche via their liqudity position claims
      * @return checkpoint The current NAV accounting checkpoint after applying the recomposition of externally and internally owned ST shares
      */
-    function _getRecomposedAccountingCheckpoint()
-        internal
-        view
-        virtual
-        returns (bool isCompositionStatic, uint256 currentJTOwnedSTShares, AccountingStateCheckpoint memory checkpoint)
-    {
+    function _getRecomposedAccountingCheckpoint() internal view virtual returns (uint256 currentJTOwnedSTShares, AccountingStateCheckpoint memory checkpoint) {
         // Retrieve the senior tranche shares currently owned by the junior tranche and on the last accounting synchronization
         currentJTOwnedSTShares = jtConvertTrancheUnitsToLPClaims(_getRoycoDawnKernelStorage().jtOwnedYieldBearingAssets).stShares;
         uint256 lastJTOwnedSTShares = _getRoycoDuskKernelStorage().lastJTOwnedSTShares;
         checkpoint = super._getLastAccountingCheckpoint();
         // If the composition of ST owned shares hasn't moved, there is no accounting recomposition required
-        if (currentJTOwnedSTShares == lastJTOwnedSTShares) return (true, currentJTOwnedSTShares, checkpoint);
+        if (currentJTOwnedSTShares == lastJTOwnedSTShares) return (currentJTOwnedSTShares, checkpoint);
 
         // Get the total supply of senior tranche shares
         uint256 stSharesTotalSupply = IRoycoVaultTranche(SENIOR_TRANCHE).totalSupply();
@@ -110,7 +112,7 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
         // If there were no external ST shares on the last sync, but there are now
         if (lastSTSharesEffectiveSupply == 0) {
             // The senior tranche raw NAV and effective NAVs are identical: the current raw NAV based on the distribution of shares (internal vs external)
-            // NOTE: If there were no external senior holder on the last sync, all self and coverage related impermanent losses must have been wiped
+            // NOTE: If there were no external senior holder on the last sync, all self and coverage related impermanent losses must have been zeroed out
             checkpoint.lastSTRawNAV = _getSeniorTrancheRawNAV();
             checkpoint.lastSTEffectiveNAV = checkpoint.lastSTRawNAV;
         } else {

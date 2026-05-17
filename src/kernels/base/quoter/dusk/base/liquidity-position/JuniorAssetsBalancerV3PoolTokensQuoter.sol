@@ -114,18 +114,17 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Bas
 
     /// @inheritdoc IHooks
     function onRegister(address, address, TokenConfig[] memory, LiquidityManagement calldata) public override(BaseHooks) onlyVault returns (bool) {
-        // By default, deny all factories. This method must be overwritten by the hook contract.
-        return false;
+        return true;
     }
 
     /// @inheritdoc IHooks
     function onBeforeInitialize(uint256[] memory, bytes memory) public override(BaseHooks) onlyVault returns (bool) {
-        return false;
+        return true;
     }
 
     /// @inheritdoc IHooks
     function onAfterInitialize(uint256[] memory, uint256, bytes memory) public override(BaseHooks) onlyVault returns (bool) {
-        return false;
+        return true;
     }
 
     /// @inheritdoc IHooks
@@ -145,6 +144,7 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Bas
         returns (bool)
     {
         _preOpSyncTrancheAccounting();
+        return true;
     }
 
     /// @inheritdoc IHooks
@@ -165,6 +165,7 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Bas
         returns (bool, uint256[] memory)
     {
         _postLiquidityPositionOpSyncTrancheAccounting();
+        return (true, amountsInRaw);
     }
 
     /// @inheritdoc IHooks
@@ -210,8 +211,7 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Bas
 
     /// @inheritdoc IHooks
     function onBeforeSwap(PoolSwapParams calldata, address _pool) public override(BaseHooks) onlyVault onlyJuniorTrancheBalancerPool(_pool) returns (bool) {
-        // return false to trigger an error if shouldCallBeforeSwap is true but this function is not overridden.
-
+        _preOpSyncTrancheAccounting();
         return true;
     }
 

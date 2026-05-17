@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import { IRoycoDuskKernel } from "../../interfaces/IRoycoDuskKernel.sol";
-import { ZERO_NAV_UNITS, ZERO_QUOTE_UNITS } from "../../libraries/Constants.sol";
+import { ZERO_NAV_UNITS, ZERO_QUOTE_UNITS, ZERO_TRANCHE_UNITS } from "../../libraries/Constants.sol";
 import { AccountingStateCheckpoint, AssetClaims, KernelType, LiquidityPositionClaims, SyncedAccountingState, TrancheType } from "../../libraries/Types.sol";
 import { Math, NAV_UNIT, QUOTE_UNIT, TRANCHE_UNIT, UnitsMathLib, toTrancheUnits, toUint256 } from "../../libraries/Units.sol";
 import { IRoycoAccountant, IRoycoDawnKernel, IRoycoVaultTranche, RoycoDawnKernel } from "./RoycoDawnKernel.sol";
@@ -27,7 +27,7 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
     address public immutable override(IRoycoDuskKernel) QUOTE_ASSET;
 
     /// @dev One whole junior tranche asset (10 ^ JUNIOR_TRANCHE_UNITS_DECIMALS)
-    uint256 internal immutable ONE_WHOLE_JUNIOR_ASSET;
+    uint256 internal immutable ONE_JUNIOR_ASSET;
 
     /// @dev The cached junior tranche unit to NAV unit conversion rate
     uint256 internal transient cachedJuniorTrancheUnitToNAVUnitConversionRateWAD;
@@ -44,7 +44,7 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
 
         // Set the kernel's quote asset
         QUOTE_ASSET = _params.quoteAsset;
-        ONE_WHOLE_JUNIOR_ASSET = 10 ** IERC20Metadata(JT_ASSET).decimals();
+        ONE_JUNIOR_ASSET = 10 ** IERC20Metadata(JT_ASSET).decimals();
     }
 
     // =============================
@@ -52,6 +52,7 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
     // =============================
 
     /// @inheritdoc IRoycoDawnKernel
+    /// @dev Retrieves the ST shares and quote assets owned by the JT liquidity position and converts them to NAV units
     function jtConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _jtAssets) public view virtual override(IRoycoDawnKernel, RoycoDawnKernel) returns (NAV_UNIT nav) {
         // Retrieve the liquidity position claims for the specified JT assets
         LiquidityPositionClaims memory lpClaims = jtConvertTrancheUnitsToLPClaims(_jtAssets);
@@ -70,8 +71,7 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
 
     /// @inheritdoc IRoycoDawnKernel
     function jtConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) public view virtual override(IRoycoDawnKernel, RoycoDawnKernel) returns (TRANCHE_UNIT) {
-        return
-            toTrancheUnits(toUint256(_navAssets.mulDiv(ONE_WHOLE_JUNIOR_ASSET, _getCachedJuniorTrancheUnitToNAVUnitConversionRateWAD(), Math.Rounding.Floor)));
+        return toTrancheUnits(toUint256(_navAssets.mulDiv(ONE_JUNIOR_ASSET, _getCachedJuniorTrancheUnitToNAVUnitConversionRateWAD(), Math.Rounding.Floor)));
     }
 
     /// @inheritdoc IRoycoDuskKernel
@@ -85,13 +85,13 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
     // =============================
 
     /**
-     * @notice Synchronizes tranche accounting after an external operation on the JT's underlying position (e.g. swap, add or remove liquidity, vault deposit or redeem)
+     * @notice Synchronizes tranche accounting after an external operation on the JT's underlying position (e.g. swap, add or remove liquidity, etc.)
      * @dev Designed to run after a pre-operation PNL sync has already captured any oracle drift on the senior side, so the recomposed ST raw NAV is reused
      *      as the live value, yielding a zero ST delta by construction
      * @dev The junior tranche raw NAV is read live to capture the operation's JT-side residual: trade fees, slippage, and any coverage premium paid or received
      * @return state The synchronized accounting state after the recomposition and accountant waterfall have been applied
      */
-    function _postSwapSyncTrancheAccounting() internal virtual returns (SyncedAccountingState memory state) {
+    function _postLiquidityPositionOpSyncTrancheAccounting() internal virtual returns (SyncedAccountingState memory state) {
         // Retrieve the recomposed accounting checkpoint to apply the PNL sync to after reconciling new external and interal ST shares
         (uint256 currentJTOwnedSTShares, AccountingStateCheckpoint memory checkpoint) = _getRecomposedAccountingCheckpoint();
         // Update the new internal (JT owned) ST share supply if needed
@@ -135,7 +135,7 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
             checkpoint.lastSTEffectiveNAV =
                 checkpoint.lastSTEffectiveNAV.mulDiv(currentSTSharesEffectiveSupply, lastSTSharesEffectiveSupply, Math.Rounding.Floor);
             checkpoint.lastSTImpermanentLoss =
-                checkpoint.lastSTImpermanentLoss.mulDiv(currentSTSharesEffectiveSupply, lastSTSharesEffectiveSupply, Math.Rounding.Floor);
+                checkpoint.lastSTImpermanentLoss.mulDiv(currentSTSharesEffectiveSupply, lastSTSharesEffectiveSupply, Math.Rounding.Ceil);
             checkpoint.lastJTImpermanentLoss =
                 checkpoint.lastJTImpermanentLoss.mulDiv(currentSTSharesEffectiveSupply, lastSTSharesEffectiveSupply, Math.Rounding.Floor);
         }
@@ -153,20 +153,19 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
     /// @inheritdoc RoycoDawnKernel
     /// @dev Reconciles the ST assets owned by the effective supply of ST shares (excluding JT owned ST shares) and converts them to NAV units
     function _getSeniorTrancheRawNAV() internal view override(RoycoDawnKernel) returns (NAV_UNIT stRawNAV) {
+        RoycoDawnKernelState storage $ = _getRoycoDawnKernelStorage();
         // Retrieve the senior tranche shares currently owned by the junior tranche
-        uint256 jtOwnedSTShares = jtConvertTrancheUnitsToLPClaims(_getRoycoDawnKernelStorage().jtOwnedYieldBearingAssets).stShares;
-        // Get the total supply of senior tranche shares and preemptively return if none exist
+        uint256 jtOwnedSTShares = jtConvertTrancheUnitsToLPClaims($.jtOwnedYieldBearingAssets).stShares;
+        // Get the total supply of senior tranche shares
         uint256 stSharesTotalSupply = IRoycoVaultTranche(SENIOR_TRANCHE).totalSupply();
-        if (stSharesTotalSupply == 0) return ZERO_NAV_UNITS;
-        // Get the ST yield bearing assets owned by the current effective supply of ST shares and convert them to NAV units via the configured quoter
+        // Compute the effective supply of senior tranche shares (excludes JT owned ST shares)
         uint256 stSharesEffectiveSupply = stSharesTotalSupply - jtOwnedSTShares;
-        return stConvertTrancheUnitsToNAVUnits(
-            _getRoycoDawnKernelStorage().stOwnedYieldBearingAssets.mulDiv(stSharesEffectiveSupply, stSharesTotalSupply, Math.Rounding.Floor)
-        );
+        if (stSharesEffectiveSupply == 0) return ZERO_NAV_UNITS;
+        // Convert the yield bearing assets owned by the effective senior tranche shares supply to NAV units via the configured quoter
+        return stConvertTrancheUnitsToNAVUnits($.stOwnedYieldBearingAssets.mulDiv(stSharesEffectiveSupply, stSharesTotalSupply, Math.Rounding.Floor));
     }
 
     /// @inheritdoc RoycoDawnKernel
-    /// @dev Reconciles the ST assets owned by JT owned ST shares and quote assets owned by the JT liquidity position and converts them to NAV units
     function _getJuniorTrancheRawNAV() internal view override(RoycoDawnKernel) returns (NAV_UNIT jtRawNAV) {
         return jtConvertTrancheUnitsToNAVUnits(_getRoycoDawnKernelStorage().jtOwnedYieldBearingAssets);
     }
@@ -180,7 +179,7 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
     function _initializeQuoterCache() internal virtual override(RoycoDawnKernel) {
         // Get the junior tranche unit to NAV unit conversion rate and set the cached flag
         cachedJuniorTrancheUnitToNAVUnitConversionRateWAD =
-            (toUint256(jtConvertTrancheUnitsToNAVUnits(toTrancheUnits(ONE_WHOLE_JUNIOR_ASSET)))) | CACHED_JUNIOR_TRANCHE_UNIT_TO_NAV_UNIT_CONVERSION_RATE_MASK;
+            (toUint256(jtConvertTrancheUnitsToNAVUnits(toTrancheUnits(ONE_JUNIOR_ASSET)))) | CACHED_JUNIOR_TRANCHE_UNIT_TO_NAV_UNIT_CONVERSION_RATE_MASK;
     }
 
     /// @inheritdoc RoycoDawnKernel
@@ -201,7 +200,7 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
             return _cachedTrancheUnitToNAVUnitConversionRateWAD ^ CACHED_JUNIOR_TRANCHE_UNIT_TO_NAV_UNIT_CONVERSION_RATE_MASK;
         }
         // Otherwise fall back to querying the rate directly (for view functions)
-        return toUint256(jtConvertTrancheUnitsToNAVUnits(toTrancheUnits(ONE_WHOLE_JUNIOR_ASSET)));
+        return toUint256(jtConvertTrancheUnitsToNAVUnits(toTrancheUnits(ONE_JUNIOR_ASSET)));
     }
 
     // =============================

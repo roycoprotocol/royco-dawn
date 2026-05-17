@@ -15,7 +15,7 @@ import { BaseHooks, IHooks } from "../../../../../../lib/balancer-v3-monorepo/pk
 import { VaultGuard } from "../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/VaultGuard.sol";
 import { IERC20 } from "../../../../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import { Math, QUOTE_UNIT, TRANCHE_UNIT, UnitsMathLib, toQuoteUnits, toUint256 } from "../../../../../libraries/Units.sol";
-import { LiquidityPositionClaims, RoycoDuskKernel } from "../../../RoycoDuskKernel.sol";
+import { IRoycoDuskKernel, LiquidityPositionClaims, RoycoDuskKernel } from "../../../RoycoDuskKernel.sol";
 
 /**
  * @title BalancerV3PoolTokensJTQuoter
@@ -29,11 +29,22 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
     using UnitsMathLib for QUOTE_UNIT;
     using Math for uint256;
 
+    /// @dev Storage slot for IdenticalAssetsChainlinkOracleQuoterState using ERC-7201 pattern
+    // keccak256(abi.encode(uint256(keccak256("Royco.storage.IdenticalAssetsChainlinkOracleQuoterState")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant IDENTICAL_ASSETS_CHAINLINK_ORACLE_QUOTER_STORAGE_SLOT = 0x36321e8ea9ef16a1b272d9cece1e9b80ed6532a47572ae703d9c65a3a5fa1800;
+
     /// @notice Index of the Senior Tranche share token in the pool's token registration order
     uint256 internal immutable ST_SHARE_POOL_INDEX;
 
     /// @notice Index of the quote asset in the pool's token registration order
     uint256 internal immutable QUOTE_ASSET_POOL_INDEX;
+
+    /// @dev Storage state for the Royco Balancer V3 Pool JT Quoter
+    /// @custom:storage-location erc7201:Royco.storage.BalancerV3PoolTokensJTQuoterState
+    struct BalancerV3PoolTokensJTQuoterState {
+        address quoteAssetOracle;
+        uint48 stalenessThresholdSeconds;
+    }
 
     /// @dev Thrown when the pool invoking a hook isn't this market's junior tranche pool
     error ONLY_JUNIOR_TRANCHE_BALANCER_POOL();
@@ -81,6 +92,7 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
     // =============================
 
     /**
+     * @inheritdoc IRoycoDuskKernel
      * @notice Converts the specificed amount of BPTs into their pro-rata claim on the pool's constituent tokens
      * @dev Pro-rata math against live Balancer V3 Vault state:
      *         stShares    = poolBalances[ST_SHARE] * jtBPTBalance / bptTotalSupply
@@ -163,7 +175,7 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
         onlyJuniorTrancheBalancerPool(_pool)
         returns (bool, uint256[] memory)
     {
-        return (false, amountsInRaw);
+        _postLiquidityPositionOpSyncTrancheAccounting();
     }
 
     /// @inheritdoc IHooks
@@ -183,6 +195,7 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
         returns (bool)
     {
         _preOpSyncTrancheAccounting();
+        return true;
     }
 
     /// @inheritdoc IHooks
@@ -202,13 +215,15 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
         onlyJuniorTrancheBalancerPool(_pool)
         returns (bool, uint256[] memory)
     {
-        return (false, amountsOutRaw);
+        _postLiquidityPositionOpSyncTrancheAccounting();
+        return (true, amountsOutRaw);
     }
 
     /// @inheritdoc IHooks
     function onBeforeSwap(PoolSwapParams calldata, address _pool) public override(BaseHooks) onlyVault onlyJuniorTrancheBalancerPool(_pool) returns (bool) {
         // return false to trigger an error if shouldCallBeforeSwap is true but this function is not overridden.
-        return false;
+
+        return true;
     }
 
     /// @inheritdoc IHooks
@@ -219,9 +234,8 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
         onlyJuniorTrancheBalancerPool(_params.pool)
         returns (bool, uint256)
     {
-        // return false to trigger an error if shouldCallAfterSwap is true but this function is not overridden.
-        // The second argument is not used.
-        return (false, 0);
+        _postLiquidityPositionOpSyncTrancheAccounting();
+        return (true, _params.amountCalculatedRaw);
     }
 
     /// @inheritdoc IHooks
@@ -243,7 +257,7 @@ abstract contract BalancerV3PoolTokensJTQuoter is RoycoDuskKernel, BaseHooks, Va
     /// @inheritdoc IHooks
     function getHookFlags() public view override(BaseHooks) returns (HookFlags memory) {
         return HookFlags({
-            enableHookAdjustedAmounts: false,
+            enableHookAdjustedAmounts: true,
             shouldCallBeforeInitialize: true,
             shouldCallAfterInitialize: false,
             // Set in case this kernel employs dynamically computed swap fees based on the market's state

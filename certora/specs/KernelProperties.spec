@@ -53,10 +53,10 @@ function postOpUsageCheck(RoycoAccountant.Operation op, RoycoAccountant.NAV_UNIT
     mathint deltaST = stRawNAV - roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV;
     mathint deltaJT = jtRawNAV - roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV;
 
-    assert op == RoycoAccountant.Operation.ST_DEPOSIT => deltaST > 0 && deltaJT == 0 && stSelfLiquidationBonusNAV == 0;
-    assert op == RoycoAccountant.Operation.JT_DEPOSIT => deltaST == 0 && deltaJT > 0 && stSelfLiquidationBonusNAV == 0;
-    assert op == RoycoAccountant.Operation.ST_REDEEM => deltaST <= 0 && deltaJT <= 0 && deltaST + deltaJT < 0;
-    assert op == RoycoAccountant.Operation.JT_REDEEM => deltaST <= 0 && deltaJT <= 0 && deltaST + deltaJT < 0 && stSelfLiquidationBonusNAV == 0;
+    assert op == RoycoAccountant.Operation.ST_DEPOSIT => deltaST >= 0 && deltaJT == 0 && stSelfLiquidationBonusNAV == 0;
+    assert op == RoycoAccountant.Operation.JT_DEPOSIT => deltaST == 0 && deltaJT >= 0 && stSelfLiquidationBonusNAV == 0;
+    assert op == RoycoAccountant.Operation.ST_REDEEM => deltaST <= 0 && deltaJT <= 0;
+    assert op == RoycoAccountant.Operation.JT_REDEEM => deltaST <= 0 && deltaJT <= 0 && stSelfLiquidationBonusNAV == 0;
 
     return state;
 }

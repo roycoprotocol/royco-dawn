@@ -50,6 +50,7 @@ methods {
     function _.safeTransfer(address token, address to, uint256 value) internal => NONDET;
     function _.safeTransferFrom(address token, address from, address to, uint256 value) internal => NONDET;
     function Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.getTrancheUnitToNAVUnitConversionRateWAD() internal returns (uint256) => CONSTANT;
+    function Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.TRANCHE_UNIT_SCALE_FACTOR() external returns (uint256) envfree;
 }
 
 definition WAD() returns mathint = 10^18;
@@ -83,8 +84,10 @@ rule jtTokenValueDoesNotWorsen(env e) {
 
     // assume price is already synced
     uint256 price = kernel.getTrancheUnitToNAVUnitConversionRateWAD(e);
-    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / WAD(), "price is synced";
-    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / WAD(), "price is synced";
+    uint256 priceDenom = kernel.TRANCHE_UNIT_SCALE_FACTOR();
+    require priceDenom != 0, "TRANCHE_UNIT_SCALE_FACTOR initialized to non-zero value";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / priceDenom, "price is synced";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / priceDenom, "price is synced";
 
     // get the current token value
     RoycoAccountant.NAV_UNIT jtEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
@@ -111,8 +114,10 @@ rule stTokenValueDoesNotWorsen(env e) {
 
     // assume price is already synced
     uint256 price = kernel.getTrancheUnitToNAVUnitConversionRateWAD(e);
-    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / WAD(), "price is synced";
-    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / WAD(), "price is synced";
+    uint256 priceDenom = kernel.TRANCHE_UNIT_SCALE_FACTOR();
+    require priceDenom != 0, "TRANCHE_UNIT_SCALE_FACTOR initialized to non-zero value";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / priceDenom, "price is synced";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / priceDenom, "price is synced";
 
     // get the current token value
     RoycoAccountant.NAV_UNIT jtEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;

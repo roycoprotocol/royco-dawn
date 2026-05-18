@@ -151,7 +151,7 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
 
     /// @inheritdoc RoycoDawnKernel
     /// @dev Reconciles the ST assets owned by the effective supply of ST shares (excluding JT owned ST shares) and converts them to NAV units
-    function _getSeniorTrancheRawNAV() internal view override(RoycoDawnKernel) returns (NAV_UNIT stRawNAV) {
+    function _getSeniorTrancheRawNAV() internal view virtual override(RoycoDawnKernel) returns (NAV_UNIT stRawNAV) {
         RoycoDawnKernelState storage $ = _getRoycoDawnKernelStorage();
         // Retrieve the senior tranche shares currently owned by the junior tranche
         uint256 jtOwnedSTShares = jtConvertTrancheUnitsToLPClaims($.jtOwnedYieldBearingAssets).stShares;
@@ -165,7 +165,7 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
     }
 
     /// @inheritdoc RoycoDawnKernel
-    function _getJuniorTrancheRawNAV() internal view override(RoycoDawnKernel) returns (NAV_UNIT jtRawNAV) {
+    function _getJuniorTrancheRawNAV() internal view virtual override(RoycoDawnKernel) returns (NAV_UNIT jtRawNAV) {
         return jtConvertTrancheUnitsToNAVUnits(_getRoycoDawnKernelStorage().jtOwnedYieldBearingAssets);
     }
 
@@ -206,7 +206,7 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
     // =============================
 
     /// @inheritdoc IRoycoDawnKernel
-    function KERNEL_TYPE() external pure override(IRoycoDawnKernel, RoycoDawnKernel) returns (KernelType kernelType) {
+    function KERNEL_TYPE() external pure virtual override(IRoycoDawnKernel, RoycoDawnKernel) returns (KernelType kernelType) {
         return KernelType.DUSK;
     }
 

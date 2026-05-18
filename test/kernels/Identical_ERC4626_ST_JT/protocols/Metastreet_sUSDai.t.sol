@@ -9,7 +9,7 @@ import { MarketDeploymentConfig } from "../../../../script/config/MarketDeployme
 import { IRoycoFactory } from "../../../../src/interfaces/IRoycoFactory.sol";
 import { IStakedUSDai } from "../../../../src/interfaces/external/usdai/IStakedUSDai.sol";
 import { IUSDai } from "../../../../src/interfaces/external/usdai/IUSDai.sol";
-import { IdenticalAssetsAdminOracleQuoter } from "../../../../src/kernels/base/quoter/dawn/base/IdenticalAssetsAdminOracleQuoter.sol";
+import { IdenticalAssetsAdminOracleQuoter } from "../../../../src/kernels/base/quoter/dawn/identical-assets/base/IdenticalAssetsAdminOracleQuoter.sol";
 import { sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel } from "../../../../src/kernels/sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel.sol";
 import { WAD } from "../../../../src/libraries/Constants.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../../../src/libraries/Units.sol";

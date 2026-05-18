@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { Math } from "../../../../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
-import { AggregatorV3Interface } from "../../../../../interfaces/external/chainlink/AggregatorV3Interface.sol";
+import { Math } from "../../../../../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import { AggregatorV3Interface } from "../../../../../../interfaces/external/chainlink/AggregatorV3Interface.sol";
 import { IdenticalAssetsOracleQuoter } from "./IdenticalAssetsOracleQuoter.sol";
 
 /**

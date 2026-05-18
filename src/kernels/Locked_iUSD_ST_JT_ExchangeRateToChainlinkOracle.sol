@@ -5,7 +5,7 @@ import { IInfiniFiGateway } from "../interfaces/external/infinifi/IInfiniFiGatew
 import { ILockingController } from "../interfaces/external/infinifi/ILockingController.sol";
 import { WAD } from "../libraries/Constants.sol";
 import { IRoycoDawnKernel, Math, RoycoDawnKernel } from "./base/RoycoDawnKernel.sol";
-import { IdenticalAssetsChainlinkOracleQuoter, IdenticalAssetsOracleQuoter } from "./base/quoter/dawn/base/IdenticalAssetsChainlinkOracleQuoter.sol";
+import { IdenticalAssetsChainlinkOracleQuoter, IdenticalAssetsOracleQuoter } from "./base/quoter/dawn/identical-assets/base/IdenticalAssetsChainlinkOracleQuoter.sol";
 
 /**
  * @title Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle

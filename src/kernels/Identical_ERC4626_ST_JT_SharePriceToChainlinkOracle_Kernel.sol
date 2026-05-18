@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
 import { RoycoDawnKernel } from "./base/RoycoDawnKernel.sol";
-import { IdenticalERC4626SharesToChainlinkOracleQuoter } from "./base/quoter/dawn/IdenticalERC4626SharesToChainlinkOracleQuoter.sol";
+import { IdenticalERC4626SharesToChainlinkOracleQuoter } from "./base/quoter/dawn/identical-assets/IdenticalERC4626SharesToChainlinkOracleQuoter.sol";
 
 /**
  * @title Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel

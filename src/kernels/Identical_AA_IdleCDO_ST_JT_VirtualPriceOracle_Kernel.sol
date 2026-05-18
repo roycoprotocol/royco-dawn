@@ -6,7 +6,7 @@ import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
 import { IIdleCDO } from "../interfaces/external/idle-finance/IIdleCDO.sol";
 import { WAD_DECIMALS } from "../libraries/Constants.sol";
 import { RoycoDawnKernel } from "./base/RoycoDawnKernel.sol";
-import { IdenticalAssetsOracleQuoter } from "./base/quoter/dawn/base/IdenticalAssetsOracleQuoter.sol";
+import { IdenticalAssetsOracleQuoter } from "./base/quoter/dawn/identical-assets/base/IdenticalAssetsOracleQuoter.sol";
 
 /**
  * @title Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel

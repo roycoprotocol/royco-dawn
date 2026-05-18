@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IdenticalAssetsChainlinkOracleQuoter } from "../../../src/kernels/base/quoter/dawn/base/IdenticalAssetsChainlinkOracleQuoter.sol";
+import { IdenticalAssetsChainlinkOracleQuoter } from "../../../src/kernels/base/quoter/dawn/identical-assets/base/IdenticalAssetsChainlinkOracleQuoter.sol";
 import { ParameterUpdateBase } from "../base/ParameterUpdateBase.sol";
 
 /**

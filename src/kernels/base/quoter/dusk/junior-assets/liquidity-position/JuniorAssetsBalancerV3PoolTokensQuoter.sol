@@ -94,9 +94,6 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Bas
     /**
      * @inheritdoc IRoycoDuskKernel
      * @notice Converts the specificed amount of BPTs into their pro-rata claim on the pool's constituent tokens
-     * @dev Pro-rata math against live Balancer V3 Vault state:
-     *         stShares    = poolBalances[ST_SHARE] * jtBPTBalance / bptTotalSupply
-     *         quoteAssets = poolBalances[QUOTE] * jtBPTBalance / bptTotalSupply
      * @dev Returns zero claims when the pool has no outstanding claims on its constituent tokens
      * @param _jtAssets The Balancer Pool Tokens to get the pro-rata constituent token claims for
      * @return claims The pro-rata claim on the pool's ST shares and quote assets
@@ -108,25 +105,26 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Bas
         override(RoycoDuskKernel)
         returns (LiquidityPositionClaims memory claims)
     {
-        // Mirror the Balancer V3 Vault's PROPORTIONAL `removeLiquidity` math path bit-for-bit so that this quote returns the exact same constituent token amounts the unwrap will deliver
+        // Mirror the Balancer V3 Vault's proportional remove liquidity path so that the position returned contains the exact same constituent token amounts that our JT withdrawals will deliver
         // Preemptively return zero claims if the pool has no outstanding claims on its constituent tokens
         uint256 bptTotalSupply = _vault.totalSupply(JT_ASSET);
         if (bptTotalSupply == 0) return claims;
 
         // Delegate the proportional math across the constituent tokens to Balancer's library to guarantee bit-for-bit equivalence with the kernel's liquidity position unwrap logic
+        // NOTE: The live balances are the raw token amounts scaled by their corresponding rates, net of yield fees, normalized to WAD decimals
         uint256[] memory constituentTokenAmountsOutWAD =
             BasePoolMath.computeProportionalAmountsOut(_vault.getCurrentLiveBalances(JT_ASSET), bptTotalSupply, toUint256(_jtAssets));
 
         // Get the constituent token rates in NAV units used by the junior tranche pool
         /// NOTE: The rate providers for the junior tranche pool proxy this kernel's NAV for ST shares and quote assets
-        (, uint256[] memory constituentTokenRates) = _vault.getPoolTokenRates(JT_ASSET);
+        (, uint256[] memory constituentTokenRatesWAD) = _vault.getPoolTokenRates(JT_ASSET);
 
-        // Undo decimal scaling and rate scaling to recover the raw constituent token amounts, matching `Vault._removeLiquidity`'s `toRawUndoRateRoundDown` step that converts the scaled18 outputs back to native decimals
+        // Revert the decimal scaling normalization done by Balancer to the actual token precision
         // NOTE: The senior tranche share is always 18 decimals so its decimal scaling factor is implicitly 1
-        claims.stShares = constituentTokenAmountsOutWAD[ST_SHARE_POOL_INDEX].toRawUndoRateRoundDown(1, constituentTokenRates[ST_SHARE_POOL_INDEX]);
+        claims.stShares = constituentTokenAmountsOutWAD[ST_SHARE_POOL_INDEX].toRawUndoRateRoundDown(1, constituentTokenRatesWAD[ST_SHARE_POOL_INDEX]);
         claims.quoteAssets = toQuoteUnits(
             constituentTokenAmountsOutWAD[QUOTE_ASSET_POOL_INDEX].toRawUndoRateRoundDown(
-                QUOTE_ASSET_POOL_DECIMAL_SCALING_FACTOR, constituentTokenRates[QUOTE_ASSET_POOL_INDEX]
+                QUOTE_ASSET_POOL_DECIMAL_SCALING_FACTOR, constituentTokenRatesWAD[QUOTE_ASSET_POOL_INDEX]
             )
         );
     }

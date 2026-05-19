@@ -10,7 +10,16 @@ import { IRoycoAccountant } from "../../interfaces/IRoycoAccountant.sol";
 import { IRoycoDawnKernel } from "../../interfaces/IRoycoDawnKernel.sol";
 import { IRoycoVaultTranche } from "../../interfaces/IRoycoVaultTranche.sol";
 import { MAX_TRANCHE_UNITS, WAD, ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "../../libraries/Constants.sol";
-import { AccountingStateCheckpoint, AssetClaims, KernelType, MarketState, Operation, SyncedAccountingState, TrancheType } from "../../libraries/Types.sol";
+import {
+    AccountingStateCheckpoint,
+    AssetClaims,
+    ConversionRateCacheKey,
+    KernelType,
+    MarketState,
+    Operation,
+    SyncedAccountingState,
+    TrancheType
+} from "../../libraries/Types.sol";
 import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toUint256 } from "../../libraries/Units.sol";
 import { UtilsLib } from "../../libraries/UtilsLib.sol";
 
@@ -55,6 +64,23 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
 
     /// @notice Whether to enforce the tranche shares transfer whitelist
     bool public immutable ENFORCE_TRANCHE_SHARES_TRANSFER_WHITELIST;
+
+    // =============================
+    // Transient Cache for Conversion Rates
+    // =============================
+
+    /// @dev Cache slot for Identical kernels where ST and JT share a single conversion rate
+    uint256 internal transient cachedTrancheUnitToNAVUnitConversionRateWAD;
+
+    /// @dev Cache slot for the senior tranche unit conversion rate in kernels with distinct ST and JT assets
+    uint256 internal transient cachedSeniorTrancheUnitToNAVUnitConversionRateWAD;
+
+    /// @dev Cache slot for the junior tranche unit conversion rate in kernels with distinct ST and JT assets
+    uint256 internal transient cachedJuniorTrancheUnitToNAVUnitConversionRateWAD;
+
+    // =============================
+    // Modifiers
+    // =============================
 
     /// @dev Permissions the function to only be callable by the market's senior tranche
     /// @dev Should be placed on ST deposit and redeem functions
@@ -826,7 +852,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
         // Credit the yield bearing assets being withdrawn to the receiver
         // Do one batch withdrawal if they are the same asset, else do two separate transfers
         if (ST_ASSET == JT_ASSET) {
-            IERC20(ST_ASSET).safeTransfer(_receiver, toUint256(stAssetsToClaim + jtAssetsToClaim));
+            _stWithdrawAssets((stAssetsToClaim + jtAssetsToClaim), _receiver);
         } else {
             if (stAssetsToClaim != ZERO_TRANCHE_UNITS) _stWithdrawAssets(stAssetsToClaim, _receiver);
             if (jtAssetsToClaim != ZERO_TRANCHE_UNITS) _jtWithdrawAssets(jtAssetsToClaim, _receiver);
@@ -991,14 +1017,30 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
     function _clearQuoterCache() internal virtual;
 
     /**
-     * @notice Looks up a transient quoter cache slot, returning whether the slot holds a populated conversion rate and the rate itself
+     * @notice Looks up the transient conversion-rate cache slot identified by `_cacheKey`
      * @dev Returns (true, conversionRateWAD) on a cache hit (top-bit cache flag set on the slot value), otherwise (false, 0)
-     * @dev Use this helper to look up any quoter cache slot encoded with CACHED_CONVERSION_RATE_MASK
+     * @dev Dawn handles the tranche-unit keys; downstream kernels (e.g., Dusk) override to handle their own keys (e.g., QUOTE_UNIT) and delegate the rest to super
+     * @param _cacheKey The cache key identifying which conversion-rate slot to look up
+     * @return cacheHit Whether the slot holds a populated conversion rate
+     * @return conversionRateWAD The cached conversion rate when cacheHit is true, otherwise zero
+     */
+    function _lookupCachedConversionRate(ConversionRateCacheKey _cacheKey) internal view virtual returns (bool cacheHit, uint256 conversionRateWAD) {
+        uint256 slot;
+        if (_cacheKey == ConversionRateCacheKey.UNIFIED_TRANCHE_UNIT) slot = cachedTrancheUnitToNAVUnitConversionRateWAD;
+        else if (_cacheKey == ConversionRateCacheKey.SENIOR_TRANCHE_UNIT) slot = cachedSeniorTrancheUnitToNAVUnitConversionRateWAD;
+        else if (_cacheKey == ConversionRateCacheKey.JUNIOR_TRANCHE_UNIT) slot = cachedJuniorTrancheUnitToNAVUnitConversionRateWAD;
+        else revert UNKNOWN_CONVERSION_RATE_CACHE_KEY();
+        return _decodeCachedConversionRate(slot);
+    }
+
+    /**
+     * @notice Decodes a transient cache slot value into (cacheHit, conversionRateWAD)
+     * @dev Single primitive used by Dawn's `_lookupCachedConversionRate` dispatcher and any downstream kernel override that introduces new cache slots
      * @param _cachedConversionRateSlot The raw value of the transient cache slot
      * @return cacheHit Whether the slot holds a populated conversion rate
      * @return conversionRateWAD The cached conversion rate when cacheHit is true, otherwise zero
      */
-    function _lookupCachedConversionRate(uint256 _cachedConversionRateSlot) internal pure returns (bool cacheHit, uint256 conversionRateWAD) {
+    function _decodeCachedConversionRate(uint256 _cachedConversionRateSlot) internal pure returns (bool cacheHit, uint256 conversionRateWAD) {
         if (_cachedConversionRateSlot & CACHED_CONVERSION_RATE_MASK != 0) return (true, _cachedConversionRateSlot ^ CACHED_CONVERSION_RATE_MASK);
     }
 

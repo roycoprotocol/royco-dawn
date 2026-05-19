@@ -4,14 +4,15 @@ pragma solidity ^0.8.28;
 import { IERC20Metadata } from "../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import { IRoycoDuskKernel } from "../../interfaces/IRoycoDuskKernel.sol";
 import { ZERO_NAV_UNITS, ZERO_QUOTE_UNITS, ZERO_TRANCHE_UNITS } from "../../libraries/Constants.sol";
-import { AccountingStateCheckpoint, AssetClaims, KernelType, LiquidityPositionClaims, SyncedAccountingState, TrancheType } from "../../libraries/Types.sol";
+import { AccountingStateCheckpoint, AssetClaims, ConversionRateCacheKey, KernelType, LiquidityPositionClaims, SyncedAccountingState, TrancheType } from "../../libraries/Types.sol";
 import { Math, NAV_UNIT, QUOTE_UNIT, TRANCHE_UNIT, UnitsMathLib, toTrancheUnits, toUint256 } from "../../libraries/Units.sol";
-import { IRoycoAccountant, IRoycoDawnKernel, IRoycoVaultTranche, RoycoDawnKernel } from "./RoycoDawnKernel.sol";
+import { IERC20, IRoycoAccountant, IRoycoDawnKernel, IRoycoVaultTranche, RoycoDawnKernel, SafeERC20 } from "./RoycoDawnKernel.sol";
 
 /**
  * @title RoycoDuskKernel
  */
 abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
+    using SafeERC20 for IERC20;
     using UnitsMathLib for uint256;
     using UnitsMathLib for NAV_UNIT;
     using UnitsMathLib for TRANCHE_UNIT;
@@ -26,8 +27,8 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
     /// @dev Value representing the scale factor of the juniior tranche unit: 10^(JUNIOR_TRANCHE_UNIT_DECIMALS)
     uint256 internal immutable JUNIOR_TRANCHE_UNIT_SCALE_FACTOR;
 
-    /// @dev The cached junior tranche unit to NAV unit conversion rate
-    uint256 internal transient cachedJuniorTrancheUnitToNAVUnitConversionRateWAD;
+    /// @dev Cache slot for the quote asset → NAV unit conversion rate; populated and cleared by the quote-side oracle mixin via the cache lifecycle hooks
+    uint256 internal transient cachedQuoteAssetToNAVUnitConversionRateWAD;
 
     /// @notice Constructs the base Royco kernel state
     /// @param _params The standard construction parameters for the Royco Dusk kernel
@@ -57,13 +58,8 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
         if (lpClaims.quoteAssets != ZERO_QUOTE_UNITS) nav = lpConvertQuoteAssetsToNAVUnits(lpClaims.quoteAssets);
         // Preemptively return if the liquidity position has no ST shares to value
         if (lpClaims.stShares == 0) return nav;
-        // Get the total supply of senior tranche shares
-        uint256 stSharesTotalSupply = IRoycoVaultTranche(SENIOR_TRANCHE).totalSupply();
         // Sum any quote asset NAV with the NAV of the ST yield bearing assets owned by JT
-        nav = nav
-            + stConvertTrancheUnitsToNAVUnits(
-                _getRoycoDawnKernelStorage().stOwnedYieldBearingAssets.mulDiv(lpClaims.stShares, stSharesTotalSupply, Math.Rounding.Floor)
-            );
+        nav = nav + stConvertTrancheUnitsToNAVUnits(convertInternalSTSharesToSTAssets(lpClaims.stShares));
     }
 
     /// @inheritdoc IRoycoDawnKernel
@@ -71,6 +67,13 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
         return toTrancheUnits(
             toUint256(_navAssets.mulDiv(JUNIOR_TRANCHE_UNIT_SCALE_FACTOR, _getCachedJuniorTrancheUnitToNAVUnitConversionRateWAD(), Math.Rounding.Floor))
         );
+    }
+
+    /// @inheritdoc IRoycoDuskKernel
+    function convertInternalSTSharesToSTAssets(uint256 _internalSTShares) public view override(IRoycoDuskKernel) returns (TRANCHE_UNIT stAssets) {
+        return
+            _getRoycoDawnKernelStorage().stOwnedYieldBearingAssets
+                .mulDiv(_internalSTShares, IRoycoVaultTranche(SENIOR_TRANCHE).totalSupply(), Math.Rounding.Floor);
     }
 
     /// @inheritdoc IRoycoDuskKernel
@@ -169,6 +172,35 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
         return jtConvertTrancheUnitsToNAVUnits(_getRoycoDawnKernelStorage().jtOwnedYieldBearingAssets);
     }
 
+    /// @inheritdoc RoycoDawnKernel
+    /// @dev Unwraps the liquidity position tied to the specified JT assets (LP tokens) and remits the internal ST shares withdrawn to this kernel and quote assets withdrawn to the receiver
+    /// @dev Burns any internal ST shares withdrawn and remits their proportional claim on ST assets to the specified receiver
+    function _jtWithdrawAssets(TRANCHE_UNIT _jtAssets, address _receiver) internal virtual override(RoycoDawnKernel) {
+        // Unwrap the liquidity position: the internal ST shares withdrawn must be in the kernel and the quote assets withdrawn must have been remitted to the specified receiver
+        uint256 internalSTSharesWithdrawn = _jtUnwrapLiquidityPosition(_jtAssets, _receiver);
+        // Preemptively return if their were no internal ST shares withdrawn
+        if (internalSTSharesWithdrawn == 0) return;
+        // Convert the internal ST shares withdrawn to their claims on ST assets
+        TRANCHE_UNIT internalSTAssetsToWithdraw = convertInternalSTSharesToSTAssets(internalSTSharesWithdrawn);
+        // Debit the ST assets being withdrawn
+        RoycoDawnKernelState storage $ = _getRoycoDawnKernelStorage();
+        $.stOwnedYieldBearingAssets = $.stOwnedYieldBearingAssets - internalSTAssetsToWithdraw;
+        // Burn the internal ST shares this kernel received
+        IRoycoVaultTranche(SENIOR_TRANCHE).burn(internalSTSharesWithdrawn);
+        // Remit the ST assets directly to the specified receiver
+        IERC20(ST_ASSET).safeTransfer(_receiver, toUint256(internalSTAssetsToWithdraw));
+    }
+
+    /**
+     * @notice Unwraps the specified amount of junior tranche assets out of the junior tranche's underlying liquidity position
+     * @dev The inheriting junior tranche liquidity position quoter must implement this function
+     * @dev The quote asset portion of the unwrap must be remitted directly to the receiver, the internal senior tranche shares released must be credited back to this kernel so that `_jtWithdrawAssets` can burn them against the senior tranche and remit the underlying senior assets to the receiver
+     * @param _jtAssets The junior tranche assets (units of the underlying liquidity position) to unwrap
+     * @param _receiver The recipient of the quote asset portion of the unwrap
+     * @return internalSTSharesWithdrawn The senior tranche shares withdrawn back to this kernel by the unwrap: they are burnt and remitted as the underlying senior asset to the receiver by `_jtWithdrawAssets`
+     */
+    function _jtUnwrapLiquidityPosition(TRANCHE_UNIT _jtAssets, address _receiver) internal virtual returns (uint256 internalSTSharesWithdrawn);
+
     // =============================
     // Internal Quoter Cache Functions
     // =============================
@@ -187,18 +219,25 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
         cachedJuniorTrancheUnitToNAVUnitConversionRateWAD = 0;
     }
 
-    /**
-     * @notice Returns the cached junior tranche unit to NAV unit conversion rate
-     * @dev On a cache hit, returns the cached value.
-     *      Otherwise falls back to querying the rate directly for view function compatibility.
-     * @return The junior tranche unit to NAV unit conversion rate
-     */
+    /// @notice Returns the junior tranche unit → NAV unit conversion rate, preferring the transient cache and falling back to the live query on miss
+    /// @return The junior tranche unit → NAV unit conversion rate, scaled to WAD precision
     function _getCachedJuniorTrancheUnitToNAVUnitConversionRateWAD() internal view returns (uint256) {
-        // Look up the transient cache slot
-        (bool cacheHit, uint256 conversionRateWAD) = _lookupCachedConversionRate(cachedJuniorTrancheUnitToNAVUnitConversionRateWAD);
+        (bool cacheHit, uint256 conversionRateWAD) = _lookupCachedConversionRate(ConversionRateCacheKey.JUNIOR_TRANCHE_UNIT);
         if (cacheHit) return conversionRateWAD;
-        // Otherwise fall back to querying the rate directly (for view functions)
         return toUint256(jtConvertTrancheUnitsToNAVUnits(toTrancheUnits(JUNIOR_TRANCHE_UNIT_SCALE_FACTOR)));
+    }
+
+    /// @inheritdoc RoycoDawnKernel
+    /// @dev Handles the Dusk-level QUOTE_UNIT cache key; delegates the tranche-unit keys to super
+    function _lookupCachedConversionRate(ConversionRateCacheKey _cacheKey)
+        internal
+        view
+        virtual
+        override(RoycoDawnKernel)
+        returns (bool cacheHit, uint256 conversionRateWAD)
+    {
+        if (_cacheKey == ConversionRateCacheKey.QUOTE_UNIT) return _decodeCachedConversionRate(cachedQuoteAssetToNAVUnitConversionRateWAD);
+        return super._lookupCachedConversionRate(_cacheKey);
     }
 
     // =============================

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { IRoycoDawnKernel } from "../../../../interfaces/IRoycoDawnKernel.sol";
-import { KernelType } from "../../../../libraries/Types.sol";
+import { ConversionRateCacheKey, KernelType } from "../../../../libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT } from "../../../../libraries/Units.sol";
 import { RoycoDawnKernel } from "../../RoycoDawnKernel.sol";
 import { RoycoDuskKernel } from "../../RoycoDuskKernel.sol";
@@ -140,5 +140,23 @@ abstract contract ERC4626SharesToChainlinkOracle_ST_BPTsWithERC4626ChainlinkQuot
     /// @inheritdoc RoycoDuskKernel
     function KERNEL_TYPE() external pure override(RoycoDawnKernel, RoycoDuskKernel) returns (KernelType kernelType) {
         return KernelType.DUSK;
+    }
+
+    /// @inheritdoc RoycoDuskKernel
+    /// @dev Disambiguates the diamond between Dawn's default `safeTransfer` of JT_ASSET (reached via the Senior chain) and Dusk's unwrap + burn + remit template (reached via the JT chain). Delegates to Dusk's template
+    function _jtWithdrawAssets(TRANCHE_UNIT _jtAssets, address _receiver) internal virtual override(RoycoDawnKernel, RoycoDuskKernel) {
+        RoycoDuskKernel._jtWithdrawAssets(_jtAssets, _receiver);
+    }
+
+    /// @inheritdoc RoycoDawnKernel
+    /// @dev Diamond resolution: prefer Dusk's override which handles the QUOTE_UNIT key on top of Dawn's tranche-unit keys
+    function _lookupCachedConversionRate(ConversionRateCacheKey _cacheKey)
+        internal
+        view
+        virtual
+        override(RoycoDawnKernel, RoycoDuskKernel)
+        returns (bool cacheHit, uint256 conversionRateWAD)
+    {
+        return RoycoDuskKernel._lookupCachedConversionRate(_cacheKey);
     }
 }

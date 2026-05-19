@@ -8,7 +8,7 @@ import { SeniorAssetsOracleQuoter } from "./SeniorAssetsOracleQuoter.sol";
 /**
  * @title SeniorAssetsChainlinkOracleQuoter
  * @notice Quoter to convert senior tranche units to/from NAV units using a Chainlink (compatible) oracle to convert senior tranche units to reference assets which uses an admin or oracle set rate to convert to NAV units
- * @dev Use case: Convert PT-USDE (Senior tranche unit) to USDE (Reference asset) using a Chainlink (compatible) oracle and convert USDE to USD (NAV unit) using an admin or oracle set rate
+ * @dev Use case: Convert PT-USDe (Senior tranche unit) to USDe (Reference asset) using a Chainlink (compatible) oracle and convert USDe to USD (NAV unit) using an admin or oracle set rate
  */
 abstract contract SeniorAssetsChainlinkOracleQuoter is SeniorAssetsOracleQuoter {
     using Math for uint256;

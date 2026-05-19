@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../../../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
+import { ConversionRateCacheKey } from "../../../../../../libraries/Types.sol";
 import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "../../../../../../libraries/Units.sol";
 import { RoycoDawnKernel } from "../../../../RoycoDawnKernel.sol";
 
@@ -24,9 +25,6 @@ abstract contract SeniorAssetsOracleQuoter is RoycoDawnKernel {
 
     /// @dev Value representing the scale factor of the senior tranche unit: 10^(ST_ASSET_DECIMALS)
     uint256 internal immutable SENIOR_TRANCHE_UNIT_SCALE_FACTOR;
-
-    /// @dev The cached senior tranche unit to NAV unit conversion rate
-    uint256 internal transient cachedSeniorTrancheUnitToNAVUnitConversionRateWAD;
 
     /// @dev Storage state for the Royco senior assets overridable oracle quoter
     /// @custom:storage-location erc7201:Royco.storage.SeniorAssetsOracleQuoterState
@@ -119,17 +117,11 @@ abstract contract SeniorAssetsOracleQuoter is RoycoDawnKernel {
         cachedSeniorTrancheUnitToNAVUnitConversionRateWAD = 0;
     }
 
-    /**
-     * @notice Returns the cached senior tranche unit to NAV unit conversion rate
-     * @dev On a cache hit, returns the cached value.
-     *      Otherwise falls back to getSeniorTrancheUnitToNAVUnitConversionRateWAD() for view function compatibility.
-     * @return The senior tranche unit to NAV unit conversion rate
-     */
+    /// @notice Returns the senior tranche unit → NAV unit conversion rate, preferring the transient cache and falling back to the live oracle query on miss
+    /// @return The senior tranche unit → NAV unit conversion rate, scaled to WAD precision
     function _getCachedSeniorTrancheUnitToNAVUnitConversionRateWAD() internal view returns (uint256) {
-        // Look up the transient cache slot
-        (bool cacheHit, uint256 conversionRateWAD) = _lookupCachedConversionRate(cachedSeniorTrancheUnitToNAVUnitConversionRateWAD);
+        (bool cacheHit, uint256 conversionRateWAD) = _lookupCachedConversionRate(ConversionRateCacheKey.SENIOR_TRANCHE_UNIT);
         if (cacheHit) return conversionRateWAD;
-        // Otherwise fall back to querying the rate directly (for view functions)
         return getSeniorTrancheUnitToNAVUnitConversionRateWAD();
     }
 

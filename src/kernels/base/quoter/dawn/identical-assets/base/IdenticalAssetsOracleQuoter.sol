@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../../../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
+import { ConversionRateCacheKey } from "../../../../../../libraries/Types.sol";
 import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "../../../../../../libraries/Units.sol";
 import { RoycoDawnKernel } from "../../../../RoycoDawnKernel.sol";
 
@@ -24,9 +25,6 @@ abstract contract IdenticalAssetsOracleQuoter is RoycoDawnKernel {
 
     /// @dev Value representing the scale factor of the tranche unit: 10^(TRANCHE_UNIT_DECIMALS)
     uint256 internal immutable TRANCHE_UNIT_SCALE_FACTOR;
-
-    /// @dev The cached tranche unit to NAV unit conversion rate
-    uint256 internal transient cachedTrancheUnitToNAVUnitConversionRateWAD;
 
     /// @dev Storage state for the Royco identical assets overridable oracle quoter
     /// @custom:storage-location erc7201:Royco.storage.IdenticalAssetsOracleQuoterState
@@ -138,7 +136,7 @@ abstract contract IdenticalAssetsOracleQuoter is RoycoDawnKernel {
      */
     function _getCachedTrancheUnitToNAVUnitConversionRateWAD() internal view returns (uint256) {
         // Look up the transient cache slot
-        (bool cacheHit, uint256 conversionRateWAD) = _lookupCachedConversionRate(cachedTrancheUnitToNAVUnitConversionRateWAD);
+        (bool cacheHit, uint256 conversionRateWAD) = _lookupCachedConversionRate(ConversionRateCacheKey.UNIFIED_TRANCHE_UNIT);
         if (cacheHit) return conversionRateWAD;
         // Otherwise fall back to querying the rate directly (for view functions)
         return getTrancheUnitToNAVUnitConversionRateWAD();

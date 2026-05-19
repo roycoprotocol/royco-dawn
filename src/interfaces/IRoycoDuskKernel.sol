@@ -55,4 +55,12 @@ interface IRoycoDuskKernel is IRoycoDawnKernel {
      * @return nav The specified quote assets denominated in quote units converted to the kernel's NAV units
      */
     function lpConvertQuoteAssetsToNAVUnits(QUOTE_UNIT _quoteAssets) external view returns (NAV_UNIT nav);
+
+    /**
+     * @notice Converts the specified amount of internal senior tranche shares to their pro-rata claim on the senior tranche's underlying yield-bearing assets
+     * @dev Internal senior tranche shares are the senior tranche shares held by the junior tranche's liquidity position, as opposed to the external senior tranche shares held by senior tranche depositors
+     * @param _internalSTShares The amount of internal senior tranche shares to convert
+     * @return stAssets The pro-rata claim on the senior tranche's underlying yield-bearing assets, denominated in tranche units
+     */
+    function convertInternalSTSharesToSTAssets(uint256 _internalSTShares) external view returns (TRANCHE_UNIT stAssets);
 }

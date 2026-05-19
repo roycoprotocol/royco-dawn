@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+import { IVault } from "../../../../../../../lib/balancer-v3-monorepo/pkg/interfaces/contracts/vault/IVault.sol";
 import {
     AddLiquidityKind,
     AfterSwapParams,
@@ -8,11 +9,15 @@ import {
     LiquidityManagement,
     PoolSwapParams,
     RemoveLiquidityKind,
+    RemoveLiquidityParams,
     TokenConfig
 } from "../../../../../../../lib/balancer-v3-monorepo/pkg/interfaces/contracts/vault/VaultTypes.sol";
-import { BalancerPoolToken, IVault } from "../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BalancerPoolToken.sol";
+import { ScalingHelpers } from "../../../../../../../lib/balancer-v3-monorepo/pkg/solidity-utils/contracts/helpers/ScalingHelpers.sol";
+import { BalancerPoolToken } from "../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BalancerPoolToken.sol";
 import { BaseHooks, IHooks } from "../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BaseHooks.sol";
+import { BasePoolMath } from "../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BasePoolMath.sol";
 import { VaultGuard } from "../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/VaultGuard.sol";
+import { IERC20Metadata } from "../../../../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import { IERC20 } from "../../../../../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import { Math, QUOTE_UNIT, TRANCHE_UNIT, UnitsMathLib, toQuoteUnits, toUint256 } from "../../../../../../libraries/Units.sol";
 import { IRoycoDuskKernel, LiquidityPositionClaims, RoycoDuskKernel } from "../../../../RoycoDuskKernel.sol";
@@ -28,12 +33,16 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Bas
     using UnitsMathLib for uint256;
     using UnitsMathLib for QUOTE_UNIT;
     using Math for uint256;
+    using ScalingHelpers for uint256;
 
     /// @notice Index of the Senior Tranche share token in the pool's token registration order
     uint256 internal immutable ST_SHARE_POOL_INDEX;
 
     /// @notice Index of the quote asset in the pool's token registration order
     uint256 internal immutable QUOTE_ASSET_POOL_INDEX;
+
+    /// @dev Decimal scaling factor for the quote asset token, cached at construction since it is fixed at pool registration: 10^(18 - tokenDecimals)
+    uint256 internal immutable QUOTE_ASSET_POOL_DECIMAL_SCALING_FACTOR;
 
     /// @dev Thrown when the pool invoking a hook isn't this market's junior tranche pool
     error ONLY_JUNIOR_TRANCHE_BALANCER_POOL();
@@ -56,10 +65,8 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Bas
 
     /**
      * @notice Constructs the Junior Assets Balancer V3 pool tokens quoter
-     * @dev Derives the Vault address from the pool via BalancerPoolToken.getVault(), so the pool
-     *      address (= JT_ASSET) is the only deployment parameter required
-     * @dev Resolves token indices by matching the pool's registered tokens against ST_ASSET and
-     *      the quote asset surfaced by the sibling quote-asset quoter mixin
+     * @dev Derives the Vault address from JT_ASSET via `BalancerPoolToken.getVault()`
+     * @dev Caches the constituent token indices and per-token decimal scaling factors as immutables since they are fixed at pool registration
      */
     constructor() VaultGuard(BalancerPoolToken(JT_ASSET).getVault()) {
         // Ensure that the Balancer V3 Pool is registered with the vault
@@ -74,10 +81,14 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Bas
         if (address(tokens[0]) == SENIOR_TRANCHE && address(tokens[1]) == QUOTE_ASSET) QUOTE_ASSET_POOL_INDEX = 1;
         else if (address(tokens[0]) == QUOTE_ASSET && address(tokens[1]) == SENIOR_TRANCHE) ST_SHARE_POOL_INDEX = 1;
         else revert INVALID_POOL_TOKEN_CONFIGURATION();
+
+        // Cache the quote asset's per-token decimal scaling factor: `10^(18 - tokenDecimals)` matches the Balancer V3 derivation
+        // NOTE: The senior tranche share is always 18 decimals, so its scaling factor is implicitly 1 and does not need to be cached
+        QUOTE_ASSET_POOL_DECIMAL_SCALING_FACTOR = 10 ** (18 - IERC20Metadata(QUOTE_ASSET).decimals());
     }
 
     // =============================
-    // Junior Tranche Asset Quoter Functions
+    // Junior Tranche Liquidity Position Quoter Functions
     // =============================
 
     /**
@@ -97,15 +108,79 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Bas
         override(RoycoDuskKernel)
         returns (LiquidityPositionClaims memory claims)
     {
-        // Get the total constituent token balances of the Balancer V3 pool and the total supply of BPT tokens
-        (,, uint256[] memory constituentTokenBalances,) = _vault.getPoolTokenInfo(JT_ASSET);
+        // Mirror the Balancer V3 Vault's PROPORTIONAL `removeLiquidity` math path bit-for-bit so that this quote returns the exact same constituent token amounts the unwrap will deliver
+        // Preemptively return zero claims if the pool has no outstanding claims on its constituent tokens
         uint256 bptTotalSupply = _vault.totalSupply(JT_ASSET);
-        // Preemptively return if the pool has no outstanding claims on its constituent tokens
         if (bptTotalSupply == 0) return claims;
 
-        // Convert the specified BPTs (JT assets) to pro-rata claims of the pool's total constituent tokens
-        claims.stShares = constituentTokenBalances[ST_SHARE_POOL_INDEX].mulDiv(toUint256(_jtAssets), bptTotalSupply, Math.Rounding.Floor);
-        claims.quoteAssets = toQuoteUnits(constituentTokenBalances[QUOTE_ASSET_POOL_INDEX]).mulDiv(toUint256(_jtAssets), bptTotalSupply, Math.Rounding.Floor);
+        // Delegate the proportional math across the constituent tokens to Balancer's library to guarantee bit-for-bit equivalence with the kernel's liquidity position unwrap logic
+        uint256[] memory constituentTokenAmountsOutWAD =
+            BasePoolMath.computeProportionalAmountsOut(_vault.getCurrentLiveBalances(JT_ASSET), bptTotalSupply, toUint256(_jtAssets));
+
+        // Get the constituent token rates in NAV units used by the junior tranche pool
+        /// NOTE: The rate providers for the junior tranche pool proxy this kernel's NAV for ST shares and quote assets
+        (, uint256[] memory constituentTokenRates) = _vault.getPoolTokenRates(JT_ASSET);
+
+        // Undo decimal scaling and rate scaling to recover the raw constituent token amounts, matching `Vault._removeLiquidity`'s `toRawUndoRateRoundDown` step that converts the scaled18 outputs back to native decimals
+        // NOTE: The senior tranche share is always 18 decimals so its decimal scaling factor is implicitly 1
+        claims.stShares = constituentTokenAmountsOutWAD[ST_SHARE_POOL_INDEX].toRawUndoRateRoundDown(1, constituentTokenRates[ST_SHARE_POOL_INDEX]);
+        claims.quoteAssets = toQuoteUnits(
+            constituentTokenAmountsOutWAD[QUOTE_ASSET_POOL_INDEX].toRawUndoRateRoundDown(
+                QUOTE_ASSET_POOL_DECIMAL_SCALING_FACTOR, constituentTokenRates[QUOTE_ASSET_POOL_INDEX]
+            )
+        );
+    }
+
+    // =============================
+    // Balancer V3 Liquidity Position Callback Function
+    // =============================
+
+    /**
+     * @notice Callback that performs the proportional BPT unwrap inside the unlocked Balancer V3 Vault's context
+     * @dev Only callable by the Balancer V3 Vault
+     * @dev This callback must settle all credit and debt created in the vault's accounting by the end of its execution
+     * @param _jtAssets The exact BPT amount (JT assets) to burn from this contract's balance
+     * @param _receiver The recipient of the claims on the internal ST shares and quote assets withdrawn
+     */
+    function jtUnwrapBalancerV3LiquidityPosition(TRANCHE_UNIT _jtAssets, address _receiver) external onlyVault returns (uint256 internalSTSharesWithdrawn) {
+        // Debit this kernel with the proportional constituent claims tied to the specified amount of JT assets
+        (, uint256[] memory amountsOut,) = _vault.removeLiquidity(
+            RemoveLiquidityParams({
+                pool: JT_ASSET, // The Balancer pool to remove liquidity from is the junior tranche's asset (BPT)
+                from: address(this), // The kernel custodies the BPT balance of the entire junior tranche, so the BPT constituents are debited from its claims
+                maxBptAmountIn: toUint256(_jtAssets), // For PROPORTIONAL removals the Vault treats this as the exact BPT amount to burn (not an upper bound)
+                minAmountsOut: new uint256[](2), // No slippage floors needed: PROPORTIONAL removals preserve the pool's invariant under any composition, so the unwrap is sandwich-resistant by construction
+                kind: RemoveLiquidityKind.PROPORTIONAL, // Mirrors the pro-rata math used by `jtConvertTrancheUnitsToLPClaims` so the unwrap matches the quote
+                userData: "" // PROPORTIONAL removals skip the pool's compute callback and this kernel's hooks do not consume userData
+            })
+        );
+        // Credit the internal ST shares withdrawn to this kernel: these will be burnt and their claim on ST assets will be remitted to the receiver upstream
+        _vault.sendTo(IERC20(SENIOR_TRANCHE), address(this), (internalSTSharesWithdrawn = amountsOut[ST_SHARE_POOL_INDEX]));
+        // Credit the quote assets withdrawn directly to the specified receiver
+        _vault.sendTo(IERC20(QUOTE_ASSET), _receiver, amountsOut[QUOTE_ASSET_POOL_INDEX]);
+        /// @dev All credit and debt created during this callback has been settled
+    }
+
+    // =============================
+    // Internal Utility Functions
+    // =============================
+
+    /// @inheritdoc RoycoDuskKernel
+    /// @dev Unlocks the Balancer V3 Vault and dispatches into the unwrap liquidity position callback
+    /// @dev The vault is required to be unlocked with a callback in order to transition into a transient accounting state, expecting the callback to settle all credit and debt before returning
+    function _jtUnwrapLiquidityPosition(
+        TRANCHE_UNIT _jtAssets,
+        address _receiver
+    )
+        internal
+        override(RoycoDuskKernel)
+        returns (uint256 internalSTSharesWithdrawn)
+    {
+        // Unlock the Balancer vault, execute the callback to unwrap the specified units of the liquidity position, and return the internal ST shares withdrawn in the process
+        bytes memory callbackReturnData = _vault.unlock(abi.encodeCall(this.jtUnwrapBalancerV3LiquidityPosition, (_jtAssets, _receiver)));
+        assembly ("memory-safe") {
+            internalSTSharesWithdrawn := mload(add(callbackReturnData, 0x20))
+        }
     }
 
     // =============================

@@ -151,3 +151,18 @@ enum KernelType {
     DUSK
 }
 
+/**
+ * @title ConversionRateCacheKey
+ * @dev Identifies which transient conversion-rate cache slot a quoter is looking up
+ * @custom:type UNIFIED_TRANCHE_UNIT - The unified tranche unit cache slot used by kernels where ST and JT share a single conversion rate (e.g., Identical kernels)
+ * @custom:type SENIOR_TRANCHE_UNIT - The senior tranche unit cache slot used by kernels with distinct ST and JT assets
+ * @custom:type JUNIOR_TRANCHE_UNIT - The junior tranche unit cache slot used by kernels with distinct ST and JT assets
+ * @custom:type QUOTE_UNIT - The quote asset cache slot used by Dusk kernels
+ */
+enum ConversionRateCacheKey {
+    UNIFIED_TRANCHE_UNIT,
+    SENIOR_TRANCHE_UNIT,
+    JUNIOR_TRANCHE_UNIT,
+    QUOTE_UNIT
+}
+

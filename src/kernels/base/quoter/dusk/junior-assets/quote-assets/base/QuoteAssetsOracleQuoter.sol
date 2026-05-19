@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../../../../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
+import { ConversionRateCacheKey } from "../../../../../../../libraries/Types.sol";
 import { Math, NAV_UNIT, QUOTE_UNIT, UnitsMathLib, toNAVUnits, toUint256 } from "../../../../../../../libraries/Units.sol";
 import { IRoycoDuskKernel, RoycoDuskKernel } from "../../../../../RoycoDuskKernel.sol";
 
@@ -24,9 +25,6 @@ abstract contract QuoteAssetsOracleQuoter is RoycoDuskKernel {
     /// @dev Value representing the scale factor of the quote unit: 10^(QUOTE_UNIT_DECIMALS)
     uint256 internal immutable QUOTE_UNIT_SCALE_FACTOR;
 
-    /// @dev The cached quote asset to NAV unit conversion rate
-    uint256 internal transient cachedQuoteAssetToNAVUnitConversionRateWAD;
-
     /// @dev Storage state for the Royco quote assets overridable oracle quoter
     /// @custom:storage-location erc7201:Royco.storage.QuoteAssetsOracleQuoterState
     struct QuoteAssetsOracleQuoterState {
@@ -34,7 +32,7 @@ abstract contract QuoteAssetsOracleQuoter is RoycoDuskKernel {
     }
 
     /// @notice Emitted when the quote asset to NAV unit conversion rate is updated
-    /// @param quoteAssetConversionRateWAD The updated conversion rate, scaled to WAD precision
+    /// @param quoteAssetConversionRateWAD The updated conversion rate as defined by the oracle, scaled to WAD precision
     event QuoteAssetConversionRateUpdated(uint256 quoteAssetConversionRateWAD);
 
     /// @dev Constructs the quote assets oracle quoter
@@ -81,7 +79,7 @@ abstract contract QuoteAssetsOracleQuoter is RoycoDuskKernel {
 
     /**
      * @notice Returns the value of 1 Quote Unit in NAV Units, scaled to WAD precision
-     * @dev If the admin override is set, returns that value; otherwise returns the value queried from the oracle
+     * @dev If the admin oracle is set, it will return the override value, otherwise it will return the value queried from the oracle
      * @return quoteAssetToNAVUnitConversionRateWAD The quote asset to NAV unit conversion rate
      */
     function getQuoteAssetToNAVUnitConversionRateWAD() public view virtual returns (uint256 quoteAssetToNAVUnitConversionRateWAD) {
@@ -114,22 +112,17 @@ abstract contract QuoteAssetsOracleQuoter is RoycoDuskKernel {
         cachedQuoteAssetToNAVUnitConversionRateWAD = 0;
     }
 
-    /**
-     * @notice Returns the cached quote asset to NAV unit conversion rate
-     * @dev On a cache hit, returns the cached value.
-     *      Otherwise falls back to getQuoteAssetToNAVUnitConversionRateWAD() for view function compatibility.
-     * @return The quote asset to NAV unit conversion rate
-     */
+    /// @notice Returns the quote asset → NAV unit conversion rate, preferring the transient cache and falling back to the live oracle query on miss
+    /// @return The quote asset → NAV unit conversion rate, scaled to WAD precision
     function _getCachedQuoteAssetToNAVUnitConversionRateWAD() internal view returns (uint256) {
-        // Look up the transient cache slot
-        (bool cacheHit, uint256 conversionRateWAD) = _lookupCachedConversionRate(cachedQuoteAssetToNAVUnitConversionRateWAD);
+        (bool cacheHit, uint256 conversionRateWAD) = _lookupCachedConversionRate(ConversionRateCacheKey.QUOTE_UNIT);
         if (cacheHit) return conversionRateWAD;
-        // Otherwise fall back to querying the rate directly (for view functions)
         return getQuoteAssetToNAVUnitConversionRateWAD();
     }
 
     /**
-     * @notice Returns the quote asset conversion rate as queried from a configured oracle, scaled to WAD precision
+     * @notice Returns a quote asset conversion rate, scaled to WAD precision
+     * @dev Depending on the concrete implementation, this may return the value of 1 quote unit or an intermediate reference asset in NAV Units
      * @dev This function should be overridden if the conversion rate needs to be fetched from an oracle
      * @return quoteAssetConversionRateWAD The quote asset conversion rate, scaled to WAD precision
      */

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { JuniorAssetsBalancerV3PoolTokensQuoter } from "./liquidity-position/JuniorAssetsBalancerV3PoolTokensQuoter.sol";
+import { JuniorAssetsBalancerV3PoolTokensQuoter } from "./liquidity-position/balancer-v3/JuniorAssetsBalancerV3PoolTokensQuoter.sol";
 import { QuoteAssetsChainlinkOracleQuoter } from "./quote-assets/base/QuoteAssetsChainlinkOracleQuoter.sol";
 import { RoycoDuskKernel } from "../../../RoycoDuskKernel.sol";
 

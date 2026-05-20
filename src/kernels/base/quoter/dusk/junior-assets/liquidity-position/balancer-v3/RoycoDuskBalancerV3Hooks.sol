@@ -206,15 +206,17 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
         returns (bool, uint256)
     { }
 
-    /// @inheritdoc IHooks
+    /**
+     * @inheritdoc IHooks
+     * @dev All liquidity operations execute a PNL accounting sync to ensure that accounting is fresh before the operation
+     * @dev All liquidity operations execute a NAV recomposition, reconciling the new internal and external ST shares, and a PNL sync, applying trade execution slippage and fees, after the operation
+     */
     function getHookFlags() public view virtual override(BaseHooks) returns (HookFlags memory) {
         return HookFlags({
             enableHookAdjustedAmounts: false,
             shouldCallBeforeInitialize: false,
             shouldCallAfterInitialize: false,
             shouldCallComputeDynamicSwapFee: false,
-            // All liquidity operations execute a PNL accounting sync to ensure that accounting is fresh before the operation
-            // All liquidity operations execute a NAV recomposition, reconciling the new internal and external ST shares, and a PNL sync, applying trade execution slippage and fees, after the operation
             shouldCallBeforeSwap: true,
             shouldCallAfterSwap: true,
             shouldCallBeforeAddLiquidity: true,

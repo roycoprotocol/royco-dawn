@@ -3,8 +3,8 @@ pragma solidity ^0.8.28;
 
 import { EnumerableSet } from "../../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import { RoycoBase } from "../base/RoycoBase.sol";
+import { IRoycoDawnFactory } from "../interfaces/IRoycoDawnFactory.sol";
 import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
-import { IRoycoFactory } from "../interfaces/IRoycoFactory.sol";
 import { IRoycoVaultTranche } from "../interfaces/IRoycoVaultTranche.sol";
 
 /**
@@ -201,7 +201,7 @@ contract RoycoMarketSyncer is RoycoBase {
 
         // Get the senior tranche for this kernel from the kernel itself and the corresponding junior tranche from the canonical factory mapping
         address seniorTranche = IRoycoDawnKernel(_ostensibleMarketKernel).SENIOR_TRANCHE();
-        address juniorTranche = IRoycoFactory(authority()).seniorTrancheToJuniorTranche(seniorTranche);
+        address juniorTranche = IRoycoDawnFactory(authority()).seniorTrancheToJuniorTranche(seniorTranche);
 
         // Ensure that the kernel was deployed by the Royco factory
         require(juniorTranche != address(0) && _ostensibleMarketKernel == IRoycoVaultTranche(seniorTranche).KERNEL(), INVALID_KERNEL(_ostensibleMarketKernel));

@@ -5,7 +5,6 @@ import { TrancheType } from "../../src/libraries/Types.sol";
 
 import { UpgradeBase } from "./base/UpgradeBase.sol";
 import { UpgradeAccountantModule } from "./modules/UpgradeAccountantModule.sol";
-import { UpgradeFactoryModule } from "./modules/UpgradeFactoryModule.sol";
 import { UpgradeModuleBase } from "./modules/UpgradeModuleBase.sol";
 import { UpgradeTrancheModule } from "./modules/UpgradeTrancheModule.sol";
 import { UpgradeIdenticalErc4626KernelModule } from "./modules/kernels/UpgradeIdenticalErc4626KernelModule.sol";
@@ -48,8 +47,7 @@ contract UpgradeBatch is UpgradeBase {
         KERNEL_IDENTICAL_ERC4626_CHAINLINK,
         KERNEL_MAPLE_POOL_V2_CHAINLINK,
         KERNEL_SUSDAI_ADMIN_ORACLE,
-        ACCOUNTANT,
-        FACTORY
+        ACCOUNTANT
     }
 
     struct UpgradeConfigEntry {
@@ -68,7 +66,6 @@ contract UpgradeBatch is UpgradeBase {
     // Modules — one instance per kind.
     UpgradeTrancheModule internal _trancheModule;
     UpgradeAccountantModule internal _accountantModule;
-    UpgradeFactoryModule internal _factoryModule;
     UpgradeIdenticalErc4626KernelModule internal _kernelIdenticalErc4626Module;
     UpgradeMaplePoolV2KernelModule internal _kernelMapleModule;
     UpgradeSUSDaiKernelModule internal _kernelSUSDaiModule;
@@ -87,7 +84,6 @@ contract UpgradeBatch is UpgradeBase {
     constructor() {
         _trancheModule = new UpgradeTrancheModule();
         _accountantModule = new UpgradeAccountantModule();
-        _factoryModule = new UpgradeFactoryModule();
         _kernelIdenticalErc4626Module = new UpgradeIdenticalErc4626KernelModule();
         _kernelMapleModule = new UpgradeMaplePoolV2KernelModule();
         _kernelSUSDaiModule = new UpgradeSUSDaiKernelModule();
@@ -95,7 +91,6 @@ contract UpgradeBatch is UpgradeBase {
         // deployed at setup time (before any fork is selected).
         vm.makePersistent(address(_trancheModule));
         vm.makePersistent(address(_accountantModule));
-        vm.makePersistent(address(_factoryModule));
         vm.makePersistent(address(_kernelIdenticalErc4626Module));
         vm.makePersistent(address(_kernelMapleModule));
         vm.makePersistent(address(_kernelSUSDaiModule));
@@ -149,12 +144,6 @@ contract UpgradeBatch is UpgradeBase {
         _configs.push(UpgradeConfigEntry({ chainId: chainId, kind: UpgradeKind.ACCOUNTANT, saltVersion: saltVersion, payload: abi.encode(marketName) }));
     }
 
-    /// @dev Push a factory upgrade for the chain. Factory is a per-chain singleton, so one entry
-    ///      per chain — placed after all market entries so it lands last in the Safe batch.
-    function _pushFactoryUpgrade(uint256 chainId, string memory saltVersion) internal {
-        _configs.push(UpgradeConfigEntry({ chainId: chainId, kind: UpgradeKind.FACTORY, saltVersion: saltVersion, payload: "" }));
-    }
-
     // ═══════════════════════════════════════════════════════════════════════════
     // ENTRY POINT
     // ═══════════════════════════════════════════════════════════════════════════
@@ -199,7 +188,6 @@ contract UpgradeBatch is UpgradeBase {
     function _moduleFor(UpgradeKind kind) internal view returns (UpgradeModuleBase) {
         if (kind == UpgradeKind.TRANCHE) return _trancheModule;
         if (kind == UpgradeKind.ACCOUNTANT) return _accountantModule;
-        if (kind == UpgradeKind.FACTORY) return _factoryModule;
         if (kind == UpgradeKind.KERNEL_IDENTICAL_ERC4626_CHAINLINK) return _kernelIdenticalErc4626Module;
         if (kind == UpgradeKind.KERNEL_MAPLE_POOL_V2_CHAINLINK) return _kernelMapleModule;
         if (kind == UpgradeKind.KERNEL_SUSDAI_ADMIN_ORACLE) return _kernelSUSDaiModule;

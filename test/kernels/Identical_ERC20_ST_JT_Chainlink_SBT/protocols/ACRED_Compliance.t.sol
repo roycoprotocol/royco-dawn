@@ -2,8 +2,8 @@
 pragma solidity ^0.8.28;
 
 import { IERC20 } from "../../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import { DeployScript } from "../../../../script/Deploy.s.sol";
-import { MarketDeploymentConfig } from "../../../../script/config/MarketDeploymentConfig.sol";
+import { COMPONENT_ID_KERNEL_IDENTICAL_ERC20_CHAINLINK_SBT } from "../../../../src/factory/templates/Components.sol";
+import { IdenticalERC20ChainlinkSBTDeploymentTemplate } from "../../../../src/factory/templates/dawn/IdenticalERC20ChainlinkSBTDeploymentTemplate.sol";
 import { IRoycoAccountant } from "../../../../src/interfaces/IRoycoAccountant.sol";
 import { IRoycoDawnKernel } from "../../../../src/interfaces/IRoycoDawnKernel.sol";
 import { IRoycoVaultTranche } from "../../../../src/interfaces/IRoycoVaultTranche.sol";
@@ -69,7 +69,7 @@ contract ACRED_ComplianceTest is Identical_ERC20_ST_JT_Chainlink_SBT_TestBase {
         return 1e4;
     }
 
-    function _deployKernelAndMarket() internal override returns (DeployScript.DeploymentResult memory) {
+    function _deployKernelAndMarket() internal override returns (MarketDeployment memory) {
         _mockDSTokenCompliance();
         return _deployACRED();
     }
@@ -84,20 +84,34 @@ contract ACRED_ComplianceTest is Identical_ERC20_ST_JT_Chainlink_SBT_TestBase {
         vm.mockCall(svc, abi.encodeWithSelector(bytes4(keccak256("validateTransfer(address,address,uint256,bool,uint256)"))), abi.encode(uint256(0)));
     }
 
-    function _deployACRED() private returns (DeployScript.DeploymentResult memory) {
-        MarketDeploymentConfig.MarketConfig memory cfg = DEPLOY_SCRIPT.getMarketConfig("ACRED");
-        _overrideStaleness(cfg);
-        uint32 scheduledOperationsExpirySeconds = DEPLOY_SCRIPT.getChainConfig(block.chainid).scheduledOperationsExpirySeconds;
-        return DEPLOY_SCRIPT.deploy(
-            cfg, OWNER_ADDRESS, PROTOCOL_FEE_RECIPIENT_ADDRESS, scheduledOperationsExpirySeconds, _generateRoleAssignments(), DEPLOYER.privateKey
+    function _deployACRED() private returns (MarketDeployment memory) {
+        IdenticalERC20ChainlinkSBTDeploymentTemplate template = new IdenticalERC20ChainlinkSBTDeploymentTemplate(FACTORY);
+        DawnDeploymentParams memory p;
+        p.marketId = keccak256("ACRED_COMPLIANCE_TEST");
+        p.template = address(template);
+        p.kernelComponentId = COMPONENT_ID_KERNEL_IDENTICAL_ERC20_CHAINLINK_SBT;
+        p.kernelCreationCode = type(Identical_ERC20_ST_JT_ChainlinkToAdminOracle_SoulBoundTrancheShares_Kernel).creationCode;
+        p.stAsset = config.stAsset;
+        p.jtAsset = config.jtAsset;
+        p.kernelSpecificParams = abi.encode(
+            IdenticalERC20ChainlinkSBTDeploymentTemplate.KernelParams({
+                initialConversionRateWAD: _getInitialConversionRate(),
+                trancheAssetToReferenceAssetOracle: ACRED_CHAINLINK_ORACLE,
+                stalenessThresholdSeconds: _getStalenessThreshold()
+            })
         );
-    }
-
-    function _overrideStaleness(MarketDeploymentConfig.MarketConfig memory _cfg) private pure {
-        DeployScript.IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams memory kp =
-            abi.decode(_cfg.kernelSpecificParams, (DeployScript.IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams));
-        kp.stalenessThresholdSeconds = _getStalenessThreshold();
-        _cfg.kernelSpecificParams = abi.encode(kp);
+        p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
+        p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
+        p.yieldShareProtocolFeeWAD = 0;
+        p.coverageWAD = COVERAGE_WAD;
+        p.betaWAD = BETA_WAD;
+        p.liquidationUtilizationWAD = LIQUIDATION_UTILIZATION_WAD;
+        p.fixedTermDurationSeconds = FIXED_TERM_DURATION_SECONDS;
+        p.stNAVDustTolerance = DUST_TOLERANCE;
+        p.jtNAVDustTolerance = DUST_TOLERANCE;
+        p.enforceVaultSharesTransferWhitelist = true;
+        p.stSelfLiquidationBonusWAD = 0;
+        return _deployDawnMarket(p);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -272,7 +286,8 @@ contract ACRED_ComplianceTest is Identical_ERC20_ST_JT_Chainlink_SBT_TestBase {
         // Simulate loss to trigger FIXED_TERM state
         simulateSTLoss(0.1e18); // 10% loss
         _refreshOraclesAfterWarp();
-        _sync();
+        vm.prank(SYNC_ROLE_ADDRESS);
+        KERNEL.syncTrancheAccounting();
 
         // Verify FIXED_TERM state
         assertEq(uint256(ACCOUNTANT.getState().lastMarketState), uint256(MarketState.FIXED_TERM), "Market should be in FIXED_TERM state");
@@ -294,7 +309,8 @@ contract ACRED_ComplianceTest is Identical_ERC20_ST_JT_Chainlink_SBT_TestBase {
         // Simulate loss to trigger FIXED_TERM state
         simulateSTLoss(0.1e18);
         _refreshOraclesAfterWarp();
-        _sync();
+        vm.prank(SYNC_ROLE_ADDRESS);
+        KERNEL.syncTrancheAccounting();
 
         // Verify FIXED_TERM state
         assertEq(uint256(ACCOUNTANT.getState().lastMarketState), uint256(MarketState.FIXED_TERM), "Market should be in FIXED_TERM state");

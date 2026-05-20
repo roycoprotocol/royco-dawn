@@ -115,11 +115,11 @@ abstract contract UpgradeConfig {
 
     function _initializeConfig() internal virtual {
         // Factory — singleton, CREATE2-deterministic; currently the same address on every chain.
-        address royco_factory = 0x7cC6fB28eC7b5e7afC3cB3986141797ffc27253C;
-        _factories[MAINNET] = royco_factory;
-        _factories[AVALANCHE] = royco_factory;
-        _factories[ARBITRUM] = royco_factory;
-        _factories[BASE] = royco_factory;
+        address royco_dawn_factory = 0x7cC6fB28eC7b5e7afC3cB3986141797ffc27253C;
+        _factories[MAINNET] = royco_dawn_factory;
+        _factories[AVALANCHE] = royco_dawn_factory;
+        _factories[ARBITRUM] = royco_dawn_factory;
+        _factories[BASE] = royco_dawn_factory;
 
         // ── Mainnet ──────────────────────────────────────────────────────────
         _markets[MAINNET][SNUSD] = MarketAddresses({

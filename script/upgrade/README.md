@@ -1,10 +1,10 @@
 # Royco Implementation Upgrade System
 
-Generates Safe transaction batches that upgrade UUPS proxies (tranches, kernels, accountant, factory) through the AccessManager (RoycoFactory) timelock — across any number of chains, mixing any number of contract types in a single per-chain batch.
+Generates Safe transaction batches that upgrade UUPS proxies (tranches, kernels, accountant, factory) through the AccessManager (RoycoDawnFactory) timelock — across any number of chains, mixing any number of contract types in a single per-chain batch.
 
 ## How it works
 
-All upgradeable Royco contracts use UUPS, with `_authorizeUpgrade` gated by `ADMIN_UPGRADER_ROLE` on the AccessManager (RoycoFactory). This role has a 2-day execution delay, so every upgrade goes through:
+All upgradeable Royco contracts use UUPS, with `_authorizeUpgrade` gated by `ADMIN_UPGRADER_ROLE` on the AccessManager (RoycoDawnFactory). This role has a 2-day execution delay, so every upgrade goes through:
 
 ```
 Script pre-deploys impl  →  Safe "schedule" batch  →  2-day delay  →  Safe "execute" batch

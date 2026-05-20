@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { IERC20 } from "../../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import { JT_LP_ROLE, ST_LP_ROLE } from "../../../../src/factory/RolesConfiguration.sol";
 import {
     Identical_ERC20_ST_JT_ChainlinkToAdminOracle_SoulBoundTrancheShares_Kernel
 } from "../../../../src/kernels/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_SoulBoundTrancheShares_Kernel.sol";
@@ -17,8 +18,8 @@ abstract contract Identical_ERC20_ST_JT_Chainlink_SBT_TestBase is YieldBearingER
 
     function _grantLPRoles(address _who) internal {
         vm.startPrank(LP_ROLE_ADMIN_ADDRESS);
-        FACTORY.grantRole(ST_LP_ROLE, _who, 0);
-        FACTORY.grantRole(JT_LP_ROLE, _who, 0);
+        AM.grantRole(ST_LP_ROLE, _who, 0);
+        AM.grantRole(JT_LP_ROLE, _who, 0);
         vm.stopPrank();
     }
 

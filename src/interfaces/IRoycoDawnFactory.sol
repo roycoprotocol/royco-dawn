@@ -5,9 +5,9 @@ import { IRoycoAccountant } from "./IRoycoAccountant.sol";
 import { IRoycoDawnKernel } from "./IRoycoDawnKernel.sol";
 import { IRoycoVaultTranche } from "./IRoycoVaultTranche.sol";
 
-/// @title IRoycoFactory
-/// @notice Interface for the RoycoFactory contract that deploys Royco markets
-interface IRoycoFactory {
+/// @title IRoycoDawnFactory
+/// @notice Interface for the RoycoDawnFactory contract that deploys Royco markets
+interface IRoycoDawnFactory {
     /// @notice Thrown when an already deployed contract is predicted
     error ALREADY_DEPLOYED(address deployedAddress, bytes32 salt);
 

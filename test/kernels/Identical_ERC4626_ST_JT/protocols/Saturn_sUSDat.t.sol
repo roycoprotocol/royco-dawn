@@ -4,15 +4,15 @@ pragma solidity ^0.8.28;
 import { IERC20 } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import { IERC4626 } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 
-import { DeployScript } from "../../../../script/Deploy.s.sol";
-import { MarketDeploymentConfig } from "../../../../script/config/MarketDeploymentConfig.sol";
-import { IRoycoFactory } from "../../../../src/interfaces/IRoycoFactory.sol";
 import { IStakedUSDat } from "../../../../src/interfaces/external/usdat/IStakedUSDat.sol";
 import { sUSDat_ST_JT_SharePriceToChainlinkOracle_Kernel } from "../../../../src/kernels/sUSDat_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
 import { WAD } from "../../../../src/libraries/Constants.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../../../src/libraries/Units.sol";
 
 import { DisabledChainlinkOracle_ERC4626_TestBase } from "../base/DisabledChainlinkOracle_ERC4626_TestBase.t.sol";
+
+import { COMPONENT_ID_KERNEL_SUSDAT } from "../../../../src/factory/templates/Components.sol";
+import { sUSDatDeploymentTemplate } from "../../../../src/factory/templates/dawn/sUSDatDeploymentTemplate.sol";
 
 /// @title Saturn_sUSDat_Test
 /// @notice Tests sUSDat_ST_JT_SharePriceToChainlinkOracle_Kernel with sUSDat (disabled oracle)
@@ -55,15 +55,30 @@ contract Saturn_sUSDat_Test is DisabledChainlinkOracle_ERC4626_TestBase {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Deploys the sUSDat kernel and market using parameters from MarketDeploymentConfig
-    function _deployKernelAndMarket() internal override returns (DeployScript.DeploymentResult memory) {
-        MarketDeploymentConfig.MarketConfig memory marketConfig = DEPLOY_SCRIPT.getMarketConfig("sUSDat");
-
-        uint32 scheduledOperationsExpirySeconds = DEPLOY_SCRIPT.getChainConfig(block.chainid).scheduledOperationsExpirySeconds;
-        IRoycoFactory.RoleAssignmentConfiguration[] memory roleAssignments = _generateRoleAssignments();
-
-        return DEPLOY_SCRIPT.deploy(
-            marketConfig, OWNER_ADDRESS, PROTOCOL_FEE_RECIPIENT_ADDRESS, scheduledOperationsExpirySeconds, roleAssignments, DEPLOYER.privateKey
+    function _deployKernelAndMarket() internal override returns (MarketDeployment memory) {
+        sUSDatDeploymentTemplate template = new sUSDatDeploymentTemplate(FACTORY);
+        DawnDeploymentParams memory p;
+        p.marketId = keccak256("SUSDAT_TEST");
+        p.template = address(template);
+        p.kernelComponentId = COMPONENT_ID_KERNEL_SUSDAT;
+        p.kernelCreationCode = type(sUSDat_ST_JT_SharePriceToChainlinkOracle_Kernel).creationCode;
+        p.stAsset = config.stAsset;
+        p.jtAsset = config.jtAsset;
+        p.kernelSpecificParams = abi.encode(
+            sUSDatDeploymentTemplate.KernelParams({ initialConversionRateWAD: WAD, baseAssetToNavAssetOracle: address(1), stalenessThresholdSeconds: 86_400 })
         );
+        p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
+        p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
+        p.yieldShareProtocolFeeWAD = 0;
+        p.coverageWAD = COVERAGE_WAD;
+        p.betaWAD = BETA_WAD;
+        p.liquidationUtilizationWAD = LIQUIDATION_UTILIZATION_WAD;
+        p.fixedTermDurationSeconds = FIXED_TERM_DURATION_SECONDS;
+        p.stNAVDustTolerance = DUST_TOLERANCE;
+        p.jtNAVDustTolerance = DUST_TOLERANCE;
+        p.enforceVaultSharesTransferWhitelist = false;
+        p.stSelfLiquidationBonusWAD = 0;
+        return _deployDawnMarket(p);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

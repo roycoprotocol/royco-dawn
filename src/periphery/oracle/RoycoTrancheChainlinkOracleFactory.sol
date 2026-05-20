@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { Create2 } from "../../../lib/openzeppelin-contracts/contracts/utils/Create2.sol";
-import { IRoycoFactory } from "../../interfaces/IRoycoFactory.sol";
+import { IRoycoDawnFactory } from "../../interfaces/IRoycoDawnFactory.sol";
 import { TrancheType } from "../../libraries/Types.sol";
 import { IRoycoVaultTranche, RoycoTrancheChainlinkOracle } from "./RoycoTrancheChainlinkOracle.sol";
 
@@ -61,8 +61,8 @@ contract RoycoTrancheChainlinkOracleFactory {
         require(_ostensibleRoycoTranche != address(0), NULL_ADDRESS());
         // Get the paired tranche from the factory to validate the input tranche was factory-deployed
         address correspondingTranche = IRoycoVaultTranche(_ostensibleRoycoTranche).TRANCHE_TYPE() == TrancheType.SENIOR
-            ? IRoycoFactory(ROYCO_FACTORY).seniorTrancheToJuniorTranche(_ostensibleRoycoTranche)
-            : IRoycoFactory(ROYCO_FACTORY).juniorTrancheToSeniorTranche(_ostensibleRoycoTranche);
+            ? IRoycoDawnFactory(ROYCO_FACTORY).seniorTrancheToJuniorTranche(_ostensibleRoycoTranche)
+            : IRoycoDawnFactory(ROYCO_FACTORY).juniorTrancheToSeniorTranche(_ostensibleRoycoTranche);
         require(correspondingTranche != address(0), INVALID_TRANCHE());
     }
 }

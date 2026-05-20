@@ -3,11 +3,12 @@ pragma solidity ^0.8.28;
 
 import { IERC20 } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import { IERC4626 } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-import { DeployScript } from "../../../../script/Deploy.s.sol";
 import { FundamentalStablecoinChainlinkOracleDeploymentConfig } from "../../../../script/config/FundamentalStablecoinChainlinkOracleDeploymentConfig.sol";
-import { MarketDeploymentConfig } from "../../../../script/config/MarketDeploymentConfig.sol";
 import { DeployFundamentalStablecoinChainlinkOracleScript } from "../../../../script/independent/DeployFundamentalStablecoinChainlinkOracle.s.sol";
-import { IRoycoFactory } from "../../../../src/interfaces/IRoycoFactory.sol";
+import { COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_CHAINLINK_ORACLE } from "../../../../src/factory/templates/Components.sol";
+import {
+    IdenticalERC4626ChainlinkOracleDeploymentTemplate
+} from "../../../../src/factory/templates/dawn/IdenticalERC4626ChainlinkOracleDeploymentTemplate.sol";
 import {
     Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
 } from "../../../../src/kernels/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
@@ -65,28 +66,39 @@ contract stcUSD_stcUSD_Test is FundamentalStablecoinPeg_ERC4626_ChainlinkOracle_
     // DEPLOYMENT (uses MarketDeploymentConfig)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Deploys the stcUSD kernel and market using parameters from MarketDeploymentConfig
-    /// @dev Uses the Cap fundamental price oracle from the deployment config for cUSD→USD pricing
-    function _deployKernelAndMarket() internal override returns (DeployScript.DeploymentResult memory) {
-        MarketDeploymentConfig.MarketConfig memory marketConfig = DEPLOY_SCRIPT.getMarketConfig("stcUSD");
-
-        uint32 scheduledOperationsExpirySeconds = DEPLOY_SCRIPT.getChainConfig(block.chainid).scheduledOperationsExpirySeconds;
-        IRoycoFactory.RoleAssignmentConfiguration[] memory roleAssignments = _generateRoleAssignments();
-
+    /// @notice Deploys the stcUSD kernel + market using the chainlink-oracle template with the
+    ///         FundamentalStablecoinChainlinkOracle deployed at runtime for cUSD→USD.
+    function _deployKernelAndMarket() internal override returns (MarketDeployment memory) {
         DeployFundamentalStablecoinChainlinkOracleScript ORACLE_DEPLOY_SCRIPT = new DeployFundamentalStablecoinChainlinkOracleScript();
         FundamentalStablecoinChainlinkOracleDeploymentConfig.OracleConfig memory oracleConfig =
             ORACLE_DEPLOY_SCRIPT.getOracleConfig(ORACLE_DEPLOY_SCRIPT.MAINNET_CUSD_USD());
         address cUSDOracle = ORACLE_DEPLOY_SCRIPT.deployOracle(oracleConfig.underlyingOracle, oracleConfig.minPegPrice, DEPLOYER.privateKey);
 
-        marketConfig.kernelSpecificParams = abi.encode(
-            DeployScript.IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
+        IdenticalERC4626ChainlinkOracleDeploymentTemplate template = new IdenticalERC4626ChainlinkOracleDeploymentTemplate(FACTORY);
+        DawnDeploymentParams memory p;
+        p.marketId = keccak256("STCUSD_TEST");
+        p.template = address(template);
+        p.kernelComponentId = COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_CHAINLINK_ORACLE;
+        p.kernelCreationCode = type(Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel).creationCode;
+        p.stAsset = config.stAsset;
+        p.jtAsset = config.jtAsset;
+        p.kernelSpecificParams = abi.encode(
+            IdenticalERC4626ChainlinkOracleDeploymentTemplate.KernelParams({
                 initialConversionRateWAD: 0, baseAssetToNavAssetOracle: cUSDOracle, stalenessThresholdSeconds: 86_400
             })
         );
-
-        return DEPLOY_SCRIPT.deploy(
-            marketConfig, OWNER_ADDRESS, PROTOCOL_FEE_RECIPIENT_ADDRESS, scheduledOperationsExpirySeconds, roleAssignments, DEPLOYER.privateKey
-        );
+        p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
+        p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
+        p.yieldShareProtocolFeeWAD = 0;
+        p.coverageWAD = COVERAGE_WAD;
+        p.betaWAD = BETA_WAD;
+        p.liquidationUtilizationWAD = LIQUIDATION_UTILIZATION_WAD;
+        p.fixedTermDurationSeconds = FIXED_TERM_DURATION_SECONDS;
+        p.stNAVDustTolerance = DUST_TOLERANCE;
+        p.jtNAVDustTolerance = DUST_TOLERANCE;
+        p.enforceVaultSharesTransferWhitelist = false;
+        p.stSelfLiquidationBonusWAD = 0;
+        return _deployDawnMarket(p);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

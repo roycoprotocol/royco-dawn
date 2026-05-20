@@ -5,7 +5,7 @@ import { Vm } from "../../../lib/forge-std/src/Vm.sol";
 import { IERC20 } from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { Math } from "../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
-import { DeployScript } from "../../../script/Deploy.s.sol";
+import { JT_LP_ROLE, ST_LP_ROLE, SYNC_ROLE } from "../../../src/factory/RolesConfiguration.sol";
 import { IRoycoAccountant } from "../../../src/interfaces/IRoycoAccountant.sol";
 import { IRoycoVaultTranche } from "../../../src/interfaces/IRoycoVaultTranche.sol";
 import { WAD } from "../../../src/libraries/Constants.sol";
@@ -42,9 +42,10 @@ abstract contract AbstractKernelTestSuite is BaseTest, IKernelTestHooks {
     // ABSTRACT FUNCTIONS (Must be implemented by concrete tests)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Deploys the kernel and market for this test suite
-    /// @return result The deployment result containing all contract references
-    function _deployKernelAndMarket() internal virtual returns (DeployScript.DeploymentResult memory result);
+    /// @notice Deploys the kernel and market for this test suite via the new template-driven factory.
+    /// @dev Concrete subclasses: register their Dawn template against `FACTORY`, build the params,
+    ///      call `FACTORY.executeMarketDeployment(...)`, and wrap the result in a `MarketDeployment`.
+    function _deployKernelAndMarket() internal virtual returns (MarketDeployment memory result);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // IKernelTestHooks INTERFACE FUNCTIONS (Must be implemented by concrete tests)
@@ -107,11 +108,11 @@ abstract contract AbstractKernelTestSuite is BaseTest, IKernelTestHooks {
         // Setup base wallets
         _setupWallets();
 
-        // Deploy the deploy script
-        DEPLOY_SCRIPT = new DeployScript();
+        // Bootstrap fresh AccessManager + RoycoFactory and wire standard role grants.
+        _bootstrapFactory();
 
-        // Deploy kernel and market
-        DeployScript.DeploymentResult memory result = _deployKernelAndMarket();
+        // Deploy kernel and market via the template-driven factory.
+        MarketDeployment memory result = _deployKernelAndMarket();
         _setDeployedMarket(result);
 
         // Setup providers and fund them
@@ -1113,8 +1114,8 @@ abstract contract AbstractKernelTestSuite is BaseTest, IKernelTestHooks {
         if (stFeeShares > 0) {
             // Grant LP roles to protocol fee recipient so they can redeem
             vm.startPrank(LP_ROLE_ADMIN_ADDRESS);
-            FACTORY.grantRole(ST_LP_ROLE, PROTOCOL_FEE_RECIPIENT_ADDRESS, 0);
-            FACTORY.grantRole(JT_LP_ROLE, PROTOCOL_FEE_RECIPIENT_ADDRESS, 0);
+            AM.grantRole(ST_LP_ROLE, PROTOCOL_FEE_RECIPIENT_ADDRESS, 0);
+            AM.grantRole(JT_LP_ROLE, PROTOCOL_FEE_RECIPIENT_ADDRESS, 0);
             vm.stopPrank();
 
             vm.prank(PROTOCOL_FEE_RECIPIENT_ADDRESS);

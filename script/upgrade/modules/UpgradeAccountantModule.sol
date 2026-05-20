@@ -53,7 +53,7 @@ contract UpgradeAccountantModule is UpgradeModuleBase {
         // a `RoycoAccountant` (e.g. if an address was mis-entered in `UpgradeConfig`).
         NAV_UNIT stRawNAV = IRoycoVaultTranche(IRoycoDawnKernel(kernel).SENIOR_TRANCHE()).getRawNAV();
         NAV_UNIT jtRawNAV = IRoycoVaultTranche(IRoycoDawnKernel(kernel).JUNIOR_TRANCHE()).getRawNAV();
-        a.previewSyncTrancheAccounting(stRawNAV, jtRawNAV);
+        a.previewSyncTrancheAccounting(a.getLastAccountingStateCheckpoint(), stRawNAV, jtRawNAV);
 
         address oldImpl = _readImplementation(proxy);
 
@@ -90,7 +90,7 @@ contract UpgradeAccountantModule is UpgradeModuleBase {
         NAV_UNIT jtRawNAV = IRoycoVaultTranche(kernel.JUNIOR_TRANCHE()).getRawNAV();
 
         IRoycoAccountant.RoycoAccountantState memory state = a.getState();
-        SyncedAccountingState memory sync = a.previewSyncTrancheAccounting(stRawNAV, jtRawNAV);
+        SyncedAccountingState memory sync = a.previewSyncTrancheAccounting(a.getLastAccountingStateCheckpoint(), stRawNAV, jtRawNAV);
 
         return abi.encode(address(kernel), state, sync, stRawNAV, jtRawNAV);
     }
@@ -112,7 +112,7 @@ contract UpgradeAccountantModule is UpgradeModuleBase {
 
         // Use the SAME raw NAVs captured pre-upgrade so the sync preview is a pure function of
         // (storage, block.timestamp, inputs) and comparable across the upgrade.
-        SyncedAccountingState memory postSync = a.previewSyncTrancheAccounting(preStRawNAV, preJtRawNAV);
+        SyncedAccountingState memory postSync = a.previewSyncTrancheAccounting(a.getLastAccountingStateCheckpoint(), preStRawNAV, preJtRawNAV);
         _assertSyncEqual(postSync, preSync);
     }
 

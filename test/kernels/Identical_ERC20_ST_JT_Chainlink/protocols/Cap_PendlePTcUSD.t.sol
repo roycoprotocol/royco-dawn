@@ -2,10 +2,10 @@
 pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { DeployScript } from "../../../../script/Deploy.s.sol";
-import { MarketDeploymentConfig } from "../../../../script/config/MarketDeploymentConfig.sol";
-import { IRoycoFactory } from "../../../../src/interfaces/IRoycoFactory.sol";
+import { COMPONENT_ID_KERNEL_IDENTICAL_ERC20_CHAINLINK } from "../../../../src/factory/templates/Components.sol";
+import { IdenticalERC20ChainlinkDeploymentTemplate } from "../../../../src/factory/templates/dawn/IdenticalERC20ChainlinkDeploymentTemplate.sol";
 import { AggregatorV3Interface } from "../../../../src/interfaces/external/chainlink/AggregatorV3Interface.sol";
+import { Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel } from "../../../../src/kernels/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel.sol";
 import { WAD } from "../../../../src/libraries/Constants.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../../../src/libraries/Units.sol";
 import { YieldBearingERC20Chainlink_TestBase } from "../base/YieldBearingERC20Chainlink_TestBase.t.sol";
@@ -50,27 +50,33 @@ contract PendlePTcUSD_Test is YieldBearingERC20Chainlink_TestBase {
     // DEPLOYMENT
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Deploys the PT-cUSD kernel and market using parameters from MarketDeploymentConfig
-    function _deployKernelAndMarket() internal virtual override returns (DeployScript.DeploymentResult memory) {
-        MarketDeploymentConfig.MarketConfig memory marketConfig = DEPLOY_SCRIPT.getMarketConfig("PT-cUSD");
-
-        // Decode kernel-specific params from the deployment config
-        DeployScript.IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams memory kernelParams =
-            abi.decode(marketConfig.kernelSpecificParams, (DeployScript.IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams));
-
-        // Override staleness threshold for testing
-        kernelParams.stalenessThresholdSeconds = _getStalenessThreshold();
-
-        // Re-encode kernel params with overridden staleness threshold
-        marketConfig.kernelSpecificParams = abi.encode(kernelParams);
-
-        // Build role assignments
-        uint32 scheduledOperationsExpirySeconds = DEPLOY_SCRIPT.getChainConfig(block.chainid).scheduledOperationsExpirySeconds;
-        IRoycoFactory.RoleAssignmentConfiguration[] memory roleAssignments = _generateRoleAssignments();
-
-        return DEPLOY_SCRIPT.deploy(
-            marketConfig, OWNER_ADDRESS, PROTOCOL_FEE_RECIPIENT_ADDRESS, scheduledOperationsExpirySeconds, roleAssignments, DEPLOYER.privateKey
+    /// @notice Deploys the PT-cUSD kernel + market via the ERC20-chainlink template.
+    function _deployKernelAndMarket() internal virtual override returns (MarketDeployment memory) {
+        IdenticalERC20ChainlinkDeploymentTemplate template = new IdenticalERC20ChainlinkDeploymentTemplate(FACTORY);
+        DawnDeploymentParams memory p;
+        p.marketId = keccak256("PT_CUSD_TEST");
+        p.template = address(template);
+        p.kernelComponentId = COMPONENT_ID_KERNEL_IDENTICAL_ERC20_CHAINLINK;
+        p.kernelCreationCode = type(Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel).creationCode;
+        p.stAsset = config.stAsset;
+        p.jtAsset = config.jtAsset;
+        p.kernelSpecificParams = abi.encode(
+            IdenticalERC20ChainlinkDeploymentTemplate.KernelParams({
+                initialConversionRateWAD: WAD, trancheAssetToReferenceAssetOracle: PT_CUSD_CHAINLINK_ORACLE, stalenessThresholdSeconds: _getStalenessThreshold()
+            })
         );
+        p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
+        p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
+        p.yieldShareProtocolFeeWAD = 0;
+        p.coverageWAD = COVERAGE_WAD;
+        p.betaWAD = BETA_WAD;
+        p.liquidationUtilizationWAD = LIQUIDATION_UTILIZATION_WAD;
+        p.fixedTermDurationSeconds = FIXED_TERM_DURATION_SECONDS;
+        p.stNAVDustTolerance = DUST_TOLERANCE;
+        p.jtNAVDustTolerance = DUST_TOLERANCE;
+        p.enforceVaultSharesTransferWhitelist = false;
+        p.stSelfLiquidationBonusWAD = 0;
+        return _deployDawnMarket(p);
     }
 
     /// @notice Returns the chainlink oracle address for PT-cUSD

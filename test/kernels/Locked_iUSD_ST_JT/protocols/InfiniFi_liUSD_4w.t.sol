@@ -3,9 +3,8 @@ pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-import { DeployScript } from "../../../../script/Deploy.s.sol";
-import { MarketDeploymentConfig } from "../../../../script/config/MarketDeploymentConfig.sol";
-import { IRoycoFactory } from "../../../../src/interfaces/IRoycoFactory.sol";
+import { COMPONENT_ID_KERNEL_LOCKED_IUSD } from "../../../../src/factory/templates/Components.sol";
+import { LockediUSDDeploymentTemplate } from "../../../../src/factory/templates/dawn/LockediUSDDeploymentTemplate.sol";
 import { AggregatorV3Interface } from "../../../../src/interfaces/external/chainlink/AggregatorV3Interface.sol";
 import { IInfiniFiGateway } from "../../../../src/interfaces/external/infinifi/IInfiniFiGateway.sol";
 import { ILockingController } from "../../../../src/interfaces/external/infinifi/ILockingController.sol";
@@ -114,25 +113,37 @@ contract InfiniFi_liUSD_4w_Test is Locked_iUSD_TestBase {
     // DEPLOYMENT (uses MarketDeploymentConfig)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Deploys the liUSD-4w kernel and market using parameters from MarketDeploymentConfig
-    function _deployKernelAndMarket() internal override returns (DeployScript.DeploymentResult memory) {
-        MarketDeploymentConfig.MarketConfig memory marketConfig = DEPLOY_SCRIPT.getMarketConfig("liUSD-4w");
-
-        // Decode kernel params to override staleness threshold for testing
-        DeployScript.LockedIUSDKernelParams memory kernelParams = abi.decode(marketConfig.kernelSpecificParams, (DeployScript.LockedIUSDKernelParams));
-
-        // Override staleness threshold for testing
-        kernelParams.stalenessThresholdSeconds = _getStalenessThreshold();
-
-        // Re-encode kernel params with overridden staleness threshold
-        marketConfig.kernelSpecificParams = abi.encode(kernelParams);
-
-        uint32 scheduledOperationsExpirySeconds = DEPLOY_SCRIPT.getChainConfig(block.chainid).scheduledOperationsExpirySeconds;
-        IRoycoFactory.RoleAssignmentConfiguration[] memory roleAssignments = _generateRoleAssignments();
-
-        return DEPLOY_SCRIPT.deploy(
-            marketConfig, OWNER_ADDRESS, PROTOCOL_FEE_RECIPIENT_ADDRESS, scheduledOperationsExpirySeconds, roleAssignments, DEPLOYER.privateKey
+    /// @notice Deploys the liUSD-4w kernel + market via the Locked iUSD template.
+    function _deployKernelAndMarket() internal override returns (MarketDeployment memory) {
+        LockediUSDDeploymentTemplate template = new LockediUSDDeploymentTemplate(FACTORY);
+        DawnDeploymentParams memory p;
+        p.marketId = keccak256("LIUSD_4W_TEST");
+        p.template = address(template);
+        p.kernelComponentId = COMPONENT_ID_KERNEL_LOCKED_IUSD;
+        p.kernelCreationCode = type(Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle).creationCode;
+        p.stAsset = config.stAsset;
+        p.jtAsset = config.jtAsset;
+        p.kernelSpecificParams = abi.encode(
+            LockediUSDDeploymentTemplate.KernelParams({
+                infiniFiGateway: INFINIFI_GATEWAY,
+                unwindingEpochs: UNWINDING_EPOCHS,
+                initialConversionRateWAD: 0,
+                iUSDToNavAssetOracle: IUSD_USD_ORACLE,
+                stalenessThresholdSeconds: _getStalenessThreshold()
+            })
         );
+        p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
+        p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
+        p.yieldShareProtocolFeeWAD = 0;
+        p.coverageWAD = COVERAGE_WAD;
+        p.betaWAD = BETA_WAD;
+        p.liquidationUtilizationWAD = LIQUIDATION_UTILIZATION_WAD;
+        p.fixedTermDurationSeconds = FIXED_TERM_DURATION_SECONDS;
+        p.stNAVDustTolerance = DUST_TOLERANCE;
+        p.jtNAVDustTolerance = DUST_TOLERANCE;
+        p.enforceVaultSharesTransferWhitelist = false;
+        p.stSelfLiquidationBonusWAD = 0;
+        return _deployDawnMarket(p);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

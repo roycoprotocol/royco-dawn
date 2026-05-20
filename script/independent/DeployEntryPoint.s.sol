@@ -5,12 +5,11 @@ import { UUPSUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/co
 import { IAccessManager } from "../../lib/openzeppelin-contracts/contracts/access/manager/IAccessManager.sol";
 import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { CREATE3 } from "../../lib/solady/src/utils/CREATE3.sol";
-import { RolesConfiguration } from "../../src/factory/RolesConfiguration.sol";
+import "../../src/factory/RolesConfiguration.sol";
 import { IRoycoAuth } from "../../src/interfaces/IRoycoAuth.sol";
 import { IRoycoEntryPoint } from "../../src/interfaces/IRoycoEntryPoint.sol";
 import { RoycoEntryPoint } from "../../src/periphery/RoycoEntryPoint.sol";
 import { EntryPointDeploymentConfig } from "../config/EntryPointDeploymentConfig.sol";
-import { ExtraRoles } from "../config/ExtraRoles.sol";
 import { AccessManagerConfigUtils } from "../utils/AccessManagerConfigUtils.sol";
 import { Create2DeployUtils } from "../utils/Create2DeployUtils.sol";
 import { console2 } from "lib/forge-std/src/console2.sol";
@@ -23,7 +22,7 @@ import { console2 } from "lib/forge-std/src/console2.sol";
  *      configuration is generated separately via `buildFactoryConfigTransactions` and applied
  *      through a Safe transaction batch.
  */
-contract DeployEntryPointScript is EntryPointDeploymentConfig, AccessManagerConfigUtils, Create2DeployUtils, RolesConfiguration, ExtraRoles {
+contract DeployEntryPointScript is EntryPointDeploymentConfig, AccessManagerConfigUtils, Create2DeployUtils {
     // ═══════════════════════════════════════════════════════════════════════════
     // DEPLOYMENT CONSTANTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -152,8 +151,11 @@ contract DeployEntryPointScript is EntryPointDeploymentConfig, AccessManagerConf
         //   - grant ADMIN_ENTRY_POINT_ROLE to ROOT_MULTISIG (Standard) and WCE_MULTISIG (Immediate)
         //   - grant ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE to ROOT_MULTISIG (Immediate)
         //   - grant ST_LP_ROLE / JT_LP_ROLE / BURNER_ROLE to the entry point itself
-        RoleConfig memory entryPointAdminConfig = getRoleConfig(ADMIN_ENTRY_POINT_ROLE);
-        RoleConfig memory entryPointClaimFeeConfig = getRoleConfig(ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE);
+        // Delays hardcoded here — the role configs used to come from a central `getRoleConfig`
+        // but role metadata is no longer enshrined in `RolesConfiguration`. Standard = 24h
+        // for entry-point admin, Immediate (0) for fee-claim.
+        uint32 entryPointAdminDelay = 1 days;
+        uint32 entryPointClaimFeeDelay = 0;
         transactions = new SafeTransaction[](12);
         transactions[0] = buildSetTargetFunctionRole(_factory, _entryPoint, lpSelectors, PUBLIC_ROLE);
         transactions[1] = buildSetTargetFunctionRole(_factory, _entryPoint, adminSelectors, ADMIN_ENTRY_POINT_ROLE);
@@ -162,9 +164,9 @@ contract DeployEntryPointScript is EntryPointDeploymentConfig, AccessManagerConf
         transactions[4] = buildSetTargetFunctionRole(_factory, _entryPoint, unpauseSelectors, ADMIN_UNPAUSER_ROLE);
         transactions[5] = buildSetTargetFunctionRole(_factory, _entryPoint, upgraderSelectors, ADMIN_UPGRADER_ROLE);
         // Grant ADMIN_ENTRY_POINT_ROLE to ROOT_MULTISIG with the configured Standard delay
-        transactions[6] = buildGrantRole(_factory, ADMIN_ENTRY_POINT_ROLE, ROOT_MULTISIG, entryPointAdminConfig.executionDelay);
+        transactions[6] = buildGrantRole(_factory, ADMIN_ENTRY_POINT_ROLE, ROOT_MULTISIG, entryPointAdminDelay);
         // Grant ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE to ROOT_MULTISIG (Immediate)
-        transactions[7] = buildGrantRole(_factory, ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE, ROOT_MULTISIG, entryPointClaimFeeConfig.executionDelay);
+        transactions[7] = buildGrantRole(_factory, ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE, ROOT_MULTISIG, entryPointClaimFeeDelay);
         // Grant ADMIN_ENTRY_POINT_ROLE to WCE_MULTISIG with immediate delay
         transactions[8] = buildGrantRole(_factory, ADMIN_ENTRY_POINT_ROLE, WCE_MULTISIG, 0);
         // The entry point itself needs LP roles to call tranche.deposit/redeem and BURNER_ROLE for yield forfeiture

@@ -2,14 +2,31 @@
 pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { DeployScript } from "../../script/Deploy.s.sol";
-import { MarketDeploymentConfig } from "../../script/config/MarketDeploymentConfig.sol";
-import { IRoycoFactory } from "../../src/interfaces/IRoycoFactory.sol";
+import { RoycoAccountant } from "../../src/accountant/RoycoAccountant.sol";
+import { BaseDeploymentTemplate } from "../../src/factory/templates/BaseDeploymentTemplate.sol";
+import {
+    COMPONENT_ID_ACCOUNTANT_IMPL,
+    COMPONENT_ID_JUNIOR_TRANCHE_IMPL,
+    COMPONENT_ID_KERNEL_REUSD,
+    COMPONENT_ID_SENIOR_TRANCHE_IMPL,
+    COMPONENT_ID_YDM
+} from "../../src/factory/templates/Components.sol";
+import { ReUSDDeploymentTemplate } from "../../src/factory/templates/dawn/ReUSDDeploymentTemplate.sol";
+import { DawnDeploymentTemplate } from "../../src/factory/templates/dawn/base/DawnDeploymentTemplate.sol";
+import { IRoycoAccountant } from "../../src/interfaces/IRoycoAccountant.sol";
+import { IRoycoDawnKernel } from "../../src/interfaces/IRoycoDawnKernel.sol";
+import { IRoycoEntryPoint } from "../../src/interfaces/IRoycoEntryPoint.sol";
+import { IRoycoVaultTranche } from "../../src/interfaces/IRoycoVaultTranche.sol";
+import { IYDM } from "../../src/interfaces/IYDM.sol";
 import { IInsuranceCapitalLayer } from "../../src/interfaces/external/reUSD/IInsuranceCapitalLayer.sol";
+import { IRoycoProtocolTemplate } from "../../src/interfaces/factory/IRoycoProtocolTemplate.sol";
 import { ReUSD_ST_JT_ICLOracle_Kernel } from "../../src/kernels/ReUSD_ST_JT_ICLOracle_Kernel.sol";
 import { IdenticalAssetsOracleQuoter } from "../../src/kernels/base/quoter/dawn/base/IdenticalAssetsOracleQuoter.sol";
-import { WAD, WAD } from "../../src/libraries/Constants.sol";
-import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../src/libraries/Units.sol";
+import { WAD } from "../../src/libraries/Constants.sol";
+import { NAV_UNIT, TRANCHE_UNIT, toNAVUnits, toTrancheUnits } from "../../src/libraries/Units.sol";
+import { RoycoJuniorTranche } from "../../src/tranches/RoycoJuniorTranche.sol";
+import { RoycoSeniorTranche } from "../../src/tranches/RoycoSeniorTranche.sol";
+import { AdaptiveCurveYDM_V2 } from "../../src/ydm/AdaptiveCurveYDM_V2.sol";
 
 import { AbstractKernelTestSuite } from "./abstract/AbstractKernelTestSuite.t.sol";
 
@@ -232,18 +249,79 @@ contract reUSD_Test is AbstractKernelTestSuite {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // DEPLOYMENT
+    // DEPLOYMENT (via the template-driven factory)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Deploys the ReUSD kernel and market using parameters from MarketDeploymentConfig
-    function _deployKernelAndMarket() internal override returns (DeployScript.DeploymentResult memory) {
-        MarketDeploymentConfig.MarketConfig memory marketConfig = DEPLOY_SCRIPT.getMarketConfig("reUSD");
+    bytes32 internal constant MARKET_ID = keccak256("reUSD_ST_JT_TEST");
 
-        uint32 scheduledOperationsExpirySeconds = DEPLOY_SCRIPT.getChainConfig(block.chainid).scheduledOperationsExpirySeconds;
-        IRoycoFactory.RoleAssignmentConfiguration[] memory roleAssignments = _generateRoleAssignments();
+    /// @notice Deploys the ReUSD kernel + market by registering `ReUSDDeploymentTemplate` on the
+    ///         test-harness factory, building `DawnParams`, and calling `executeMarketDeployment`.
+    function _deployKernelAndMarket() internal override returns (MarketDeployment memory) {
+        // 1. Deploy + register the ReUSD template.
+        ReUSDDeploymentTemplate template = new ReUSDDeploymentTemplate(FACTORY);
+        {
+            bytes32[] memory ids = new bytes32[](5);
+            bytes[] memory codes = new bytes[](5);
+            ids[0] = COMPONENT_ID_SENIOR_TRANCHE_IMPL;
+            codes[0] = type(RoycoSeniorTranche).creationCode;
+            ids[1] = COMPONENT_ID_JUNIOR_TRANCHE_IMPL;
+            codes[1] = type(RoycoJuniorTranche).creationCode;
+            ids[2] = COMPONENT_ID_ACCOUNTANT_IMPL;
+            codes[2] = type(RoycoAccountant).creationCode;
+            ids[3] = COMPONENT_ID_YDM;
+            codes[3] = type(AdaptiveCurveYDM_V2).creationCode;
+            ids[4] = COMPONENT_ID_KERNEL_REUSD;
+            codes[4] = type(ReUSD_ST_JT_ICLOracle_Kernel).creationCode;
 
-        return DEPLOY_SCRIPT.deploy(
-            marketConfig, OWNER_ADDRESS, PROTOCOL_FEE_RECIPIENT_ADDRESS, scheduledOperationsExpirySeconds, roleAssignments, DEPLOYER.privateKey
-        );
+            // OWNER holds ADMIN_FACTORY_ROLE.
+            vm.prank(OWNER_ADDRESS);
+            FACTORY.registerTemplate(address(template), ids, codes);
+        }
+
+        // 2. Build `DawnParams`. Role bindings are now built inside the template — no need to
+        //    pre-predict addresses here.
+        DawnDeploymentTemplate.DawnParams memory p = DawnDeploymentTemplate.DawnParams({
+            marketId: MARKET_ID,
+            st: BaseDeploymentTemplate.SeniorTrancheParams({ name: SENIOR_TRANCHE_NAME, symbol: SENIOR_TRANCHE_SYMBOL, asset: config.stAsset }),
+            jt: BaseDeploymentTemplate.JuniorTrancheParams({ name: JUNIOR_TRANCHE_NAME, symbol: JUNIOR_TRANCHE_SYMBOL, asset: config.jtAsset }),
+            accountant: BaseDeploymentTemplate.AccountantParams({
+                stProtocolFeeWAD: ST_PROTOCOL_FEE_WAD,
+                jtProtocolFeeWAD: JT_PROTOCOL_FEE_WAD,
+                yieldShareProtocolFeeWAD: 0,
+                coverageWAD: COVERAGE_WAD,
+                betaWAD: BETA_WAD,
+                liquidationUtilizationWAD: LIQUIDATION_UTILIZATION_WAD,
+                fixedTermDurationSeconds: FIXED_TERM_DURATION_SECONDS,
+                stNAVDustTolerance: DUST_TOLERANCE,
+                jtNAVDustTolerance: DUST_TOLERANCE,
+                ydmInitializationData: abi.encodeCall(
+                    AdaptiveCurveYDM_V2.initializeYDMForMarket, (uint64(0.06e18), uint64(0.06e18), uint64(0.18e18), uint64(0))
+                )
+            }),
+            ydm: BaseDeploymentTemplate.YDMParams({ componentTag: YDM_COMPONENT_TAG, version: YDM_VERSION }),
+            kernelSpecificParams: abi.encode(ReUSDDeploymentTemplate.KernelParams({ reusd: REUSD, reusdUsdQuoteToken: USDC, insuranceCapitalLayer: ICL })),
+            enforceVaultSharesTransferWhitelist: false,
+            protocolFeeRecipient: PROTOCOL_FEE_RECIPIENT_ADDRESS,
+            stSelfLiquidationBonusWAD: 0,
+            entryPoint: address(0),
+            stEntryPointConfig: _emptyEntryPointConfig(),
+            jtEntryPointConfig: _emptyEntryPointConfig()
+        });
+
+        // 3. Execute deployment.
+        vm.prank(DEPLOYER_ADDRESS);
+        IRoycoProtocolTemplate.DeploymentResult memory r = FACTORY.executeMarketDeployment(address(template), abi.encode(p));
+
+        return MarketDeployment({
+            seniorTranche: IRoycoVaultTranche(r.seniorTranche),
+            juniorTranche: IRoycoVaultTranche(r.juniorTranche),
+            kernel: IRoycoDawnKernel(r.kernel),
+            accountant: IRoycoAccountant(r.accountant),
+            ydm: IYDM(r.ydm)
+        });
+    }
+
+    function _forkConfiguration() internal pure override returns (uint256, string memory) {
+        return (24_187_000, "MAINNET_RPC_URL");
     }
 }

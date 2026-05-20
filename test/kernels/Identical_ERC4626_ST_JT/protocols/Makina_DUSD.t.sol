@@ -3,9 +3,8 @@ pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 
-import { DeployScript } from "../../../../script/Deploy.s.sol";
-import { MarketDeploymentConfig } from "../../../../script/config/MarketDeploymentConfig.sol";
-import { IRoycoFactory } from "../../../../src/interfaces/IRoycoFactory.sol";
+import { COMPONENT_ID_KERNEL_IDENTICAL_MAKINA } from "../../../../src/factory/templates/Components.sol";
+import { IdenticalMakinaDeploymentTemplate } from "../../../../src/factory/templates/dawn/IdenticalMakinaDeploymentTemplate.sol";
 import { IMachine } from "../../../../src/interfaces/external/makina/IMachine.sol";
 import { Identical_Makina_ST_JT_MachineToAdminOracle_Kernel } from "../../../../src/kernels/Identical_Makina_ST_JT_MachineToAdminOracle_Kernel.sol";
 import { WAD, WAD_DECIMALS } from "../../../../src/libraries/Constants.sol";
@@ -60,23 +59,31 @@ contract Makina_DUSD_Test is YieldBearingERC4626_TestBase {
     // DEPLOYMENT (uses MarketDeploymentConfig)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Deploys the DUSD kernel and market using parameters from MarketDeploymentConfig
-    function _deployKernelAndMarket() internal override returns (DeployScript.DeploymentResult memory) {
-        MarketDeploymentConfig.MarketConfig memory marketConfig = DEPLOY_SCRIPT.getMarketConfig("MakinaDUSD");
-
-        // Override initial conversion rate for testing
-        marketConfig.kernelSpecificParams = abi.encode(
-            DeployScript.IdenticalMakinaSTMakinaJTKernelParams({
-                makinaMachine: 0x6b006870C83b1Cd49E766Ac9209f8d68763Df721, initialConversionRateWAD: _getInitialConversionRate()
-            })
+    /// @notice Deploys the DUSD kernel + market via the Makina template.
+    function _deployKernelAndMarket() internal override returns (MarketDeployment memory) {
+        IdenticalMakinaDeploymentTemplate template = new IdenticalMakinaDeploymentTemplate(FACTORY);
+        DawnDeploymentParams memory p;
+        p.marketId = keccak256("MAKINA_DUSD_TEST");
+        p.template = address(template);
+        p.kernelComponentId = COMPONENT_ID_KERNEL_IDENTICAL_MAKINA;
+        p.kernelCreationCode = type(Identical_Makina_ST_JT_MachineToAdminOracle_Kernel).creationCode;
+        p.stAsset = config.stAsset;
+        p.jtAsset = config.jtAsset;
+        p.kernelSpecificParams = abi.encode(
+            IdenticalMakinaDeploymentTemplate.KernelParams({ makinaMachine: MAKINA_MACHINE, initialConversionRateWAD: _getInitialConversionRate() })
         );
-
-        uint32 scheduledOperationsExpirySeconds = DEPLOY_SCRIPT.getChainConfig(block.chainid).scheduledOperationsExpirySeconds;
-        IRoycoFactory.RoleAssignmentConfiguration[] memory roleAssignments = _generateRoleAssignments();
-
-        return DEPLOY_SCRIPT.deploy(
-            marketConfig, OWNER_ADDRESS, PROTOCOL_FEE_RECIPIENT_ADDRESS, scheduledOperationsExpirySeconds, roleAssignments, DEPLOYER.privateKey
-        );
+        p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
+        p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
+        p.yieldShareProtocolFeeWAD = 0;
+        p.coverageWAD = COVERAGE_WAD;
+        p.betaWAD = BETA_WAD;
+        p.liquidationUtilizationWAD = LIQUIDATION_UTILIZATION_WAD;
+        p.fixedTermDurationSeconds = FIXED_TERM_DURATION_SECONDS;
+        p.stNAVDustTolerance = DUST_TOLERANCE;
+        p.jtNAVDustTolerance = DUST_TOLERANCE;
+        p.enforceVaultSharesTransferWhitelist = false;
+        p.stSelfLiquidationBonusWAD = 0;
+        return _deployDawnMarket(p);
     }
 
     // NOTE: simulateVaultSharePriceYield() and simulateVaultSharePriceLoss() are inherited from

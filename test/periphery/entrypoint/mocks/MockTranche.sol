@@ -6,7 +6,6 @@ import { IERC20 } from "../../../../lib/openzeppelin-contracts/contracts/token/E
 import { SafeERC20 } from "../../../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "../../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
-import { IRoycoFactory } from "../../../../src/interfaces/IRoycoFactory.sol";
 import { IRoycoVaultTranche } from "../../../../src/interfaces/IRoycoVaultTranche.sol";
 import { MAX_NAV_UNITS, ZERO_NAV_UNITS } from "../../../../src/libraries/Constants.sol";
 import { AssetClaims, TrancheType } from "../../../../src/libraries/Types.sol";

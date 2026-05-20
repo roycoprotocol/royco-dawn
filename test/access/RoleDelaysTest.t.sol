@@ -4,8 +4,23 @@ pragma solidity ^0.8.28;
 import { IAccessManager } from "../../lib/openzeppelin-contracts/contracts/access/manager/IAccessManager.sol";
 import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import { RoycoFactory } from "../../src/factory/RoycoFactory.sol";
-import { IRoycoFactory } from "../../src/interfaces/IRoycoFactory.sol";
+import {
+    ADMIN_ACCOUNTANT_ROLE,
+    ADMIN_KERNEL_ROLE,
+    ADMIN_ORACLE_QUOTER_ROLE,
+    ADMIN_PAUSER_ROLE,
+    ADMIN_PROTOCOL_FEE_SETTER_ROLE,
+    ADMIN_ROLE,
+    ADMIN_UNPAUSER_ROLE,
+    ADMIN_UPGRADER_ROLE,
+    DEPLOYER_ROLE,
+    GUARDIAN_ROLE,
+    JT_LP_ROLE,
+    LP_ROLE_ADMIN_ROLE,
+    ST_LP_ROLE,
+    SYNC_ROLE,
+    TRANSFER_AGENT_ROLE
+} from "../../src/factory/RolesConfiguration.sol";
 
 import { BaseTest } from "../base/BaseTest.t.sol";
 import { MockRestrictedTarget } from "./MockRestrictedTarget.sol";
@@ -26,10 +41,15 @@ import { MockRestrictedTarget } from "./MockRestrictedTarget.sol";
  *   the holder can call the gated function directly without scheduling.
  *
  * Additionally, the test asserts the ADR-0003 "admin operations are not immediate" rule:
- *   after applying the migration's final step (`grantRole(ADMIN_ROLE, FNDN, 2 days)`),
+ *   after applying the migration's final step (`grantRole(ADMIN_ROLE, OWNER, 2 days)`),
  *   role-0 admin operations on the AccessManager itself — `grantRole`,
  *   `setTargetFunctionRole`, `setRoleAdmin`, `setRoleGuardian` — cannot be called
  *   atomically and require schedule + 48h + execute.
+ *
+ * @dev Post-migration: the role-delay enforcement now lives on the standalone
+ *      `AccessManager` deployed by `BaseTest._bootstrapFactory()`. The factory itself
+ *      is just a regular admin on the AM; the AM is the source of truth for every
+ *      role/selector binding.
  */
 contract RoleDelaysTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
@@ -38,7 +58,7 @@ contract RoleDelaysTest is BaseTest {
 
     MockRestrictedTarget internal TARGET;
 
-    /// @dev Per-role test wallets that hold the role. Mirrors `_generateRoleAssignments`.
+    /// @dev Per-role test wallets that hold the role.
     mapping(uint64 => address) internal _holder;
     /// @dev Per-role function selector on `TARGET` that the role holder can call.
     mapping(uint64 => bytes4) internal _selector;
@@ -55,31 +75,14 @@ contract RoleDelaysTest is BaseTest {
 
     function setUp() public {
         _setUpRoyco();
-        _deployFactoryStandalone();
         _deployMockTarget();
         _wireSelectors();
-        _grantLPRoles();
         _applyADR0003AdminDelay();
-    }
-
-    /// @dev Inline factory deploy (no market needed). Uses BaseTest's role wallets so the
-    ///      `_generateRoleAssignments` plumbing produces a fully-populated factory. Extra
-    ///      roles (`ADMIN_UNPAUSER_ROLE`) are granted post-init pranked as FNDN (=OWNER for
-    ///      this standalone deploy), mirroring `BaseTest._wireExtraRoles`.
-    function _deployFactoryStandalone() internal {
-        RoycoFactory factoryImpl = new RoycoFactory();
-        IRoycoFactory.RoleAssignmentConfiguration[] memory roleAssignments = _generateRoleAssignments();
-        bytes memory initData = abi.encodeCall(RoycoFactory.initialize, (OWNER_ADDRESS, DEPLOYER_ADDRESS, 1 weeks, roleAssignments));
-        FACTORY = RoycoFactory(address(new ERC1967Proxy(address(factoryImpl), initData)));
-        vm.label(address(FACTORY), "FACTORY");
-
-        vm.prank(OWNER_ADDRESS);
-        IAccessManager(address(FACTORY)).grantRole(ADMIN_UNPAUSER_ROLE, UNPAUSER_ADDRESS, 0);
     }
 
     function _deployMockTarget() internal {
         MockRestrictedTarget impl = new MockRestrictedTarget();
-        bytes memory initData = abi.encodeCall(MockRestrictedTarget.initialize, (address(FACTORY)));
+        bytes memory initData = abi.encodeCall(MockRestrictedTarget.initialize, (address(AM)));
         TARGET = MockRestrictedTarget(address(new ERC1967Proxy(address(impl), initData)));
         vm.label(address(TARGET), "MockRestrictedTarget");
     }
@@ -98,10 +101,15 @@ contract RoleDelaysTest is BaseTest {
         _register(LP_ROLE_ADMIN_ROLE, LP_ROLE_ADMIN_ADDRESS, TARGET.callLpRoleAdmin.selector);
         _register(GUARDIAN_ROLE, ROLE_GUARDIAN_ADDRESS, TARGET.callGuardian.selector);
         _register(DEPLOYER_ROLE, DEPLOYER_ADDRESS, TARGET.callDeployer.selector);
-        _register(DEPLOYER_ROLE_ADMIN_ROLE, DEPLOYER_ADMIN_ADDRESS, TARGET.callDeployerAdmin.selector);
         _register(TRANSFER_AGENT_ROLE, TRANSFER_AGENT_ADDRESS, TARGET.callTransferAgent.selector);
-        _register(ST_LP_ROLE, ST_BOB_ADDRESS, TARGET.callStLp.selector); // ST_BOB is granted ST_LP_ROLE below
-        _register(JT_LP_ROLE, JT_ALICE_ADDRESS, TARGET.callJtLp.selector); // JT_ALICE granted JT_LP_ROLE below
+
+        // ST_LP / JT_LP are granted to test holders via the LP_ROLE_ADMIN.
+        vm.startPrank(LP_ROLE_ADMIN_ADDRESS);
+        AM.grantRole(ST_LP_ROLE, ST_BOB_ADDRESS, 0);
+        AM.grantRole(JT_LP_ROLE, JT_ALICE_ADDRESS, 0);
+        vm.stopPrank();
+        _register(ST_LP_ROLE, ST_BOB_ADDRESS, TARGET.callStLp.selector);
+        _register(JT_LP_ROLE, JT_ALICE_ADDRESS, TARGET.callJtLp.selector);
     }
 
     function _register(uint64 _role, address _holderAddr, bytes4 _sel) internal {
@@ -112,26 +120,18 @@ contract RoleDelaysTest is BaseTest {
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = _sel;
         vm.prank(OWNER_ADDRESS);
-        IAccessManager(address(FACTORY)).setTargetFunctionRole(address(TARGET), selectors, _role);
-    }
-
-    function _grantLPRoles() internal {
-        // ST_LP / JT_LP are normally LP-granted by LP_ROLE_ADMIN. Grant the test holders.
-        vm.startPrank(LP_ROLE_ADMIN_ADDRESS);
-        IAccessManager(address(FACTORY)).grantRole(ST_LP_ROLE, ST_BOB_ADDRESS, 0);
-        IAccessManager(address(FACTORY)).grantRole(JT_LP_ROLE, JT_ALICE_ADDRESS, 0);
-        vm.stopPrank();
+        IAccessManager(address(AM)).setTargetFunctionRole(address(TARGET), selectors, _role);
     }
 
     /// @dev ADR-0003 final migration step: apply Critical delay to the admin holder.
     ///      Re-grants ADMIN_ROLE to OWNER with 2-day execution delay. From this point,
-    ///      every role-0-gated factory operation must be schedule + 48h + execute.
+    ///      every role-0-gated AM operation must be schedule + 48h + execute.
     ///
     ///      This grants role 0 to OWNER with delay 2d. Per OZ AccessManager semantics, an
-    ///      execution-delay INCREASE (0 → 2d) takes effect immediately; no warp required.
+    ///      execution-delay INCREASE (0 -> 2d) takes effect immediately; no warp required.
     function _applyADR0003AdminDelay() internal {
         vm.prank(OWNER_ADDRESS);
-        IAccessManager(address(FACTORY)).grantRole(_ADMIN_ROLE, OWNER_ADDRESS, ADMIN_CRITICAL_DELAY);
+        IAccessManager(address(AM)).grantRole(ADMIN_ROLE, OWNER_ADDRESS, ADMIN_CRITICAL_DELAY);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -141,7 +141,7 @@ contract RoleDelaysTest is BaseTest {
     /// @dev Asserts test 1 + test 2 + on-time success for a role.
     ///      Atomic call must revert; pre-delay execute must revert; on-time execute must succeed.
     function _assertDelayedRoleEnforcement(uint64 _role) internal {
-        (, uint32 delay) = IAccessManager(address(FACTORY)).hasRole(_role, _holder[_role]);
+        (, uint32 delay) = IAccessManager(address(AM)).hasRole(_role, _holder[_role]);
         require(delay > 0, "_assertDelayedRoleEnforcement called on immediate role");
 
         bytes memory data = abi.encodePacked(_selector[_role]);
@@ -153,24 +153,24 @@ contract RoleDelaysTest is BaseTest {
 
         // Schedule the operation
         vm.prank(_holder[_role]);
-        (, uint32 nonce) = IAccessManager(address(FACTORY)).schedule(address(TARGET), data, 0);
+        (, uint32 nonce) = IAccessManager(address(AM)).schedule(address(TARGET), data, 0);
         assertTrue(nonce > 0, "schedule must return non-zero nonce");
 
         // 2. EARLY — execute 1s before the delay elapses reverts (AccessManagerNotReady)
         vm.warp(vm.getBlockTimestamp() + uint256(delay) - 1);
         vm.prank(_holder[_role]);
-        (bool earlyOk,) = address(IAccessManager(address(FACTORY))).call(abi.encodeCall(IAccessManager.execute, (address(TARGET), data)));
+        (bool earlyOk,) = address(IAccessManager(address(AM))).call(abi.encodeCall(IAccessManager.execute, (address(TARGET), data)));
         assertFalse(earlyOk, "execute one second before delay must revert");
 
         // 3. ON-TIME — execute exactly when the delay elapses succeeds
         vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(_holder[_role]);
-        IAccessManager(address(FACTORY)).execute(address(TARGET), data);
+        IAccessManager(address(AM)).execute(address(TARGET), data);
     }
 
     /// @dev Asserts an immediate role: holder calls the gated function directly with no scheduling.
     function _assertImmediateRoleEnforcement(uint64 _role) internal {
-        (, uint32 delay) = IAccessManager(address(FACTORY)).hasRole(_role, _holder[_role]);
+        (, uint32 delay) = IAccessManager(address(AM)).hasRole(_role, _holder[_role]);
         require(delay == 0, "_assertImmediateRoleEnforcement called on delayed role");
 
         bytes memory data = abi.encodePacked(_selector[_role]);
@@ -181,7 +181,7 @@ contract RoleDelaysTest is BaseTest {
 
     /// @dev Dispatches to the correct enforcement assertion based on the role's declared delay.
     function _assertRoleEnforcement(uint64 _role) internal {
-        (, uint32 delay) = IAccessManager(address(FACTORY)).hasRole(_role, _holder[_role]);
+        (, uint32 delay) = IAccessManager(address(AM)).hasRole(_role, _holder[_role]);
         if (delay > 0) _assertDelayedRoleEnforcement(_role);
         else _assertImmediateRoleEnforcement(_role);
     }
@@ -234,8 +234,10 @@ contract RoleDelaysTest is BaseTest {
         _assertRoleEnforcement(DEPLOYER_ROLE);
     }
 
+    // TODO(post-migration): `DEPLOYER_ROLE_ADMIN_ROLE` no longer exists; role-admin
+    // structure is now managed directly via AM.setRoleAdmin.
     function test_role_DEPLOYER_ROLE_ADMIN_ROLE() public {
-        _assertRoleEnforcement(DEPLOYER_ROLE_ADMIN_ROLE);
+        vm.skip(true);
     }
 
     function test_role_TRANSFER_AGENT_ROLE() public {
@@ -267,7 +269,7 @@ contract RoleDelaysTest is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
 
     function test_adminRole_hasCriticalDelay() public {
-        (bool isMember, uint32 delay) = IAccessManager(address(FACTORY)).hasRole(_ADMIN_ROLE, OWNER_ADDRESS);
+        (bool isMember, uint32 delay) = IAccessManager(address(AM)).hasRole(ADMIN_ROLE, OWNER_ADDRESS);
         assertTrue(isMember, "OWNER must hold ADMIN_ROLE");
         assertEq(uint256(delay), uint256(ADMIN_CRITICAL_DELAY), "ADMIN_ROLE delay must be Critical (48h)");
     }
@@ -291,7 +293,7 @@ contract RoleDelaysTest is BaseTest {
     }
 
     function test_adminOp_setRoleAdmin_isNotImmediate() public {
-        bytes memory data = abi.encodeCall(IAccessManager.setRoleAdmin, (ADMIN_KERNEL_ROLE, _ADMIN_ROLE));
+        bytes memory data = abi.encodeCall(IAccessManager.setRoleAdmin, (ADMIN_KERNEL_ROLE, ADMIN_ROLE));
         _assertAdminOpDelayed(data);
     }
 
@@ -307,27 +309,27 @@ contract RoleDelaysTest is BaseTest {
 
     /// @dev Atomic-call must revert + early-execute must revert + on-time execute must succeed,
     ///      using OWNER (the ADMIN_ROLE holder, with Critical delay) as the caller and the
-    ///      factory itself as the target.
+    ///      AM itself as the target.
     function _assertAdminOpDelayed(bytes memory _data) internal {
-        // 1. ATOMIC — direct call to the factory must revert
+        // 1. ATOMIC — direct call to the AM must revert
         vm.prank(OWNER_ADDRESS);
-        (bool atomicOk,) = address(FACTORY).call(_data);
+        (bool atomicOk,) = address(AM).call(_data);
         assertFalse(atomicOk, "admin op must not be callable atomically");
 
         // Schedule
         vm.prank(OWNER_ADDRESS);
-        (, uint32 nonce) = IAccessManager(address(FACTORY)).schedule(address(FACTORY), _data, 0);
+        (, uint32 nonce) = IAccessManager(address(AM)).schedule(address(AM), _data, 0);
         assertTrue(nonce > 0, "admin op schedule must return non-zero nonce");
 
         // 2. EARLY — execute 1s before the Critical delay elapses must revert
         vm.warp(vm.getBlockTimestamp() + uint256(ADMIN_CRITICAL_DELAY) - 1);
         vm.prank(OWNER_ADDRESS);
-        (bool earlyOk,) = address(FACTORY).call(abi.encodeCall(IAccessManager.execute, (address(FACTORY), _data)));
+        (bool earlyOk,) = address(AM).call(abi.encodeCall(IAccessManager.execute, (address(AM), _data)));
         assertFalse(earlyOk, "admin op must not execute before Critical delay elapses");
 
         // 3. ON-TIME — execute when the delay elapses must succeed
         vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(OWNER_ADDRESS);
-        IAccessManager(address(FACTORY)).execute(address(FACTORY), _data);
+        IAccessManager(address(AM)).execute(address(AM), _data);
     }
 }

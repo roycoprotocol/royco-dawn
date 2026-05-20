@@ -3,24 +3,68 @@ pragma solidity ^0.8.28;
 
 import { Test } from "../../lib/forge-std/src/Test.sol";
 import { Vm } from "../../lib/forge-std/src/Vm.sol";
+import { AccessManager } from "../../lib/openzeppelin-contracts/contracts/access/manager/AccessManager.sol";
 import { ERC20Mock } from "../../lib/openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol";
 import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { DeployScript } from "../../script/Deploy.s.sol";
-import { ExtraRoles } from "../../script/config/ExtraRoles.sol";
+import { UUPSUpgradeable } from "../../lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { RoycoAccountant } from "../../src/accountant/RoycoAccountant.sol";
-import { RolesConfiguration, RoycoFactory } from "../../src/factory/RoycoFactory.sol";
+import {
+    ADMIN_ACCOUNTANT_ROLE,
+    ADMIN_FACTORY_ROLE,
+    ADMIN_KERNEL_ROLE,
+    ADMIN_ORACLE_QUOTER_ROLE,
+    ADMIN_PAUSER_ROLE,
+    ADMIN_PROTOCOL_FEE_SETTER_ROLE,
+    ADMIN_ROLE,
+    ADMIN_UNPAUSER_ROLE,
+    ADMIN_UPGRADER_ROLE,
+    BURNER_ROLE,
+    DEPLOYER_ROLE,
+    GUARDIAN_ROLE,
+    JT_LP_ROLE,
+    LP_ROLE_ADMIN_ROLE,
+    ST_LP_ROLE,
+    SYNC_ROLE,
+    TRANSFER_AGENT_ROLE
+} from "../../src/factory/RolesConfiguration.sol";
+import { RoycoFactory } from "../../src/factory/RoycoFactory.sol";
+import { BaseDeploymentTemplate } from "../../src/factory/templates/BaseDeploymentTemplate.sol";
+import {
+    COMPONENT_ID_ACCOUNTANT_IMPL,
+    COMPONENT_ID_JUNIOR_TRANCHE_IMPL,
+    COMPONENT_ID_SENIOR_TRANCHE_IMPL,
+    COMPONENT_ID_YDM
+} from "../../src/factory/templates/Components.sol";
+import { DawnDeploymentTemplate } from "../../src/factory/templates/dawn/base/DawnDeploymentTemplate.sol";
 import { IRoycoAccountant } from "../../src/interfaces/IRoycoAccountant.sol";
+import { IRoycoAuth } from "../../src/interfaces/IRoycoAuth.sol";
 import { IRoycoDawnKernel } from "../../src/interfaces/IRoycoDawnKernel.sol";
-import { IRoycoFactory } from "../../src/interfaces/IRoycoFactory.sol";
+import { IRoycoEntryPoint } from "../../src/interfaces/IRoycoEntryPoint.sol";
 import { IRoycoVaultTranche } from "../../src/interfaces/IRoycoVaultTranche.sol";
 import { IYDM } from "../../src/interfaces/IYDM.sol";
+import { IBaseTemplate } from "../../src/interfaces/factory/IBaseTemplate.sol";
+import { IRoycoFactory } from "../../src/interfaces/factory/IRoycoFactory.sol";
+import { IRoycoProtocolTemplate } from "../../src/interfaces/factory/IRoycoProtocolTemplate.sol";
+import { IdenticalAssetsChainlinkOracleQuoter } from "../../src/kernels/base/quoter/dawn/base/IdenticalAssetsChainlinkOracleQuoter.sol";
+import { IdenticalAssetsOracleQuoter } from "../../src/kernels/base/quoter/dawn/base/IdenticalAssetsOracleQuoter.sol";
 import { AssetClaims, TrancheType } from "../../src/libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toNAVUnits, toUint256 } from "../../src/libraries/Units.sol";
 import { RoycoJuniorTranche } from "../../src/tranches/RoycoJuniorTranche.sol";
 import { RoycoSeniorTranche } from "../../src/tranches/RoycoSeniorTranche.sol";
+import { AdaptiveCurveYDM_V2 } from "../../src/ydm/AdaptiveCurveYDM_V2.sol";
 import { Assertions } from "./Assertions.t.sol";
 
-abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
+/**
+ * @title BaseTest
+ * @notice Base test infrastructure for the template-driven factory. Replaces the legacy BaseTest
+ *         that targeted `RoycoDawnFactory`.
+ *
+ * @dev `_bootstrapFactory()` stands up a fresh AccessManager + RoycoFactory proxy, grants all the
+ *      standard roles to test wallets, and leaves the factory ready to register templates against.
+ *      Concrete kernel test suites override `_deployKernelAndMarket()` to deploy a template
+ *      against this factory and call `executeMarketDeployment(...)`.
+ */
+abstract contract BaseTest is Test, Assertions {
     uint256 internal constant BPS = 0.0001e18;
 
     struct TrancheState {
@@ -32,13 +76,23 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
         uint256 totalShares;
     }
 
+    /// @notice Shape returned by `_deployKernelAndMarket()` — the new factory's
+    ///         `executeMarketDeployment` result enriched with the impl pointers we surface for
+    ///         tests that want to assert against them.
+    struct MarketDeployment {
+        IRoycoVaultTranche seniorTranche;
+        IRoycoVaultTranche juniorTranche;
+        IRoycoDawnKernel kernel;
+        IRoycoAccountant accountant;
+        IYDM ydm;
+    }
+
     // -----------------------------------------
     // Test Wallets
     // -----------------------------------------
     Vm.Wallet internal OWNER;
     address internal OWNER_ADDRESS;
 
-    // Role-specific wallets
     Vm.Wallet internal PAUSER;
     address internal PAUSER_ADDRESS;
 
@@ -101,7 +155,7 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
     address internal JT_CHARLIE_ADDRESS;
     address internal JT_DAN_ADDRESS;
 
-    // Backward-compat aliases (ALICE=JT, BOB=ST)
+    // Backward-compat aliases
     Vm.Wallet internal ALICE;
     Vm.Wallet internal BOB;
     Vm.Wallet internal CHARLIE;
@@ -126,16 +180,14 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
     // Royco Deployments
     // -----------------------------------------
 
-    // Deploy Script
-    DeployScript internal DEPLOY_SCRIPT;
+    /// @notice The AccessManager. Every Royco market contract is managed by this AM; the factory
+    ///         is just one admin on it.
+    AccessManager internal AM;
 
-    // Deployments
+    /// @notice The new template-driven factory.
     RoycoFactory internal FACTORY;
+
     IYDM internal YDM;
-    RoycoSeniorTranche public ST_IMPL;
-    RoycoJuniorTranche internal JT_IMPL;
-    RoycoAccountant internal ACCOUNTANT_IMPL;
-    address internal KERNEL_IMPL;
     IRoycoVaultTranche internal ST;
     IRoycoVaultTranche internal JT;
     IRoycoDawnKernel internal KERNEL;
@@ -150,17 +202,21 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
     string internal SENIOR_TRANCHE_SYMBOL = "RST";
     string internal JUNIOR_TRANCHE_NAME = "Royco Junior Tranche";
     string internal JUNIOR_TRANCHE_SYMBOL = "RJT";
-    uint64 internal COVERAGE_WAD = 0.2e18; // 20% coverage
-    uint96 internal BETA_WAD = 0; // Different opportunities
-    uint64 internal ST_PROTOCOL_FEE_WAD = 0.1e18; // 10% protocol fee
-    uint64 internal JT_PROTOCOL_FEE_WAD = 0.1e18; // 10% protocol fee
-    uint256 internal LIQUIDATION_UTILIZATION_WAD = 6.4667e18; // Liquidation utilization threshold
-    uint24 internal FIXED_TERM_DURATION_SECONDS = 2 weeks; // 2 weeks in seconds
+    uint64 internal COVERAGE_WAD = 0.2e18;
+    uint96 internal BETA_WAD = 0;
+    uint64 internal ST_PROTOCOL_FEE_WAD = 0.1e18;
+    uint64 internal JT_PROTOCOL_FEE_WAD = 0.1e18;
+    uint256 internal LIQUIDATION_UTILIZATION_WAD = 6.4667e18;
+    uint24 internal FIXED_TERM_DURATION_SECONDS = 2 weeks;
     NAV_UNIT internal DUST_TOLERANCE = toNAVUnits(uint256(1));
 
-    /// -----------------------------------------
-    /// Mainnet Fork Addresses
-    /// -----------------------------------------
+    /// @notice Common YDM tag used across markets in tests.
+    bytes32 internal constant YDM_COMPONENT_TAG = bytes32("YDM_ADAPTIVE_CURVE_V2");
+    bytes32 internal constant YDM_VERSION = bytes32("V1");
+
+    // -----------------------------------------
+    // Mainnet Fork Addresses
+    // -----------------------------------------
     uint256 internal forkId;
     address internal constant ETHEREUM_MAINNET_USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address internal constant ETHEREUM_MAINNET_AAVE_V3_POOL_ADDRESS = 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2;
@@ -176,19 +232,187 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
         vm.stopPrank();
     }
 
-    function _setUpRoyco() internal virtual {
-        _setupFork();
-        _setupWallets();
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BOOTSTRAP — fresh AM + factory + standard role grants.
+    // ═══════════════════════════════════════════════════════════════════════════
 
-        // Deploy the deploy script
-        DEPLOY_SCRIPT = new DeployScript();
+    /// @notice Deploys + initializes a fresh AccessManager and RoycoFactory and wires the
+    ///         standard role grants every test relies on.
+    /// @dev `OWNER_ADDRESS` becomes the AM's `ADMIN_ROLE` holder. The factory's `initialize`
+    ///      asserts that the factory itself holds `ADMIN_ROLE` on the AM, so we must grant the
+    ///      role BEFORE the proxy's constructor fires the initializer. The factory proxy address
+    ///      is predicted via the test-contract's next CREATE nonce.
+    function _bootstrapFactory() internal {
+        AM = new AccessManager(OWNER_ADDRESS);
+
+        RoycoFactory factoryImpl = new RoycoFactory();
+
+        // Predict the proxy's address — it's the next CREATE-deployed contract from this address.
+        address predictedProxy = vm.computeCreateAddress(address(this), vm.getNonce(address(this)));
+
+        vm.prank(OWNER_ADDRESS);
+        AM.grantRole(ADMIN_ROLE, predictedProxy, 0);
+
+        // Deploy the proxy + initialize atomically.
+        FACTORY = RoycoFactory(address(new ERC1967Proxy(address(factoryImpl), abi.encodeCall(RoycoFactory.initialize, (address(AM))))));
+        require(address(FACTORY) == predictedProxy, "predicted-vs-actual proxy mismatch");
+
+        vm.startPrank(OWNER_ADDRESS);
+
+        AM.grantRole(ADMIN_FACTORY_ROLE, OWNER_ADDRESS, 0);
+        AM.grantRole(DEPLOYER_ROLE, DEPLOYER_ADDRESS, 0);
+        AM.grantRole(ADMIN_PAUSER_ROLE, PAUSER_ADDRESS, 0);
+        AM.grantRole(ADMIN_UNPAUSER_ROLE, UNPAUSER_ADDRESS, 1 days);
+        AM.grantRole(ADMIN_UPGRADER_ROLE, UPGRADER_ADDRESS, 0);
+        AM.grantRole(SYNC_ROLE, SYNC_ROLE_ADDRESS, 0);
+        AM.grantRole(ADMIN_KERNEL_ROLE, KERNEL_ADMIN_ADDRESS, 0);
+        AM.grantRole(ADMIN_ACCOUNTANT_ROLE, ACCOUNTANT_ADMIN_ADDRESS, 0);
+        AM.grantRole(ADMIN_PROTOCOL_FEE_SETTER_ROLE, PROTOCOL_FEE_SETTER_ADDRESS, 0);
+        AM.grantRole(ADMIN_ORACLE_QUOTER_ROLE, ORACLE_QUOTER_ADMIN_ADDRESS, 0);
+        AM.grantRole(LP_ROLE_ADMIN_ROLE, LP_ROLE_ADMIN_ADDRESS, 0);
+        AM.grantRole(GUARDIAN_ROLE, ROLE_GUARDIAN_ADDRESS, 0);
+        AM.grantRole(TRANSFER_AGENT_ROLE, TRANSFER_AGENT_ADDRESS, 0);
+
+        // LP roles are admined by LP_ROLE_ADMIN — set the admin on the role, not a member.
+        AM.setRoleAdmin(ST_LP_ROLE, LP_ROLE_ADMIN_ROLE);
+        AM.setRoleAdmin(JT_LP_ROLE, LP_ROLE_ADMIN_ROLE);
+
+        vm.stopPrank();
     }
 
-    function _setupFork() internal {
+    /// @notice Configuration knobs for the standard Dawn market deployment helper.
+    /// @dev Subclasses populate this and call `_deployDawnMarket(...)` to register a template +
+    ///      execute the deployment in one shot. Mirrors the canonical pattern used by
+    ///      `test/kernels/ReUSD_ST_JT.t.sol`.
+    struct DawnDeploymentParams {
+        bytes32 marketId;
+        address template;
+        bytes32 kernelComponentId;
+        bytes kernelCreationCode;
+        address stAsset;
+        address jtAsset;
+        bytes kernelSpecificParams;
+        // Accountant params (optional overrides). Defaults are pulled from `BaseTest` storage.
+        uint64 stProtocolFeeWAD;
+        uint64 jtProtocolFeeWAD;
+        uint64 yieldShareProtocolFeeWAD;
+        uint64 coverageWAD;
+        uint96 betaWAD;
+        uint256 liquidationUtilizationWAD;
+        uint24 fixedTermDurationSeconds;
+        NAV_UNIT stNAVDustTolerance;
+        NAV_UNIT jtNAVDustTolerance;
+        bool enforceVaultSharesTransferWhitelist;
+        uint64 stSelfLiquidationBonusWAD;
+    }
+
+    /// @notice Standard Dawn market deployment: register the template, build `DawnParams`, execute.
+    /// @dev `_p.template` must already be `new <Template>(FACTORY)`-deployed by the caller.
+    function _deployDawnMarket(DawnDeploymentParams memory _p) internal returns (MarketDeployment memory) {
+        _registerDawnTemplate(_p.template, _p.kernelComponentId, _p.kernelCreationCode);
+        bytes memory encodedParams = _encodeDawnParams(_p);
+        vm.prank(DEPLOYER_ADDRESS);
+        IRoycoProtocolTemplate.DeploymentResult memory r = FACTORY.executeMarketDeployment(_p.template, encodedParams);
+        return MarketDeployment({
+            seniorTranche: IRoycoVaultTranche(r.seniorTranche),
+            juniorTranche: IRoycoVaultTranche(r.juniorTranche),
+            kernel: IRoycoDawnKernel(r.kernel),
+            accountant: IRoycoAccountant(r.accountant),
+            ydm: IYDM(r.ydm)
+        });
+    }
+
+    function _registerDawnTemplate(address _template, bytes32 _kernelComponentId, bytes memory _kernelCreationCode) internal {
+        bytes32[] memory ids = new bytes32[](5);
+        bytes[] memory codes = new bytes[](5);
+        ids[0] = COMPONENT_ID_SENIOR_TRANCHE_IMPL;
+        codes[0] = type(RoycoSeniorTranche).creationCode;
+        ids[1] = COMPONENT_ID_JUNIOR_TRANCHE_IMPL;
+        codes[1] = type(RoycoJuniorTranche).creationCode;
+        ids[2] = COMPONENT_ID_ACCOUNTANT_IMPL;
+        codes[2] = type(RoycoAccountant).creationCode;
+        ids[3] = COMPONENT_ID_YDM;
+        codes[3] = type(AdaptiveCurveYDM_V2).creationCode;
+        ids[4] = _kernelComponentId;
+        codes[4] = _kernelCreationCode;
+        vm.prank(OWNER_ADDRESS);
+        FACTORY.registerTemplate(_template, ids, codes);
+    }
+
+    function _encodeDawnParams(DawnDeploymentParams memory _p) internal view returns (bytes memory) {
+        return abi.encode(
+            DawnDeploymentTemplate.DawnParams({
+                marketId: _p.marketId,
+                st: BaseDeploymentTemplate.SeniorTrancheParams({ name: SENIOR_TRANCHE_NAME, symbol: SENIOR_TRANCHE_SYMBOL, asset: _p.stAsset }),
+                jt: BaseDeploymentTemplate.JuniorTrancheParams({ name: JUNIOR_TRANCHE_NAME, symbol: JUNIOR_TRANCHE_SYMBOL, asset: _p.jtAsset }),
+                accountant: _buildAccountantParams(_p),
+                ydm: BaseDeploymentTemplate.YDMParams({ componentTag: YDM_COMPONENT_TAG, version: YDM_VERSION }),
+                kernelSpecificParams: _p.kernelSpecificParams,
+                enforceVaultSharesTransferWhitelist: _p.enforceVaultSharesTransferWhitelist,
+                protocolFeeRecipient: PROTOCOL_FEE_RECIPIENT_ADDRESS,
+                stSelfLiquidationBonusWAD: _p.stSelfLiquidationBonusWAD,
+                entryPoint: address(0),
+                stEntryPointConfig: _emptyEntryPointConfig(),
+                jtEntryPointConfig: _emptyEntryPointConfig()
+            })
+        );
+    }
+
+    function _buildAccountantParams(DawnDeploymentParams memory _p) internal pure returns (BaseDeploymentTemplate.AccountantParams memory) {
+        return BaseDeploymentTemplate.AccountantParams({
+            stProtocolFeeWAD: _p.stProtocolFeeWAD,
+            jtProtocolFeeWAD: _p.jtProtocolFeeWAD,
+            yieldShareProtocolFeeWAD: _p.yieldShareProtocolFeeWAD,
+            coverageWAD: _p.coverageWAD,
+            betaWAD: _p.betaWAD,
+            liquidationUtilizationWAD: _p.liquidationUtilizationWAD,
+            fixedTermDurationSeconds: _p.fixedTermDurationSeconds,
+            stNAVDustTolerance: _p.stNAVDustTolerance,
+            jtNAVDustTolerance: _p.jtNAVDustTolerance,
+            ydmInitializationData: abi.encodeCall(AdaptiveCurveYDM_V2.initializeYDMForMarket, (uint64(0.06e18), uint64(0.06e18), uint64(0.18e18), uint64(0)))
+        });
+    }
+
+    function _emptyEntryPointConfig() internal pure returns (IRoycoEntryPoint.TrancheConfig memory) {
+        return IRoycoEntryPoint.TrancheConfig({
+            enabled: false, yieldRecipient: IRoycoEntryPoint.AccruedYieldRecipient.PROTOCOL, depositDelaySeconds: 0, redemptionDelaySeconds: 0
+        });
+    }
+
+    /// @notice Predicts the 4 market proxy addresses for a `marketId` — useful when the caller
+    ///         needs to build role bindings BEFORE running `executeMarketDeployment`.
+    function _predictMarketAddresses(bytes32 _marketId) internal view returns (address st, address jt, address kernel, address accountant) {
+        st = FACTORY.predictDeterministicAddress(keccak256(abi.encodePacked("ROYCO_MARKET", _marketId, bytes32("ST"))));
+        jt = FACTORY.predictDeterministicAddress(keccak256(abi.encodePacked("ROYCO_MARKET", _marketId, bytes32("JT"))));
+        kernel = FACTORY.predictDeterministicAddress(keccak256(abi.encodePacked("ROYCO_MARKET", _marketId, bytes32("KERNEL"))));
+        accountant = FACTORY.predictDeterministicAddress(keccak256(abi.encodePacked("ROYCO_MARKET", _marketId, bytes32("ACCOUNTANT"))));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SETUP HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Convenience wrapper for tests that don't deploy a full market: sets up wallets,
+    ///         opens the optional fork (`_forkConfiguration()` override) and stands up a fresh
+    ///         AM + factory. Subclasses doing their own market deployment (e.g.
+    ///         `AbstractKernelTestSuite`) don't need to call this — they wire the same steps
+    ///         individually.
+    function _setUpRoyco() internal virtual {
         (uint256 forkBlock, string memory forkRpcUrl) = _forkConfiguration();
         if (bytes(forkRpcUrl).length > 0) {
-            require(forkBlock != 0, "Fork block is required");
+            require(forkBlock != 0, "Fork block required");
             vm.createSelectFork(forkRpcUrl, forkBlock);
+        }
+        _setupWallets();
+        _bootstrapFactory();
+    }
+
+    function _setupFork(uint256 _forkBlock, string memory _forkRpcUrlEnvVar) internal {
+        if (bytes(_forkRpcUrlEnvVar).length > 0) {
+            string memory rpcUrl = vm.envString(_forkRpcUrlEnvVar);
+            require(bytes(rpcUrl).length > 0, "Fork RPC URL is not set");
+            require(_forkBlock != 0, "Fork block is required");
+            vm.createSelectFork(rpcUrl, _forkBlock);
         }
     }
 
@@ -219,58 +443,40 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
     }
 
     function _setupWallets() internal {
-        // Admin wallet
         OWNER = _initWallet("OWNER", 1000 ether);
         OWNER_ADDRESS = OWNER.addr;
 
-        // Role-specific wallets
         PAUSER = _initWallet("PAUSER", 1000 ether);
         PAUSER_ADDRESS = PAUSER.addr;
-
         UNPAUSER = _initWallet("UNPAUSER", 1000 ether);
         UNPAUSER_ADDRESS = UNPAUSER.addr;
-
         UPGRADER = _initWallet("UPGRADER", 1000 ether);
         UPGRADER_ADDRESS = UPGRADER.addr;
-
         SYNC_ROLE_HOLDER = _initWallet("SYNC_ROLE_HOLDER", 1000 ether);
         SYNC_ROLE_ADDRESS = SYNC_ROLE_HOLDER.addr;
-
         KERNEL_ADMIN = _initWallet("KERNEL_ADMIN", 1000 ether);
         KERNEL_ADMIN_ADDRESS = KERNEL_ADMIN.addr;
-
         ACCOUNTANT_ADMIN = _initWallet("ACCOUNTANT_ADMIN", 1000 ether);
         ACCOUNTANT_ADMIN_ADDRESS = ACCOUNTANT_ADMIN.addr;
-
         PROTOCOL_FEE_SETTER = _initWallet("PROTOCOL_FEE_SETTER", 1000 ether);
         PROTOCOL_FEE_SETTER_ADDRESS = PROTOCOL_FEE_SETTER.addr;
-
         ORACLE_QUOTER_ADMIN = _initWallet("ORACLE_QUOTER_ADMIN", 1000 ether);
         ORACLE_QUOTER_ADMIN_ADDRESS = ORACLE_QUOTER_ADMIN.addr;
-
         LP_ROLE_ADMIN = _initWallet("LP_ROLE_ADMIN", 1000 ether);
         LP_ROLE_ADMIN_ADDRESS = LP_ROLE_ADMIN.addr;
-
         ROLE_GUARDIAN = _initWallet("ROLE_GUARDIAN", 1000 ether);
         ROLE_GUARDIAN_ADDRESS = ROLE_GUARDIAN.addr;
-
         PROTOCOL_FEE_RECIPIENT = _initWallet("PROTOCOL_FEE_RECIPIENT", 1000 ether);
         PROTOCOL_FEE_RECIPIENT_ADDRESS = PROTOCOL_FEE_RECIPIENT.addr;
-
-        // Deployer wallets (for factory deployment)
         DEPLOYER = _initWallet("DEPLOYER", 1000 ether);
         DEPLOYER_ADDRESS = DEPLOYER.addr;
-
         DEPLOYER_ADMIN = _initWallet("DEPLOYER_ADMIN", 1000 ether);
         DEPLOYER_ADMIN_ADDRESS = DEPLOYER_ADMIN.addr;
-
-        // Transfer agent wallet (for compliance operations)
         TRANSFER_AGENT = _initWallet("TRANSFER_AGENT", 1000 ether);
         TRANSFER_AGENT_ADDRESS = TRANSFER_AGENT.addr;
     }
 
     function _setupProviders() internal {
-        // ST-only providers
         ST_ALICE = _generateProvider("ST_ALICE", ST_LP_ROLE);
         ST_BOB = _generateProvider("ST_BOB", ST_LP_ROLE);
         ST_CHARLIE = _generateProvider("ST_CHARLIE", ST_LP_ROLE);
@@ -281,7 +487,6 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
         ST_CHARLIE_ADDRESS = ST_CHARLIE.addr;
         ST_DAN_ADDRESS = ST_DAN.addr;
 
-        // JT-only providers
         JT_ALICE = _generateProvider("JT_ALICE", JT_LP_ROLE);
         JT_BOB = _generateProvider("JT_BOB", JT_LP_ROLE);
         JT_CHARLIE = _generateProvider("JT_CHARLIE", JT_LP_ROLE);
@@ -292,7 +497,6 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
         JT_CHARLIE_ADDRESS = JT_CHARLIE.addr;
         JT_DAN_ADDRESS = JT_DAN.addr;
 
-        // Backward-compat aliases (ALICE=JT, BOB=ST)
         ALICE = JT_ALICE;
         ALICE_ADDRESS = JT_ALICE_ADDRESS;
         BOB = ST_BOB;
@@ -302,7 +506,6 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
         DAN = JT_DAN;
         DAN_ADDRESS = JT_DAN_ADDRESS;
 
-        // All unique provider addresses
         providers.push(ST_ALICE_ADDRESS);
         providers.push(JT_ALICE_ADDRESS);
         providers.push(ST_BOB_ADDRESS);
@@ -313,63 +516,17 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
         providers.push(JT_DAN_ADDRESS);
     }
 
-    function _setDeployedMarket(DeployScript.DeploymentResult memory _deploymentResult) internal {
-        ST_IMPL = _deploymentResult.stTrancheImplementation;
-        vm.label(address(ST_IMPL), "STImpl");
-
-        JT_IMPL = _deploymentResult.jtTrancheImplementation;
-        vm.label(address(JT_IMPL), "JTImpl");
-
-        ACCOUNTANT_IMPL = _deploymentResult.accountantImplementation;
-        vm.label(address(ACCOUNTANT_IMPL), "AccountantImpl");
-
-        KERNEL_IMPL = _deploymentResult.kernelImplementation;
-        vm.label(address(KERNEL_IMPL), "KernelImpl");
-
-        YDM = _deploymentResult.ydm;
+    function _setDeployedMarket(MarketDeployment memory _d) internal {
+        YDM = _d.ydm;
         vm.label(address(YDM), "YDM");
-
-        ST = _deploymentResult.seniorTranche;
+        ST = _d.seniorTranche;
         vm.label(address(ST), "ST");
-
-        JT = _deploymentResult.juniorTranche;
+        JT = _d.juniorTranche;
         vm.label(address(JT), "JT");
-
-        ACCOUNTANT = _deploymentResult.accountant;
+        ACCOUNTANT = _d.accountant;
         vm.label(address(ACCOUNTANT), "Accountant");
-
-        KERNEL = _deploymentResult.kernel;
+        KERNEL = _d.kernel;
         vm.label(address(KERNEL), "Kernel");
-
-        FACTORY = _deploymentResult.factory;
-        vm.label(address(FACTORY), "Factory");
-
-        _wireExtraRoles();
-    }
-
-    /// @dev Wires roles that live in `ExtraRoles` and are intentionally NOT passed through
-    ///      `factory.initialize` (canonical `RolesConfiguration.getRoleConfig` doesn't know
-    ///      them, so including them in the init array would revert). Pranks FNDN (the
-    ///      admin-role holder): `OWNER_ADDRESS` for a fresh in-memory deploy, `ROOT_MULTISIG`
-    ///      when the test forks a chain where the factory is already on-chain.
-    function _wireExtraRoles() internal {
-        // Live-chain factory admin (matches MarketDeploymentConfig.ROOT_MULTISIG).
-        address fndn;
-        (bool ownerIsAdmin,) = FACTORY.hasRole(0, OWNER_ADDRESS);
-        if (ownerIsAdmin) {
-            fndn = OWNER_ADDRESS;
-        } else {
-            fndn = 0x7c405bbD131e42af506d14e752f2e59B19D49997; // ROOT_MULTISIG
-        }
-
-        // Standard 24h delay matches the canonical UNPAUSER config (and what `ApplySecurityMigration`
-        // applies in production). The `_scheduleAndExecuteUnpause` test helper relies on a non-zero
-        // delay — OZ AccessManager.schedule reverts when the caller's `setback == 0`.
-        (bool unpauserHasRole,) = FACTORY.hasRole(ADMIN_UNPAUSER_ROLE, UNPAUSER_ADDRESS);
-        if (!unpauserHasRole) {
-            vm.prank(fndn);
-            FACTORY.grantRole(ADMIN_UNPAUSER_ROLE, UNPAUSER_ADDRESS, 1 days);
-        }
     }
 
     function _initWallet(string memory _name, uint256 _amount) internal returns (Vm.Wallet memory) {
@@ -379,36 +536,29 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
         return wallet;
     }
 
-    /// @notice Generates a provider address
-    /// @param _name The name of the provider
-    /// @return provider The provider address
+    /// @notice Generates a provider address and grants `_role` to it (via the LP_ROLE_ADMIN).
     function _generateProvider(string memory _name, uint64 _role) internal virtual returns (Vm.Wallet memory provider) {
         provider = _initWallet(_name, 10_000_000e6);
-
         vm.prank(LP_ROLE_ADMIN_ADDRESS);
-        FACTORY.grantRole(_role, provider.addr, 0);
-
+        AM.grantRole(_role, provider.addr, 0);
         return provider;
     }
 
-    /// @notice Generates a provider address with both ST and JT LP roles
-    /// @param index The index of the provider
-    /// @return provider The provider address
+    /// @notice Generates a provider address and grants BOTH ST and JT LP roles.
     function _generateProvider(uint256 index) internal virtual returns (Vm.Wallet memory provider) {
         string memory providerName = string(abi.encodePacked("PROVIDER", vm.toString(index)));
         provider = _initWallet(providerName, 10_000_000e6);
-
         vm.startPrank(LP_ROLE_ADMIN_ADDRESS);
-        FACTORY.grantRole(ST_LP_ROLE, provider.addr, 0);
-        FACTORY.grantRole(JT_LP_ROLE, provider.addr, 0);
+        AM.grantRole(ST_LP_ROLE, provider.addr, 0);
+        AM.grantRole(JT_LP_ROLE, provider.addr, 0);
         vm.stopPrank();
-
         return provider;
     }
 
-    /// @notice Verifies the preview NAVs of the senior and junior tranches
-    /// @param _stState The state of the senior tranche
-    /// @param _jtState The state of the junior tranche
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ASSERTIONS (carried over from the legacy BaseTest)
+    // ═══════════════════════════════════════════════════════════════════════════
+
     function _verifyPreviewNAVs(
         TrancheState memory _stState,
         TrancheState memory _jtState,
@@ -434,10 +584,6 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
         assertApproxEqAbs(jtClaims.jtAssets, _jtState.jtAssetsClaim, toUint256(_maxAbsDeltaTrancheUnits), "JT jt assets claim mismatch");
     }
 
-    /// @notice Verifies the fee taken by the senior and junior tranches
-    /// @param _stState The state of the senior tranche
-    /// @param _jtState The state of the junior tranche
-    /// @param _feeRecipient The address of the fee recipient
     function _verifyFeeTaken(TrancheState storage _stState, TrancheState storage _jtState, address _feeRecipient) internal view {
         uint256 seniorFeeShares = ST.balanceOf(_feeRecipient);
         NAV_UNIT seniorFeeSharesValue = ST.convertToAssets(seniorFeeShares).nav;
@@ -448,12 +594,6 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
         assertEq(juniorFeeSharesValue, _jtState.protocolFeeValue, "JT protocol fee value mismatch");
     }
 
-    /// @notice Updates the state of the senior and junior tranches on a deposit
-    /// @param _trancheState The state of the tranche
-    /// @param _assets The amount of ASSETS deposited
-    /// @param _assetsValue The value of the ASSETS deposited
-    /// @param _shares The amount of shares deposited
-    /// @param _trancheType The type of tranche
     function _updateOnDeposit(
         TrancheState storage _trancheState,
         TRANCHE_UNIT _assets,
@@ -473,12 +613,6 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
         _trancheState.totalShares += _shares;
     }
 
-    /// @notice Updates the state of the senior and junior tranches on a withdrawal
-    /// @param _trancheState The state of the tranche
-    /// @param _stAssetsWithdrawn The amount of ST assets withdrawn
-    /// @param _jtAssetsWithdrawn The amount of JT assets withdrawn
-    /// @param _totalAssetsValueWithdrawn The value of the ASSETS withdrawn
-    /// @param _shares The amount of shares withdrawn
     function _updateOnWithdraw(
         TrancheState storage _trancheState,
         TRANCHE_UNIT _stAssetsWithdrawn,
@@ -495,185 +629,18 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
         _trancheState.totalShares = _trancheState.totalShares - _shares;
     }
 
-    /// @notice Converts the specified assets denominated in JT's tranche units to the kernel's NAV units
-    /// @param _assets The assets denominated in JT's tranche units to convert to the kernel's NAV units
-    /// @return value The specified assets denominated in JT's tranche units converted to the kernel's NAV units
+    /// @notice Converts JT tranche units to NAV units via the kernel's quoter.
     function _toJTValue(TRANCHE_UNIT _assets) internal view returns (NAV_UNIT) {
         return KERNEL.jtConvertTrancheUnitsToNAVUnits(_assets);
     }
 
-    /// @notice Converts the specified assets denominated in ST's tranche units to the kernel's NAV units
-    /// @param _assets The assets denominated in ST's tranche units to convert to the kernel's NAV units
-    /// @return value The specified assets denominated in ST's tranche units converted to the kernel's NAV units
+    /// @notice Converts ST tranche units to NAV units via the kernel's quoter.
     function _toSTValue(TRANCHE_UNIT _assets) internal view returns (NAV_UNIT) {
         return KERNEL.stConvertTrancheUnitsToNAVUnits(_assets);
     }
 
-    /// @notice Deploys a KERNEL using ERC1967 proxy
-    /// @param _kernelImplementation The implementation address
-    /// @param _kernelInitData The initialization data
-    /// @return KERNELProxy The deployed proxy address
-    function _deployKernel(address _kernelImplementation, bytes memory _kernelInitData) internal returns (address KERNELProxy) {
-        KERNELProxy = address(new ERC1967Proxy(_kernelImplementation, _kernelInitData));
-    }
-
-    /// @notice Returns the fork configuration
-    /// @return forkBlock The fork block
-    /// @return forkRpcUrl The fork RPC URL
+    /// @notice Override in subclasses to return `(forkBlock, forkRpcUrl)` for fork-based tests.
     function _forkConfiguration() internal virtual returns (uint256 forkBlock, string memory forkRpcUrl) {
         return (0, "");
-    }
-
-    /// @notice Generates role assignments using the role-specific addresses
-    /// @return roleAssignments Array of role assignment configurations
-    function _generateRoleAssignments() internal view returns (IRoycoFactory.RoleAssignmentConfiguration[] memory roleAssignments) {
-        return DEPLOY_SCRIPT.generateRolesAssignments(
-            DeployScript.RoleAssignmentAddresses({
-                pauserAddress: PAUSER_ADDRESS,
-                unpauserAddress: UNPAUSER_ADDRESS,
-                upgraderAddress: UPGRADER_ADDRESS,
-                syncRoleAddress: SYNC_ROLE_ADDRESS,
-                adminKernelAddress: KERNEL_ADMIN_ADDRESS,
-                adminAccountantAddress: ACCOUNTANT_ADMIN_ADDRESS,
-                adminProtocolFeeSetterAddress: PROTOCOL_FEE_SETTER_ADDRESS,
-                adminOracleQuoterAddress: ORACLE_QUOTER_ADMIN_ADDRESS,
-                lpRoleAdminAddress: LP_ROLE_ADMIN_ADDRESS,
-                guardianAddress: ROLE_GUARDIAN_ADDRESS,
-                deployerAddress: DEPLOYER_ADDRESS,
-                deployerAdminAddress: DEPLOYER_ADMIN_ADDRESS,
-                protocolFeeRecipientAddress: PROTOCOL_FEE_RECIPIENT_ADDRESS,
-                transferAgentAddress: TRANSFER_AGENT_ADDRESS
-            })
-        );
-    }
-
-    /// @notice Grants all roles to their respective addresses
-    /// @dev This should be called after the factory is deployed
-    function _grantAllRoles() internal prankModifier(OWNER_ADDRESS) {
-        // Grant ADMIN_PAUSER_ROLE
-        FACTORY.grantRole(ADMIN_PAUSER_ROLE, PAUSER_ADDRESS, 0);
-
-        // Grant ADMIN_UNPAUSER_ROLE
-        FACTORY.grantRole(ADMIN_UNPAUSER_ROLE, UNPAUSER_ADDRESS, 0);
-
-        // Grant ADMIN_UPGRADER_ROLE
-        FACTORY.grantRole(ADMIN_UPGRADER_ROLE, UPGRADER_ADDRESS, 0);
-
-        // Grant SYNC_ROLE
-        FACTORY.grantRole(SYNC_ROLE, SYNC_ROLE_ADDRESS, 0);
-
-        // Grant ADMIN_KERNEL_ROLE
-        FACTORY.grantRole(ADMIN_KERNEL_ROLE, KERNEL_ADMIN_ADDRESS, 0);
-
-        // Grant ADMIN_ACCOUNTANT_ROLE
-        FACTORY.grantRole(ADMIN_ACCOUNTANT_ROLE, ACCOUNTANT_ADMIN_ADDRESS, 0);
-
-        // Grant ADMIN_PROTOCOL_FEE_SETTER_ROLE
-        FACTORY.grantRole(ADMIN_PROTOCOL_FEE_SETTER_ROLE, PROTOCOL_FEE_SETTER_ADDRESS, 0);
-
-        // Grant ADMIN_ORACLE_QUOTER_ROLE
-        FACTORY.grantRole(ADMIN_ORACLE_QUOTER_ROLE, ORACLE_QUOTER_ADMIN_ADDRESS, 0);
-
-        // Grant LP_ROLE_ADMIN_ROLE
-        FACTORY.grantRole(LP_ROLE_ADMIN_ROLE, LP_ROLE_ADMIN_ADDRESS, 0);
-
-        // Grant TRANSFER_AGENT_ROLE
-        FACTORY.grantRole(TRANSFER_AGENT_ROLE, TRANSFER_AGENT_ADDRESS, 0);
-
-        // Set ST_LP_ROLE and JT_LP_ROLE admin to LP_ROLE_ADMIN_ROLE
-        FACTORY.setRoleAdmin(ST_LP_ROLE, LP_ROLE_ADMIN_ROLE);
-        FACTORY.setRoleAdmin(JT_LP_ROLE, LP_ROLE_ADMIN_ROLE);
-    }
-
-    // -----------------------------------------
-    // Role-Specific Helper Functions
-    // -----------------------------------------
-
-    /// @notice Calls sync on the kernel with SYNC_ROLE
-    function _sync() internal prankModifier(SYNC_ROLE_ADDRESS) {
-        KERNEL.syncTrancheAccounting();
-    }
-
-    /// @notice Schedules and executes a kernel admin operation (handles delay)
-    /// @param _target The target contract address
-    /// @param _data The calldata for the operation
-    function _executeKernelAdminOperation(address _target, bytes memory _data) internal {
-        // Schedule the operation
-        vm.prank(KERNEL_ADMIN_ADDRESS);
-        FACTORY.schedule(_target, _data, 0);
-
-        // Warp past the delay (2 days for ADMIN_KERNEL_ROLE)
-        vm.warp(block.timestamp + 2 days + 1);
-
-        // Execute the operation
-        vm.prank(KERNEL_ADMIN_ADDRESS);
-        FACTORY.execute(_target, _data);
-    }
-
-    /// @notice Schedules and executes an accountant admin operation (handles delay)
-    /// @param _target The target contract address
-    /// @param _data The calldata for the operation
-    function _executeAccountantAdminOperation(address _target, bytes memory _data) internal {
-        // Schedule the operation
-        vm.prank(ACCOUNTANT_ADMIN_ADDRESS);
-        FACTORY.schedule(_target, _data, 0);
-
-        // Warp past the delay (2 days for ADMIN_ACCOUNTANT_ROLE)
-        vm.warp(block.timestamp + 2 days + 1);
-
-        // Execute the operation
-        vm.prank(ACCOUNTANT_ADMIN_ADDRESS);
-        FACTORY.execute(_target, _data);
-    }
-
-    /// @notice Schedules and executes a protocol fee setter operation (handles delay)
-    /// @param _target The target contract address
-    /// @param _data The calldata for the operation
-    function _executeProtocolFeeSetterOperation(address _target, bytes memory _data) internal {
-        // Schedule the operation
-        vm.prank(PROTOCOL_FEE_SETTER_ADDRESS);
-        FACTORY.schedule(_target, _data, 0);
-
-        // Warp past the delay (2 days for ADMIN_PROTOCOL_FEE_SETTER_ROLE)
-        vm.warp(block.timestamp + 2 days + 1);
-
-        // Execute the operation
-        vm.prank(PROTOCOL_FEE_SETTER_ADDRESS);
-        FACTORY.execute(_target, _data);
-    }
-
-    /// @notice Sets the protocol fee recipient via kernel admin (with scheduling)
-    /// @param _newRecipient The new protocol fee recipient address
-    function _setProtocolFeeRecipient(address _newRecipient) internal {
-        bytes memory data = abi.encodeCall(KERNEL.setProtocolFeeRecipient, (_newRecipient));
-        _executeKernelAdminOperation(address(KERNEL), data);
-    }
-
-    /// @notice Sets the coverage via accountant admin (with scheduling)
-    /// @param _newCoverageWAD The new coverage in WAD
-    function _setCoverage(uint64 _newCoverageWAD) internal {
-        bytes memory data = abi.encodeCall(ACCOUNTANT.setCoverage, (_newCoverageWAD));
-        _executeAccountantAdminOperation(address(ACCOUNTANT), data);
-    }
-
-    /// @notice Sets the beta via accountant admin (with scheduling)
-    /// @param _newBetaWAD The new beta in WAD
-    function _setBeta(uint96 _newBetaWAD) internal {
-        bytes memory data = abi.encodeCall(ACCOUNTANT.setBeta, (_newBetaWAD));
-        _executeAccountantAdminOperation(address(ACCOUNTANT), data);
-    }
-
-    /// @notice Sets the ST protocol fee via protocol fee setter (with scheduling)
-    /// @param _newFeeWAD The new fee in WAD
-    function _setSeniorTrancheProtocolFee(uint64 _newFeeWAD) internal {
-        bytes memory data = abi.encodeCall(ACCOUNTANT.setSeniorTrancheProtocolFee, (_newFeeWAD));
-        _executeProtocolFeeSetterOperation(address(ACCOUNTANT), data);
-    }
-
-    /// @notice Sets the JT protocol fee via protocol fee setter (with scheduling)
-    /// @param _newFeeWAD The new fee in WAD
-    function _setJuniorTrancheProtocolFee(uint64 _newFeeWAD) internal {
-        bytes memory data = abi.encodeCall(ACCOUNTANT.setJuniorTrancheProtocolFee, (_newFeeWAD));
-        _executeProtocolFeeSetterOperation(address(ACCOUNTANT), data);
     }
 }

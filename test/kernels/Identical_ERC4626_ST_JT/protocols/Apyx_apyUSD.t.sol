@@ -4,9 +4,8 @@ pragma solidity ^0.8.28;
 import { IERC20 } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import { IERC4626 } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 
-import { DeployScript } from "../../../../script/Deploy.s.sol";
-import { MarketDeploymentConfig } from "../../../../script/config/MarketDeploymentConfig.sol";
-import { IRoycoFactory } from "../../../../src/interfaces/IRoycoFactory.sol";
+import { COMPONENT_ID_KERNEL_APYUSD } from "../../../../src/factory/templates/Components.sol";
+import { apyUSDDeploymentTemplate } from "../../../../src/factory/templates/dawn/apyUSDDeploymentTemplate.sol";
 import { IAddressList } from "../../../../src/interfaces/external/apyx/IAddressList.sol";
 import { IApyUSD } from "../../../../src/interfaces/external/apyx/IApyUSD.sol";
 import {
@@ -63,26 +62,34 @@ contract apyUSD_apyUSD_Test is YieldBearingERC4626_ChainlinkOracle_TestBase {
     // DEPLOYMENT (uses MarketDeploymentConfig)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Deploys the apyUSD kernel and market using parameters from MarketDeploymentConfig
-    /// @dev Uses the Chainlink oracle from the deployment config for the base-asset->USD leg
-    function _deployKernelAndMarket() internal override returns (DeployScript.DeploymentResult memory) {
-        MarketDeploymentConfig.MarketConfig memory marketConfig = DEPLOY_SCRIPT.getMarketConfig("apyUSD");
-
-        // The Redstone NUSD/USD-style feed used by apyUSD pushes infrequently. The pinned fork block can
-        // therefore be older than the prod 48h staleness threshold; relax it for tests so the inherited
-        // suite can read the live oracle without tripping STALE_PRICE.
-        marketConfig.kernelSpecificParams = abi.encode(
-            DeployScript.IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
+    /// @notice Deploys the apyUSD kernel and market via the apyUSD template.
+    function _deployKernelAndMarket() internal override returns (MarketDeployment memory) {
+        apyUSDDeploymentTemplate template = new apyUSDDeploymentTemplate(FACTORY);
+        DawnDeploymentParams memory p;
+        p.marketId = keccak256("APYUSD_TEST");
+        p.template = address(template);
+        p.kernelComponentId = COMPONENT_ID_KERNEL_APYUSD;
+        p.kernelCreationCode = type(apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel).creationCode;
+        p.stAsset = config.stAsset;
+        p.jtAsset = config.jtAsset;
+        // The Redstone NUSD/USD-style feed used by apyUSD pushes infrequently. Relax staleness for tests.
+        p.kernelSpecificParams = abi.encode(
+            apyUSDDeploymentTemplate.KernelParams({
                 initialConversionRateWAD: 0, baseAssetToNavAssetOracle: 0x2037a5Eb67aa9B2FBF50042B724D8c4dB80F23b4, stalenessThresholdSeconds: 365 days
             })
         );
-
-        uint32 scheduledOperationsExpirySeconds = DEPLOY_SCRIPT.getChainConfig(block.chainid).scheduledOperationsExpirySeconds;
-        IRoycoFactory.RoleAssignmentConfiguration[] memory roleAssignments = _generateRoleAssignments();
-
-        return DEPLOY_SCRIPT.deploy(
-            marketConfig, OWNER_ADDRESS, PROTOCOL_FEE_RECIPIENT_ADDRESS, scheduledOperationsExpirySeconds, roleAssignments, DEPLOYER.privateKey
-        );
+        p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
+        p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
+        p.yieldShareProtocolFeeWAD = 0;
+        p.coverageWAD = COVERAGE_WAD;
+        p.betaWAD = BETA_WAD;
+        p.liquidationUtilizationWAD = LIQUIDATION_UTILIZATION_WAD;
+        p.fixedTermDurationSeconds = FIXED_TERM_DURATION_SECONDS;
+        p.stNAVDustTolerance = DUST_TOLERANCE;
+        p.jtNAVDustTolerance = DUST_TOLERANCE;
+        p.enforceVaultSharesTransferWhitelist = false;
+        p.stSelfLiquidationBonusWAD = 0;
+        return _deployDawnMarket(p);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

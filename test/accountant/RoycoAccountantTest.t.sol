@@ -263,7 +263,7 @@ contract RoycoAccountantTest is BaseTest {
 
     function test_preOpSync_onlyKernel() public {
         vm.expectRevert(IRoycoAccountant.ONLY_ROYCO_KERNEL.selector);
-        accountant.preOpSyncTrancheAccounting(_nav(100e18), _nav(50e18));
+        accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18), _nav(50e18));
     }
 
     function test_preOpSync_rawNAVsSetCorrectly() public {
@@ -271,7 +271,7 @@ contract RoycoAccountantTest is BaseTest {
         NAV_UNIT jtRawNAV = _nav(50e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(stRawNAV, jtRawNAV);
+        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), stRawNAV, jtRawNAV);
 
         assertEq(state.stRawNAV, stRawNAV, "stRawNAV mismatch");
         assertEq(state.jtRawNAV, jtRawNAV, "jtRawNAV mismatch");
@@ -287,7 +287,7 @@ contract RoycoAccountantTest is BaseTest {
         jtNav = bound(jtNav, MIN_NAV, MAX_NAV);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(stNav), _nav(jtNav));
+        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(stNav), _nav(jtNav));
 
         _assertNAVConservation(state);
     }
@@ -297,7 +297,7 @@ contract RoycoAccountantTest is BaseTest {
         IRoycoAccountant.RoycoAccountantState memory baseState = accountant.getState();
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(100e18), _nav(50e18));
+        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18), _nav(50e18));
 
         assertEq(state.stEffectiveNAV, baseState.lastSTEffectiveNAV, "ST effective unchanged when no delta");
         assertEq(state.jtEffectiveNAV, baseState.lastJTEffectiveNAV, "JT effective unchanged when no delta");
@@ -318,7 +318,8 @@ contract RoycoAccountantTest is BaseTest {
 
         uint256 stGain = 10e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(100e18 + stGain), _nav(50e18));
+        SyncedAccountingState memory state =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18 + stGain), _nav(50e18));
 
         assertGt(toUint256(state.jtEffectiveNAV), jtEffBefore, "JT should receive yield share");
         assertLt(toUint256(state.stEffectiveNAV), stEffBefore + stGain, "ST should share yield with JT");
@@ -334,7 +335,8 @@ contract RoycoAccountantTest is BaseTest {
 
         uint256 stLoss = 20e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(100e18 - stLoss), _nav(50e18));
+        SyncedAccountingState memory state =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18 - stLoss), _nav(50e18));
 
         assertEq(toUint256(state.stEffectiveNAV), stEffBefore, "ST fully covered");
         assertEq(toUint256(state.jtEffectiveNAV), jtEffBefore - stLoss, "JT provides coverage");
@@ -352,7 +354,7 @@ contract RoycoAccountantTest is BaseTest {
         uint256 stLoss = stEffBefore + jtEffBefore + 10e18;
         uint256 newStRaw = 100e18 > stLoss ? 100e18 - stLoss : 0;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(newStRaw), _nav(50e18));
+        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(newStRaw), _nav(50e18));
 
         assertEq(toUint256(state.jtEffectiveNAV), 0, "JT exhausted");
         assertGt(toUint256(state.stImpermanentLoss), 0, "ST has IL");
@@ -367,7 +369,8 @@ contract RoycoAccountantTest is BaseTest {
 
         uint256 jtGain = 10e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(100e18), _nav(50e18 + jtGain));
+        SyncedAccountingState memory state =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18), _nav(50e18 + jtGain));
 
         assertEq(toUint256(state.jtEffectiveNAV), jtEffBefore + jtGain, "JT accrues gain");
         assertEq(toUint256(state.stEffectiveNAV), stEffBefore, "ST unchanged");
@@ -383,7 +386,8 @@ contract RoycoAccountantTest is BaseTest {
 
         uint256 jtLoss = 10e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(100e18), _nav(50e18 - jtLoss));
+        SyncedAccountingState memory state =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18), _nav(50e18 - jtLoss));
 
         assertEq(toUint256(state.jtEffectiveNAV), jtEffBefore - jtLoss, "JT absorbs loss");
         assertEq(toUint256(state.stEffectiveNAV), stEffBefore, "ST unchanged");
@@ -401,7 +405,8 @@ contract RoycoAccountantTest is BaseTest {
         uint256 stGain = 10e18;
         uint256 jtGain = 5e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(100e18 + stGain), _nav(50e18 + jtGain));
+        SyncedAccountingState memory state =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18 + stGain), _nav(50e18 + jtGain));
 
         uint256 totalEffAfter = toUint256(state.stEffectiveNAV) + toUint256(state.jtEffectiveNAV);
         assertEq(totalEffAfter, totalEffBefore + stGain + jtGain, "total gain captured");
@@ -417,7 +422,8 @@ contract RoycoAccountantTest is BaseTest {
         uint256 stLoss = 10e18;
         uint256 jtLoss = 5e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(100e18 - stLoss), _nav(50e18 - jtLoss));
+        SyncedAccountingState memory state =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18 - stLoss), _nav(50e18 - jtLoss));
 
         assertEq(toUint256(state.stEffectiveNAV), stEffBefore, "ST covered");
         assertEq(toUint256(state.jtEffectiveNAV), jtEffBefore - jtLoss - stLoss, "JT absorbs both");
@@ -436,7 +442,8 @@ contract RoycoAccountantTest is BaseTest {
         uint256 stGain = 10e18;
         uint256 jtLoss = 5e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(100e18 + stGain), _nav(50e18 - jtLoss));
+        SyncedAccountingState memory state =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18 + stGain), _nav(50e18 - jtLoss));
 
         // jtSelfImpermanentLoss removed from SyncedAccountingState
         assertGt(toUint256(state.jtEffectiveNAV), jtEffBefore - jtLoss, "JT receives yield share");
@@ -451,7 +458,8 @@ contract RoycoAccountantTest is BaseTest {
         uint256 stLoss = 10e18;
         uint256 jtGain = 15e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(100e18 - stLoss), _nav(50e18 + jtGain));
+        SyncedAccountingState memory state =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18 - stLoss), _nav(50e18 + jtGain));
 
         assertEq(toUint256(state.stEffectiveNAV), stEffBefore, "ST covered");
         assertEq(toUint256(state.jtImpermanentLoss), stLoss, "JT coverage IL");
@@ -467,8 +475,9 @@ contract RoycoAccountantTest is BaseTest {
         vm.warp(vm.getBlockTimestamp() + 1 days);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state =
-            accountant.preOpSyncTrancheAccounting(_nav(uint256(int256(100e18) + stDelta)), _nav(uint256(int256(50e18) + jtDelta)));
+        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(
+            accountant.getLastAccountingStateCheckpoint(), _nav(uint256(int256(100e18) + stDelta)), _nav(uint256(int256(50e18) + jtDelta))
+        );
 
         _assertNAVConservation(state);
     }
@@ -482,14 +491,16 @@ contract RoycoAccountantTest is BaseTest {
 
         uint256 stLoss = 40e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(_nav(100e18 - stLoss), _nav(10e18));
+        SyncedAccountingState memory state1 =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18 - stLoss), _nav(10e18));
 
         uint256 stIL = toUint256(state1.stImpermanentLoss);
         assertGt(stIL, 0, "ST IL created");
 
         uint256 jtGain = 50e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(_nav(100e18 - stLoss), _nav(10e18 + jtGain));
+        SyncedAccountingState memory state2 =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18 - stLoss), _nav(10e18 + jtGain));
 
         assertEq(toUint256(state2.stImpermanentLoss), 0, "ST IL recovered");
         _assertNAVConservation(state2);
@@ -500,14 +511,16 @@ contract RoycoAccountantTest is BaseTest {
 
         uint256 stLoss = 20e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(_nav(100e18 - stLoss), _nav(50e18));
+        SyncedAccountingState memory state1 =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18 - stLoss), _nav(50e18));
 
         assertEq(toUint256(state1.jtImpermanentLoss), stLoss, "JT coverage IL created");
 
         vm.warp(vm.getBlockTimestamp() + 1 days);
         uint256 stGain = 30e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(_nav(100e18 - stLoss + stGain), _nav(50e18));
+        SyncedAccountingState memory state2 =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18 - stLoss + stGain), _nav(50e18));
 
         assertEq(toUint256(state2.jtImpermanentLoss), 0, "JT coverage IL recovered");
         _assertNAVConservation(state2);
@@ -518,13 +531,14 @@ contract RoycoAccountantTest is BaseTest {
 
         uint256 jtLoss = 10e18;
         vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_nav(100e18), _nav(50e18 - jtLoss));
+        accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18), _nav(50e18 - jtLoss));
 
         // jtSelfImpermanentLoss removed from SyncedAccountingState
 
         uint256 jtGain = 15e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(_nav(100e18), _nav(50e18 - jtLoss + jtGain));
+        SyncedAccountingState memory state2 =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18), _nav(50e18 - jtLoss + jtGain));
 
         // jtSelfImpermanentLoss removed from SyncedAccountingState
         _assertNAVConservation(state2);
@@ -541,7 +555,8 @@ contract RoycoAccountantTest is BaseTest {
 
         uint256 stLoss = 20e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(100e18 - stLoss), _nav(50e18));
+        SyncedAccountingState memory state =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18 - stLoss), _nav(50e18));
 
         assertEq(uint8(state.marketState), uint8(MarketState.FIXED_TERM), "transitioned to FIXED_TERM");
         assertGt(toUint256(state.jtImpermanentLoss), 0, "JT coverage IL exists");
@@ -552,14 +567,14 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 50e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
         assertEq(uint8(state1.marketState), uint8(MarketState.FIXED_TERM));
 
         uint32 fixedTermEnd = accountant.getState().fixedTermEndTimestamp;
         vm.warp(fixedTermEnd + 1);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
 
         assertEq(uint8(state2.marketState), uint8(MarketState.PERPETUAL), "back to PERPETUAL");
         assertEq(toUint256(state2.jtImpermanentLoss), 0, "JT coverage IL cleared");
@@ -581,10 +596,11 @@ contract RoycoAccountantTest is BaseTest {
         );
 
         vm.prank(MOCK_KERNEL);
-        perpetualAccountant.preOpSyncTrancheAccounting(_nav(100e18), _nav(50e18));
+        perpetualAccountant.preOpSyncTrancheAccounting(perpetualAccountant.getLastAccountingStateCheckpoint(), _nav(100e18), _nav(50e18));
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = perpetualAccountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        SyncedAccountingState memory state =
+            perpetualAccountant.preOpSyncTrancheAccounting(perpetualAccountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
 
         assertEq(uint8(state.marketState), uint8(MarketState.PERPETUAL), "stays PERPETUAL");
     }
@@ -593,22 +609,22 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 50e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
         assertEq(uint8(state1.marketState), uint8(MarketState.FIXED_TERM));
 
         vm.warp(vm.getBlockTimestamp() + 1 weeks);
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
         assertEq(uint8(state2.marketState), uint8(MarketState.FIXED_TERM));
 
         uint32 termEnd = accountant.getState().fixedTermEndTimestamp;
         vm.warp(termEnd + 1);
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state3 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        SyncedAccountingState memory state3 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
         assertEq(uint8(state3.marketState), uint8(MarketState.PERPETUAL));
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state4 = accountant.preOpSyncTrancheAccounting(_nav(70e18), _nav(50e18));
+        SyncedAccountingState memory state4 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(70e18), _nav(50e18));
         assertEq(uint8(state4.marketState), uint8(MarketState.FIXED_TERM));
     }
 
@@ -616,13 +632,13 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 50e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
         assertEq(uint8(state1.marketState), uint8(MarketState.FIXED_TERM));
         assertGt(toUint256(state1.jtImpermanentLoss), 0, "IL exists");
 
         vm.warp(vm.getBlockTimestamp() + 1 days);
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(_nav(110e18), _nav(50e18));
+        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(110e18), _nav(50e18));
 
         assertEq(uint8(state2.marketState), uint8(MarketState.PERPETUAL), "back to PERPETUAL via recovery");
         assertEq(toUint256(state2.jtImpermanentLoss), 0, "IL cleared via recovery");
@@ -632,12 +648,12 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 20e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(20e18));
+        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(20e18));
         assertEq(uint8(state1.marketState), uint8(MarketState.FIXED_TERM));
 
         // Massive loss to 0 ST NAV
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(_nav(0), _nav(20e18));
+        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(0), _nav(20e18));
 
         assertEq(uint8(state2.marketState), uint8(MarketState.PERPETUAL), "PERPETUAL when ST has IL");
         assertGt(toUint256(state2.stImpermanentLoss), 0, "ST IL exists");
@@ -647,13 +663,13 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 50e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
         assertEq(uint8(state1.marketState), uint8(MarketState.FIXED_TERM));
         uint256 initialIL = toUint256(state1.jtImpermanentLoss);
 
         vm.warp(vm.getBlockTimestamp() + 1 days);
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(_nav(90e18), _nav(50e18));
+        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(90e18), _nav(50e18));
 
         assertEq(uint8(state2.marketState), uint8(MarketState.FIXED_TERM), "stays FIXED_TERM");
         assertLt(toUint256(state2.jtImpermanentLoss), initialIL, "IL reduced but not zero");
@@ -664,14 +680,14 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 50e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
         assertEq(uint8(state1.marketState), uint8(MarketState.FIXED_TERM));
 
         uint32 termEnd = accountant.getState().fixedTermEndTimestamp;
         vm.warp(termEnd);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
 
         assertEq(uint8(state2.marketState), uint8(MarketState.PERPETUAL), "PERPETUAL at exact expiry");
         assertEq(toUint256(state2.jtImpermanentLoss), 0, "IL cleared at expiry");
@@ -681,26 +697,26 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 50e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory s1 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        SyncedAccountingState memory s1 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
         assertEq(uint8(s1.marketState), uint8(MarketState.FIXED_TERM));
 
         vm.warp(vm.getBlockTimestamp() + 1 days);
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory s2 = accountant.preOpSyncTrancheAccounting(_nav(110e18), _nav(50e18));
+        SyncedAccountingState memory s2 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(110e18), _nav(50e18));
         assertEq(uint8(s2.marketState), uint8(MarketState.PERPETUAL));
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory s3 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        SyncedAccountingState memory s3 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
         assertEq(uint8(s3.marketState), uint8(MarketState.FIXED_TERM));
 
         uint32 termEnd = accountant.getState().fixedTermEndTimestamp;
         vm.warp(termEnd + 1);
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory s4 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        SyncedAccountingState memory s4 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
         assertEq(uint8(s4.marketState), uint8(MarketState.PERPETUAL));
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory s5 = accountant.preOpSyncTrancheAccounting(_nav(70e18), _nav(50e18));
+        SyncedAccountingState memory s5 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(70e18), _nav(50e18));
         assertEq(uint8(s5.marketState), uint8(MarketState.FIXED_TERM));
     }
 
@@ -718,7 +734,8 @@ contract RoycoAccountantTest is BaseTest {
 
         if (stLoss > 0 && stLoss < jtEffBefore) {
             vm.prank(MOCK_KERNEL);
-            SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(newStNav), _nav(jtNav));
+            SyncedAccountingState memory state =
+                accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(newStNav), _nav(jtNav));
 
             if (toUint256(state.jtImpermanentLoss) > 0 && toUint256(state.stImpermanentLoss) == 0) {
                 assertEq(uint8(state.marketState), uint8(MarketState.FIXED_TERM));
@@ -825,7 +842,7 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 10e18);
 
         vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_nav(50e18), _nav(10e18));
+        accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(50e18), _nav(10e18));
 
         IRoycoAccountant.RoycoAccountantState memory stateBefore = accountant.getState();
         uint256 stILBefore = toUint256(stateBefore.lastSTImpermanentLoss);
@@ -846,7 +863,7 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 50e18);
 
         vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
 
         IRoycoAccountant.RoycoAccountantState memory stateBefore = accountant.getState();
         uint256 jtCovILBefore = toUint256(stateBefore.lastJTImpermanentLoss);
@@ -888,9 +905,9 @@ contract RoycoAccountantTest is BaseTest {
     function test_maxSTDepositGivenCoverage() public {
         _initializeAccountantState(100e18, 50e18);
 
-        NAV_UNIT maxDeposit = accountant.maxSTDepositGivenCoverage(_nav(100e18), _nav(50e18));
+        NAV_UNIT maxDeposit = accountant.maxSTDepositGivenCoverage(accountant.getLastAccountingStateCheckpoint(), _nav(100e18), _nav(50e18));
 
-        SyncedAccountingState memory preview = accountant.previewSyncTrancheAccounting(_nav(100e18), _nav(50e18));
+        SyncedAccountingState memory preview = accountant.previewSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18), _nav(50e18));
         uint256 jtEff = toUint256(preview.jtEffectiveNAV);
         uint256 maxCovered = jtEff * WAD / COVERAGE_WAD;
         uint256 expectedMax = maxCovered > 100e18 ? maxCovered - 100e18 : 0;
@@ -904,7 +921,7 @@ contract RoycoAccountantTest is BaseTest {
 
         _initializeAccountantState(stNav, jtNav);
 
-        NAV_UNIT maxDeposit = accountant.maxSTDepositGivenCoverage(_nav(stNav), _nav(jtNav));
+        NAV_UNIT maxDeposit = accountant.maxSTDepositGivenCoverage(accountant.getLastAccountingStateCheckpoint(), _nav(stNav), _nav(jtNav));
         assertTrue(toUint256(maxDeposit) >= 0, "max deposit non-negative");
     }
 
@@ -921,7 +938,7 @@ contract RoycoAccountantTest is BaseTest {
         vm.warp(vm.getBlockTimestamp() + 1 days);
 
         vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_nav(10e18), _nav(200e18));
+        accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(10e18), _nav(200e18));
 
         (, uint32 timestampAfterSecondSync,) = adaptiveYDM.accountantToCurve(address(accountant));
         assertGt(timestampAfterSecondSync, 0, "timestamp set after second sync");
@@ -929,7 +946,7 @@ contract RoycoAccountantTest is BaseTest {
         vm.warp(vm.getBlockTimestamp() + 365 days);
 
         vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_nav(10e18), _nav(200e18));
+        accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(10e18), _nav(200e18));
 
         (uint64 newYT,,) = adaptiveYDM.accountantToCurve(address(accountant));
         assertLt(newYT, initialYT, "YDM adapts with time and low utilization");
@@ -939,7 +956,7 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 50e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
 
         if (uint8(state1.marketState) == uint8(MarketState.FIXED_TERM)) {
             (uint64 ytBefore,,) = adaptiveYDM.accountantToCurve(address(accountant));
@@ -947,7 +964,7 @@ contract RoycoAccountantTest is BaseTest {
             vm.warp(vm.getBlockTimestamp() + 30 days);
 
             vm.prank(MOCK_KERNEL);
-            accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
 
             (uint64 ytAfter,,) = adaptiveYDM.accountantToCurve(address(accountant));
 
@@ -967,10 +984,10 @@ contract RoycoAccountantTest is BaseTest {
         NAV_UNIT newStRaw = _nav(110e18);
         NAV_UNIT newJtRaw = _nav(55e18);
 
-        SyncedAccountingState memory preview = accountant.previewSyncTrancheAccounting(newStRaw, newJtRaw);
+        SyncedAccountingState memory preview = accountant.previewSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), newStRaw, newJtRaw);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory actual = accountant.preOpSyncTrancheAccounting(newStRaw, newJtRaw);
+        SyncedAccountingState memory actual = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), newStRaw, newJtRaw);
 
         assertEq(preview.stRawNAV, actual.stRawNAV, "stRawNAV match");
         assertEq(preview.jtRawNAV, actual.jtRawNAV, "jtRawNAV match");
@@ -987,7 +1004,7 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 50e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
+        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(80e18), _nav(50e18));
 
         assertEq(toUint256(state1.jtImpermanentLoss), 20e18, "first loss recorded");
         assertEq(uint8(state1.marketState), uint8(MarketState.FIXED_TERM), "in FIXED_TERM");
@@ -995,13 +1012,13 @@ contract RoycoAccountantTest is BaseTest {
 
         vm.warp(vm.getBlockTimestamp() + 1 days);
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(_nav(95e18), _nav(50e18));
+        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(95e18), _nav(50e18));
 
         assertEq(toUint256(state2.jtImpermanentLoss), 5e18, "partial recovery");
         _assertNAVConservation(state2);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state3 = accountant.preOpSyncTrancheAccounting(_nav(85e18), _nav(50e18));
+        SyncedAccountingState memory state3 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(85e18), _nav(50e18));
 
         assertEq(toUint256(state3.jtImpermanentLoss), 15e18, "second loss added");
         _assertNAVConservation(state3);
@@ -1011,14 +1028,15 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 20e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(_nav(60e18), _nav(20e18));
+        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(60e18), _nav(20e18));
 
         assertEq(toUint256(state1.jtEffectiveNAV), 0, "JT exhausted");
         assertGt(toUint256(state1.stImpermanentLoss), 0, "ST IL created");
         _assertNAVConservation(state1);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(_nav(60e18), _nav(20e18 + 50e18));
+        SyncedAccountingState memory state2 =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(60e18), _nav(20e18 + 50e18));
 
         assertEq(toUint256(state2.stImpermanentLoss), 0, "ST IL recovered");
         _assertNAVConservation(state2);
@@ -1030,7 +1048,7 @@ contract RoycoAccountantTest is BaseTest {
         for (uint256 i = 0; i < 5; i++) {
             vm.warp(vm.getBlockTimestamp() + 1 days);
             vm.prank(MOCK_KERNEL);
-            accountant.preOpSyncTrancheAccounting(_nav(100e18), _nav(50e18));
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18), _nav(50e18));
         }
 
         IRoycoAccountant.RoycoAccountantState memory baseState = accountant.getState();
@@ -1039,7 +1057,8 @@ contract RoycoAccountantTest is BaseTest {
         vm.warp(vm.getBlockTimestamp() + 1 days);
         uint256 stGain = 10e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(100e18 + stGain), _nav(50e18));
+        SyncedAccountingState memory state =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18 + stGain), _nav(50e18));
 
         assertGt(toUint256(state.jtEffectiveNAV), jtEffBefore, "JT receives yield share");
         _assertNAVConservation(state);
@@ -1052,18 +1071,18 @@ contract RoycoAccountantTest is BaseTest {
 
         vm.warp(vm.getBlockTimestamp() + 1 days);
         vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_nav(10e18), _nav(200e18));
+        accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(10e18), _nav(200e18));
 
         vm.warp(vm.getBlockTimestamp() + 365 days);
         vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_nav(10e18), _nav(200e18));
+        accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(10e18), _nav(200e18));
 
         (uint64 yt1,,) = adaptiveYDM.accountantToCurve(address(accountant));
         assertLt(yt1, yt0, "YT decreased with low utilization");
 
         vm.warp(vm.getBlockTimestamp() + 365 days);
         vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_nav(10e18), _nav(200e18));
+        accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(10e18), _nav(200e18));
 
         (uint64 yt2,,) = adaptiveYDM.accountantToCurve(address(accountant));
         assertLe(yt2, yt1, "YT continues decreasing or stays at floor");
@@ -1086,8 +1105,9 @@ contract RoycoAccountantTest is BaseTest {
         vm.warp(vm.getBlockTimestamp() + 1 days);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state =
-            accountant.preOpSyncTrancheAccounting(_nav(uint256(int256(stRaw) + stDelta)), _nav(uint256(int256(jtRaw) + jtDelta)));
+        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(
+            accountant.getLastAccountingStateCheckpoint(), _nav(uint256(int256(stRaw) + stDelta)), _nav(uint256(int256(jtRaw) + jtDelta))
+        );
 
         _assertNAVConservation(state);
     }
@@ -1100,7 +1120,7 @@ contract RoycoAccountantTest is BaseTest {
 
         uint256 lossAmount = stRaw / 2;
         vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_nav(stRaw - lossAmount), _nav(jtRaw));
+        accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(stRaw - lossAmount), _nav(jtRaw));
 
         IRoycoAccountant.RoycoAccountantState memory state = accountant.getState();
 
@@ -1121,8 +1141,9 @@ contract RoycoAccountantTest is BaseTest {
         vm.warp(vm.getBlockTimestamp() + 1 days);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state =
-            accountant.preOpSyncTrancheAccounting(_nav(uint256(int256(stRaw) + stDelta)), _nav(uint256(int256(jtRaw) + jtDelta)));
+        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(
+            accountant.getLastAccountingStateCheckpoint(), _nav(uint256(int256(stRaw) + stDelta)), _nav(uint256(int256(jtRaw) + jtDelta))
+        );
 
         assertTrue(toUint256(state.stEffectiveNAV) >= 0, "ST effective non-negative");
         assertTrue(toUint256(state.jtEffectiveNAV) >= 0, "JT effective non-negative");
@@ -1136,14 +1157,16 @@ contract RoycoAccountantTest is BaseTest {
 
         uint256 lossAmount = jtRaw / 2;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(_nav(stRaw - lossAmount), _nav(jtRaw));
+        SyncedAccountingState memory state1 =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(stRaw - lossAmount), _nav(jtRaw));
 
         if (uint8(state1.marketState) == uint8(MarketState.FIXED_TERM)) {
             uint32 termEnd = accountant.getState().fixedTermEndTimestamp;
             vm.warp(termEnd + 1);
 
             vm.prank(MOCK_KERNEL);
-            SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(_nav(stRaw - lossAmount), _nav(jtRaw));
+            SyncedAccountingState memory state2 =
+                accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(stRaw - lossAmount), _nav(jtRaw));
 
             assertEq(toUint256(state2.jtImpermanentLoss), 0, "JT coverage IL cleared");
         }
@@ -1153,7 +1176,8 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 50e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory preOpState = accountant.preOpSyncTrancheAccounting(_nav(100e18), _nav(50e18));
+        SyncedAccountingState memory preOpState =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18), _nav(50e18));
 
         assertLt(preOpState.utilizationWAD, preOpState.liquidationUtilizationWAD, "Liquidation not triggered before");
 
@@ -1168,7 +1192,8 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 100e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory preOpState = accountant.preOpSyncTrancheAccounting(_nav(100e18), _nav(100e18));
+        SyncedAccountingState memory preOpState =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18), _nav(100e18));
 
         assertLt(preOpState.utilizationWAD, preOpState.liquidationUtilizationWAD, "Liquidation not triggered before");
 
@@ -1188,7 +1213,7 @@ contract RoycoAccountantTest is BaseTest {
 
         uint256 newStRaw = stRaw > lossAmount ? stRaw - lossAmount : 0;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(newStRaw), _nav(jtRaw));
+        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(newStRaw), _nav(jtRaw));
 
         if (toUint256(state.stImpermanentLoss) > 0) {
             assertEq(toUint256(state.jtEffectiveNAV), 0, "ST IL requires JT to be exhausted");
@@ -1202,7 +1227,8 @@ contract RoycoAccountantTest is BaseTest {
 
         uint256 massiveLoss = jtEffBefore + 10e18;
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(100e18 - massiveLoss), _nav(20e18));
+        SyncedAccountingState memory state =
+            accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18 - massiveLoss), _nav(20e18));
 
         if (toUint256(state.stImpermanentLoss) > 0) {
             assertEq(toUint256(state.jtEffectiveNAV), 0, "ST IL requires JT to be exhausted first");
@@ -1213,7 +1239,7 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 50e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(100e18), _nav(50e18));
+        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18), _nav(50e18));
 
         // Without any loss, utilization should be below liquidation threshold
         assertLt(state.utilizationWAD, state.liquidationUtilizationWAD, "Liquidation should not be triggered without loss");
@@ -1230,7 +1256,7 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 50e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(ZERO_NAV_UNITS, _nav(50e18));
+        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), ZERO_NAV_UNITS, _nav(50e18));
 
         assertEq(state.stRawNAV, ZERO_NAV_UNITS, "stRawNAV zero");
         _assertNAVConservation(state);
@@ -1240,7 +1266,7 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 50e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(_nav(100e18), ZERO_NAV_UNITS);
+        SyncedAccountingState memory state = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(100e18), ZERO_NAV_UNITS);
 
         assertEq(state.jtRawNAV, ZERO_NAV_UNITS, "jtRawNAV zero");
         _assertNAVConservation(state);
@@ -1250,13 +1276,13 @@ contract RoycoAccountantTest is BaseTest {
         _initializeAccountantState(100e18, 50e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(_nav(105e18), _nav(50e18));
+        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(105e18), _nav(50e18));
 
         vm.prank(MOCK_KERNEL);
         SyncedAccountingState memory state2 = accountant.postOpSyncTrancheAccounting(Operation.ST_DEPOSIT, _nav(110e18), _nav(50e18), ZERO_NAV_UNITS);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state3 = accountant.preOpSyncTrancheAccounting(_nav(112e18), _nav(50e18));
+        SyncedAccountingState memory state3 = accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(112e18), _nav(50e18));
 
         _assertNAVConservation(state1);
         _assertNAVConservation(state2);
@@ -1281,13 +1307,15 @@ contract RoycoAccountantTest is BaseTest {
         );
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state1 = largeAccountant.preOpSyncTrancheAccounting(_nav(largeNav), _nav(largeNav / 2));
+        SyncedAccountingState memory state1 =
+            largeAccountant.preOpSyncTrancheAccounting(largeAccountant.getLastAccountingStateCheckpoint(), _nav(largeNav), _nav(largeNav / 2));
 
         _assertNAVConservation(state1);
 
         vm.warp(vm.getBlockTimestamp() + 1 days);
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state2 = largeAccountant.preOpSyncTrancheAccounting(_nav(largeNav * 2), _nav(largeNav / 2));
+        SyncedAccountingState memory state2 =
+            largeAccountant.preOpSyncTrancheAccounting(largeAccountant.getLastAccountingStateCheckpoint(), _nav(largeNav * 2), _nav(largeNav / 2));
 
         _assertNAVConservation(state2);
     }
@@ -1302,7 +1330,7 @@ contract RoycoAccountantTest is BaseTest {
 
     function _initializeAccountantState(uint256 stNav, uint256 jtNav) internal {
         vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_nav(stNav), _nav(jtNav));
+        accountant.preOpSyncTrancheAccounting(accountant.getLastAccountingStateCheckpoint(), _nav(stNav), _nav(jtNav));
     }
 
     function _assertNAVConservation(SyncedAccountingState memory state) internal pure {

@@ -63,9 +63,11 @@ contract RoycoDuskBalancerV3RateProvider is IRateProvider {
         }
     }
 
-    /// @inheritdoc IRateProvider
-    /// @notice The rate returned is the price of 1 whole unit of the configured Balancer V3 pool constituent in its NAV units (USD, BTC, ETH, etc.)
-    /// @dev NAV units always have 18 decimals of precision
+    /**
+     * @inheritdoc IRateProvider
+     * @notice The rate returned is the price of 1 whole unit of the configured Balancer V3 pool constituent in its NAV units (USD, BTC, ETH, etc.)
+     * @dev NAV units always have 18 decimals of precision
+     */
     function getRate() external view override(IRateProvider) returns (uint256 rate) {
         // For ST shares, get the fresh NAV per share after simulating a PNL synchronization
         // NOTE: This simulation is required because the rate is retrieved before the pool's pre-op hook (responsible for syncing tranche PNL) is executed

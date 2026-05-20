@@ -150,7 +150,7 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
         onlyJuniorTrancheBalancerV3Pool(_pool)
         returns (bool)
     {
-        return _router == ROYCO_DUSK_KERNEL || _preLiquidityOpertionSyncTrancheAccounting();
+        return (_router == ROYCO_DUSK_KERNEL || _preLiquidityOpertionSyncTrancheAccounting());
     }
 
     /// @inheritdoc IHooks
@@ -171,7 +171,7 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
         onlyJuniorTrancheBalancerV3Pool(_pool)
         returns (bool, uint256[] memory)
     {
-        return (_router == ROYCO_DUSK_KERNEL || _postLiquidityOpertionSyncTrancheAccounting(), amountsOutRaw);
+        return ((_router == ROYCO_DUSK_KERNEL || _postLiquidityOpertionSyncTrancheAccounting()), amountsOutRaw);
     }
 
     /// @inheritdoc IHooks

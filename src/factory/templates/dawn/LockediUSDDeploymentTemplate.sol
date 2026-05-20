@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { IRoycoDawnKernel } from "../../../interfaces/IRoycoDawnKernel.sol";
 import { IRoycoFactory } from "../../../interfaces/factory/IRoycoFactory.sol";
-import { Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle } from "../../../kernels/Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle.sol";
+import { Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle } from "../../../kernels/dawn/Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle.sol";
 import { COMPONENT_ID_KERNEL_LOCKED_IUSD } from "../Components.sol";
 import { DawnDeploymentTemplate } from "./base/DawnDeploymentTemplate.sol";
 

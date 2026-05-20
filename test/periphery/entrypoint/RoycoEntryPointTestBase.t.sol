@@ -13,6 +13,7 @@ import { MAX_NAV_UNITS, MAX_TRANCHE_UNITS, WAD, ZERO_NAV_UNITS, ZERO_TRANCHE_UNI
 import { AssetClaims } from "../../../src/libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toTrancheUnits, toUint256 } from "../../../src/libraries/Units.sol";
 import { RoycoEntryPoint } from "../../../src/periphery/RoycoEntryPoint.sol";
+import { JT_LP_ROLE, ST_LP_ROLE } from "../../../src/factory/RolesConfiguration.sol";
 
 import { BaseTest } from "../../base/BaseTest.t.sol";
 import { ERC4626Mock } from "../../mock/ERC4626Mock.sol";
@@ -85,12 +86,12 @@ abstract contract RoycoEntryPointTestBase is BaseTest {
 
         // Grant LP roles to test users
         vm.startPrank(LP_ROLE_ADMIN_ADDRESS);
-        FACTORY.grantRole(ST_LP_ROLE, USER_A_ADDRESS, 0);
-        FACTORY.grantRole(JT_LP_ROLE, USER_A_ADDRESS, 0);
-        FACTORY.grantRole(ST_LP_ROLE, USER_B_ADDRESS, 0);
-        FACTORY.grantRole(JT_LP_ROLE, USER_B_ADDRESS, 0);
-        FACTORY.grantRole(ST_LP_ROLE, EXECUTOR_ADDRESS, 0);
-        FACTORY.grantRole(JT_LP_ROLE, EXECUTOR_ADDRESS, 0);
+        AM.grantRole(ST_LP_ROLE, USER_A_ADDRESS, 0);
+        AM.grantRole(JT_LP_ROLE, USER_A_ADDRESS, 0);
+        AM.grantRole(ST_LP_ROLE, USER_B_ADDRESS, 0);
+        AM.grantRole(JT_LP_ROLE, USER_B_ADDRESS, 0);
+        AM.grantRole(ST_LP_ROLE, EXECUTOR_ADDRESS, 0);
+        AM.grantRole(JT_LP_ROLE, EXECUTOR_ADDRESS, 0);
         vm.stopPrank();
     }
 
@@ -124,8 +125,8 @@ abstract contract RoycoEntryPointTestBase is BaseTest {
 
         // Grant entry point LP roles so it can deposit/redeem on tranches
         vm.startPrank(LP_ROLE_ADMIN_ADDRESS);
-        FACTORY.grantRole(ST_LP_ROLE, address(entryPoint), 0);
-        FACTORY.grantRole(JT_LP_ROLE, address(entryPoint), 0);
+        AM.grantRole(ST_LP_ROLE, address(entryPoint), 0);
+        AM.grantRole(JT_LP_ROLE, address(entryPoint), 0);
         vm.stopPrank();
     }
 

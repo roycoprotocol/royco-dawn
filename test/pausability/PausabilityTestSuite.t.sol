@@ -5,10 +5,12 @@ import { PausableUpgradeable } from "../../lib/openzeppelin-contracts-upgradeabl
 import { IAccessManaged } from "../../lib/openzeppelin-contracts/contracts/access/manager/IAccessManaged.sol";
 import { IERC20 } from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import { Pausable } from "../../lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
-import { DeployScript } from "../../script/Deploy.s.sol";
-import { MarketDeploymentConfig } from "../../script/config/MarketDeploymentConfig.sol";
+import { COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_ADMIN_ORACLE } from "../../src/factory/templates/Components.sol";
+import { IdenticalERC4626AdminOracleDeploymentTemplate } from "../../src/factory/templates/dawn/IdenticalERC4626AdminOracleDeploymentTemplate.sol";
 import { IRoycoAuth } from "../../src/interfaces/IRoycoAuth.sol";
-import { IRoycoFactory } from "../../src/interfaces/IRoycoFactory.sol";
+import {
+    Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel
+} from "../../src/kernels/dawn/Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel.sol";
 import { WAD } from "../../src/libraries/Constants.sol";
 import { toTrancheUnits } from "../../src/libraries/Units.sol";
 import { BaseTest } from "../base/BaseTest.t.sol";
@@ -23,13 +25,6 @@ import { BaseTest } from "../base/BaseTest.t.sol";
 ///      5. Operations work again after unpausing
 contract PausabilityTestSuite is BaseTest {
     // ═══════════════════════════════════════════════════════════════════════════
-    // MAINNET ADDRESSES (sNUSD for testing)
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    address internal constant SNUSD = 0x08EFCC2F3e61185D0EA7F8830B3FEc9Bfa2EE313;
-    uint256 internal constant FORK_BLOCK = 24_180_513;
-
-    // ═══════════════════════════════════════════════════════════════════════════
     // SETUP
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -40,74 +35,39 @@ contract PausabilityTestSuite is BaseTest {
     function _setUpRoyco() internal override {
         super._setUpRoyco();
 
-        DeployScript.DeploymentResult memory result = _deployMarket();
-        _setDeployedMarket(result);
-
         _setupProviders();
-        _fundProviders();
+        _setupAssets(10_000_000);
+
+        MarketDeployment memory result = _deployMarket();
+        _setDeployedMarket(result);
     }
 
-    function _forkConfiguration() internal view override returns (uint256 forkBlock, string memory forkRpcUrl) {
-        forkBlock = FORK_BLOCK;
-        forkRpcUrl = vm.envString("MAINNET_RPC_URL");
-    }
+    /// @notice Deploys a Dawn market using the simplest admin-oracle template + MOCK_USDC as
+    ///         both ST and JT assets. The pausability surface under test is independent of the
+    ///         underlying asset's economics, so the choice is incidental.
+    function _deployMarket() internal returns (MarketDeployment memory) {
+        IdenticalERC4626AdminOracleDeploymentTemplate template = new IdenticalERC4626AdminOracleDeploymentTemplate(FACTORY);
 
-    function _deployMarket() internal returns (DeployScript.DeploymentResult memory) {
-        DeployScript.IdenticalERC4626SharesToAdminOracleQuoterKernelParams memory kernelParams =
-            DeployScript.IdenticalERC4626SharesToAdminOracleQuoterKernelParams({ initialConversionRateWAD: WAD });
-
-        DeployScript.AdaptiveCurveYDM_V2_Params memory ydmParams = DeployScript.AdaptiveCurveYDM_V2_Params({
-            jtYieldShareAtZeroUtilWAD: 0.3e18, // Y_0 = Y_T (same as target)
-            jtYieldShareAtTargetUtilWAD: 0.3e18,
-            jtYieldShareAtFullUtilWAD: 1e18,
-            maxAdaptationSpeedWAD: uint64(30e18 / uint256(365 days))
-        });
-
-        // Build role assignments using the centralized function
-        IRoycoFactory.RoleAssignmentConfiguration[] memory roleAssignments = _generateRoleAssignments();
-
-        MarketDeploymentConfig.MarketConfig memory config = MarketDeploymentConfig.MarketConfig({
-            marketName: "sNUSD",
-            chainId: block.chainid,
-            seniorTrancheName: "Royco Senior sNUSD",
-            seniorTrancheSymbol: "RS-sNUSD",
-            juniorTrancheName: "Royco Junior sNUSD",
-            juniorTrancheSymbol: "RJ-sNUSD",
-            seniorAsset: SNUSD,
-            juniorAsset: SNUSD,
-            stDustTolerance: 1,
-            jtDustTolerance: 1,
-            kernelType: DeployScript.KernelType.Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel,
-            kernelSpecificParams: abi.encode(kernelParams),
-            stSelfLiquidationBonusWAD: 0,
-            enforceVaultSharesTransferWhitelist: false,
-            stProtocolFeeWAD: ST_PROTOCOL_FEE_WAD,
-            jtProtocolFeeWAD: JT_PROTOCOL_FEE_WAD,
-            jtYieldShareProtocolFeeWAD: JT_PROTOCOL_FEE_WAD,
-            coverageWAD: COVERAGE_WAD,
-            betaWAD: 1e18,
-            liquidationUtilizationWAD: LIQUIDATION_UTILIZATION_WAD,
-            fixedTermDurationSeconds: FIXED_TERM_DURATION_SECONDS,
-            ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
-            transferAgentAddress: address(0),
-            ydmSpecificParams: abi.encode(ydmParams)
-        });
-
-        uint32 scheduledOperationsExpirySeconds = DEPLOY_SCRIPT.getChainConfig(block.chainid).scheduledOperationsExpirySeconds;
-        return
-            DEPLOY_SCRIPT.deploy(config, OWNER_ADDRESS, PROTOCOL_FEE_RECIPIENT_ADDRESS, scheduledOperationsExpirySeconds, roleAssignments, DEPLOYER.privateKey);
-    }
-
-    function _fundProviders() internal {
-        uint256 amount = 1_000_000e18;
-        deal(SNUSD, ST_ALICE_ADDRESS, amount);
-        deal(SNUSD, JT_ALICE_ADDRESS, amount);
-        deal(SNUSD, ST_BOB_ADDRESS, amount);
-        deal(SNUSD, JT_BOB_ADDRESS, amount);
-        deal(SNUSD, ST_CHARLIE_ADDRESS, amount);
-        deal(SNUSD, JT_CHARLIE_ADDRESS, amount);
-        deal(SNUSD, ST_DAN_ADDRESS, amount);
-        deal(SNUSD, JT_DAN_ADDRESS, amount);
+        DawnDeploymentParams memory p;
+        p.marketId = keccak256("PAUSABILITY_TEST");
+        p.template = address(template);
+        p.kernelComponentId = COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_ADMIN_ORACLE;
+        p.kernelCreationCode = type(Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel).creationCode;
+        p.stAsset = address(MOCK_USDC);
+        p.jtAsset = address(MOCK_USDC);
+        p.kernelSpecificParams = abi.encode(IdenticalERC4626AdminOracleDeploymentTemplate.KernelParams({ initialConversionRateWAD: WAD }));
+        p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
+        p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
+        p.yieldShareProtocolFeeWAD = 0;
+        p.coverageWAD = COVERAGE_WAD;
+        p.betaWAD = BETA_WAD;
+        p.liquidationUtilizationWAD = LIQUIDATION_UTILIZATION_WAD;
+        p.fixedTermDurationSeconds = FIXED_TERM_DURATION_SECONDS;
+        p.stNAVDustTolerance = DUST_TOLERANCE;
+        p.jtNAVDustTolerance = DUST_TOLERANCE;
+        p.enforceVaultSharesTransferWhitelist = false;
+        p.stSelfLiquidationBonusWAD = 0;
+        return _deployDawnMarket(p);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -157,14 +117,14 @@ contract PausabilityTestSuite is BaseTest {
     /// @notice Schedules + waits + executes `unpause()` on the given target.
     /// @dev `unpause` is gated on `ADMIN_UNPAUSER_ROLE` (Standard, 24h delay), so a direct
     ///      call from `UNPAUSER_ADDRESS` would revert. Tests use this helper to run the
-    ///      full schedule → warp → execute flow against the factory.
+    ///      full schedule → warp → execute flow against the AM.
     function _scheduleAndExecuteUnpause(address _target) internal {
         bytes memory data = abi.encodeCall(IRoycoAuth.unpause, ());
         vm.prank(UNPAUSER_ADDRESS);
-        FACTORY.schedule(_target, data, 0);
+        AM.schedule(_target, data, 0);
         vm.warp(vm.getBlockTimestamp() + 1 days);
         vm.prank(UNPAUSER_ADDRESS);
-        FACTORY.execute(_target, data);
+        AM.execute(_target, data);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -303,7 +263,7 @@ contract PausabilityTestSuite is BaseTest {
         IRoycoAuth(address(JT)).pause();
 
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(SNUSD).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
         vm.expectRevert(Pausable.EnforcedPause.selector);
         JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
@@ -316,7 +276,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // First deposit JT for coverage
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(SNUSD).approve(address(JT), jtAmount);
+        IERC20(address(MOCK_USDC)).approve(address(JT), jtAmount);
         JT.deposit(toTrancheUnits(jtAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -326,7 +286,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // Try to deposit ST - should fail
         vm.startPrank(BOB_ADDRESS);
-        IERC20(SNUSD).approve(address(ST), stAmount);
+        IERC20(address(MOCK_USDC)).approve(address(ST), stAmount);
         vm.expectRevert(Pausable.EnforcedPause.selector);
         ST.deposit(toTrancheUnits(stAmount), BOB_ADDRESS);
         vm.stopPrank();
@@ -338,7 +298,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // First deposit JT
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(SNUSD).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
         uint256 shares = JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -359,13 +319,13 @@ contract PausabilityTestSuite is BaseTest {
 
         // Deposit JT for coverage
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(SNUSD).approve(address(JT), jtAmount);
+        IERC20(address(MOCK_USDC)).approve(address(JT), jtAmount);
         JT.deposit(toTrancheUnits(jtAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
         // Deposit ST
         vm.startPrank(BOB_ADDRESS);
-        IERC20(SNUSD).approve(address(ST), stAmount);
+        IERC20(address(MOCK_USDC)).approve(address(ST), stAmount);
         uint256 shares = ST.deposit(toTrancheUnits(stAmount), BOB_ADDRESS);
         vm.stopPrank();
 
@@ -385,7 +345,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // First deposit JT
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(SNUSD).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
         JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -405,7 +365,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // First deposit JT
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(SNUSD).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
         uint256 shares = JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -435,7 +395,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // Deposit should work
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(SNUSD).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
         uint256 shares = JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -448,7 +408,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // First deposit JT
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(SNUSD).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
         JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -469,7 +429,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // First deposit JT
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(SNUSD).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
         uint256 shares = JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -500,7 +460,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // JT deposit should still work
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(SNUSD).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
         uint256 shares = JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -514,7 +474,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // First deposit JT for coverage (before pausing)
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(SNUSD).approve(address(JT), jtAmount);
+        IERC20(address(MOCK_USDC)).approve(address(JT), jtAmount);
         JT.deposit(toTrancheUnits(jtAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -524,7 +484,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // ST deposit should still work
         vm.startPrank(BOB_ADDRESS);
-        IERC20(SNUSD).approve(address(ST), stAmount);
+        IERC20(address(MOCK_USDC)).approve(address(ST), stAmount);
         uint256 shares = ST.deposit(toTrancheUnits(stAmount), BOB_ADDRESS);
         vm.stopPrank();
 
@@ -545,19 +505,19 @@ contract PausabilityTestSuite is BaseTest {
 
     /// @notice Test that Unpaused event is emitted when unpausing
     /// @dev The unpause is routed through the AccessManager's scheduled-execute path, so the
-    ///      `Unpaused` event sender is the factory, not the unpauser EOA.
+    ///      `Unpaused` event sender is the AM, not the unpauser EOA.
     function test_unpause_emitsUnpausedEvent() external {
         vm.prank(PAUSER_ADDRESS);
         IRoycoAuth(address(JT)).pause();
 
         bytes memory data = abi.encodeCall(IRoycoAuth.unpause, ());
         vm.prank(UNPAUSER_ADDRESS);
-        FACTORY.schedule(address(JT), data, 0);
+        AM.schedule(address(JT), data, 0);
         vm.warp(vm.getBlockTimestamp() + 1 days);
 
         vm.expectEmit(true, true, true, true, address(JT));
-        emit Pausable.Unpaused(address(FACTORY));
+        emit Pausable.Unpaused(address(AM));
         vm.prank(UNPAUSER_ADDRESS);
-        FACTORY.execute(address(JT), data);
+        AM.execute(address(JT), data);
     }
 }

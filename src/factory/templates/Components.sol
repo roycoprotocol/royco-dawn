@@ -36,4 +36,7 @@ bytes32 constant COMPONENT_ID_KERNEL_SUSDAT = keccak256("ROYCO_COMPONENT_KERNEL_
 // ─── Dusk-Balancer ───────────────────────────────────────────────────────────
 
 bytes32 constant COMPONENT_ID_DUSK_BALANCER_HOOKS = keccak256("ROYCO_COMPONENT_DUSK_BALANCER_HOOKS");
-bytes32 constant COMPONENT_ID_DUSK_BALANCER_KERNEL = keccak256("ROYCO_COMPONENT_DUSK_BALANCER_KERNEL");
+
+// Per-kernel-variant Dusk-Balancer kernel component IDs. The hooks contract above is shared
+// across variants; each concrete deployment template registers its own kernel impl here.
+bytes32 constant COMPONENT_ID_DUSK_KERNEL_CHAINLINK_ST_BPT_CHAINLINK_QUOTE = keccak256("ROYCO_COMPONENT_DUSK_KERNEL_CHAINLINK_ST_BPT_CHAINLINK_QUOTE");

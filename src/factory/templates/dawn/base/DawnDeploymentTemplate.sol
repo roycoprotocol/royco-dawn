@@ -10,8 +10,8 @@ import { IRoycoEntryPoint } from "../../../../interfaces/IRoycoEntryPoint.sol";
 import { IRoycoVaultTranche } from "../../../../interfaces/IRoycoVaultTranche.sol";
 import { IRoycoFactory } from "../../../../interfaces/factory/IRoycoFactory.sol";
 import { IRoycoProtocolTemplate } from "../../../../interfaces/factory/IRoycoProtocolTemplate.sol";
-import { IdenticalAssetsChainlinkOracleQuoter } from "../../../../kernels/base/quoter/dawn/base/IdenticalAssetsChainlinkOracleQuoter.sol";
-import { IdenticalAssetsOracleQuoter } from "../../../../kernels/base/quoter/dawn/base/IdenticalAssetsOracleQuoter.sol";
+import { IdenticalAssetsChainlinkOracleQuoter } from "../../../../kernels/base/quoter/dawn/identical-assets/base/IdenticalAssetsChainlinkOracleQuoter.sol";
+import { IdenticalAssetsOracleQuoter } from "../../../../kernels/base/quoter/dawn/identical-assets/base/IdenticalAssetsOracleQuoter.sol";
 import { TrancheType } from "../../../../libraries/Types.sol";
 import {
     ADMIN_ACCOUNTANT_ROLE,

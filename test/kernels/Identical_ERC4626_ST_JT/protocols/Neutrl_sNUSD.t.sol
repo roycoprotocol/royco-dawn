@@ -5,7 +5,7 @@ import { IERC4626 } from "../../../../lib/openzeppelin-contracts/contracts/inter
 
 import {
     Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
-} from "../../../../src/kernels/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
+} from "../../../../src/kernels/dawn/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../../../src/libraries/Units.sol";
 
 import { YieldBearingERC4626_ChainlinkOracle_TestBase } from "../base/YieldBearingERC4626_ChainlinkOracle_TestBase.t.sol";
@@ -16,7 +16,7 @@ import {
 } from "../../../../src/factory/templates/dawn/IdenticalERC4626ChainlinkOracleDeploymentTemplate.sol";
 import {
     Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
-} from "../../../../src/kernels/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
+} from "../../../../src/kernels/dawn/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
 
 /// @title sNUSD_sNUSD_Test
 /// @notice Tests Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel with sNUSD

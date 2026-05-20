@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { IRoycoDawnKernel } from "../../../interfaces/IRoycoDawnKernel.sol";
 import { IRoycoFactory } from "../../../interfaces/factory/IRoycoFactory.sol";
-import { ReUSD_ST_JT_ICLOracle_Kernel } from "../../../kernels/ReUSD_ST_JT_ICLOracle_Kernel.sol";
+import { ReUSD_ST_JT_ICLOracle_Kernel } from "../../../kernels/dawn/ReUSD_ST_JT_ICLOracle_Kernel.sol";
 import { COMPONENT_ID_KERNEL_REUSD } from "../Components.sol";
 import { DawnDeploymentTemplate } from "./base/DawnDeploymentTemplate.sol";
 

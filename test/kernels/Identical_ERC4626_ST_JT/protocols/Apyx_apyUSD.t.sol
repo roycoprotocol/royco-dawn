@@ -10,8 +10,8 @@ import { IAddressList } from "../../../../src/interfaces/external/apyx/IAddressL
 import { IApyUSD } from "../../../../src/interfaces/external/apyx/IApyUSD.sol";
 import {
     Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
-} from "../../../../src/kernels/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
-import { apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel } from "../../../../src/kernels/apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
+} from "../../../../src/kernels/dawn/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
+import { apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel } from "../../../../src/kernels/dawn/apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../../../src/libraries/Units.sol";
 
 import { YieldBearingERC4626_ChainlinkOracle_TestBase } from "../base/YieldBearingERC4626_ChainlinkOracle_TestBase.t.sol";

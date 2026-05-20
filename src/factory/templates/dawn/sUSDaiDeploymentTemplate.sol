@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { IRoycoDawnKernel } from "../../../interfaces/IRoycoDawnKernel.sol";
 import { IRoycoFactory } from "../../../interfaces/factory/IRoycoFactory.sol";
-import { sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel } from "../../../kernels/sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel.sol";
+import { sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel } from "../../../kernels/dawn/sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel.sol";
 import { COMPONENT_ID_KERNEL_SUSDAI } from "../Components.sol";
 import { DawnDeploymentTemplate } from "./base/DawnDeploymentTemplate.sol";
 

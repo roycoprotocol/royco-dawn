@@ -5,7 +5,7 @@ import { IERC20Metadata } from "../../../../lib/openzeppelin-contracts/contracts
 import { COMPONENT_ID_KERNEL_IDENTICAL_ERC20_CHAINLINK } from "../../../../src/factory/templates/Components.sol";
 import { IdenticalERC20ChainlinkDeploymentTemplate } from "../../../../src/factory/templates/dawn/IdenticalERC20ChainlinkDeploymentTemplate.sol";
 import { AggregatorV3Interface } from "../../../../src/interfaces/external/chainlink/AggregatorV3Interface.sol";
-import { Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel } from "../../../../src/kernels/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel.sol";
+import { Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel } from "../../../../src/kernels/dawn/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel.sol";
 import { WAD } from "../../../../src/libraries/Constants.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../../../src/libraries/Units.sol";
 import { YieldBearingERC20Chainlink_TestBase } from "../base/YieldBearingERC20Chainlink_TestBase.t.sol";

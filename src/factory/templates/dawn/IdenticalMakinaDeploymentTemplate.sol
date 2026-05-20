@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { IRoycoDawnKernel } from "../../../interfaces/IRoycoDawnKernel.sol";
 import { IRoycoFactory } from "../../../interfaces/factory/IRoycoFactory.sol";
-import { Identical_Makina_ST_JT_MachineToAdminOracle_Kernel } from "../../../kernels/Identical_Makina_ST_JT_MachineToAdminOracle_Kernel.sol";
+import { Identical_Makina_ST_JT_MachineToAdminOracle_Kernel } from "../../../kernels/dawn/Identical_Makina_ST_JT_MachineToAdminOracle_Kernel.sol";
 import { COMPONENT_ID_KERNEL_IDENTICAL_MAKINA } from "../Components.sol";
 import { DawnDeploymentTemplate } from "./base/DawnDeploymentTemplate.sol";
 

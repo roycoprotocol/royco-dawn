@@ -5,7 +5,7 @@ import { IERC20 } from "../../../../lib/openzeppelin-contracts/contracts/token/E
 import { COMPONENT_ID_KERNEL_IDLECDOAA } from "../../../../src/factory/templates/Components.sol";
 import { IdleCdoAADeploymentTemplate } from "../../../../src/factory/templates/dawn/IdleCdoAADeploymentTemplate.sol";
 import { IIdleCDO } from "../../../../src/interfaces/external/idle-finance/IIdleCDO.sol";
-import { Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel } from "../../../../src/kernels/Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel.sol";
+import { Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel } from "../../../../src/kernels/dawn/Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel.sol";
 import { WAD_DECIMALS } from "../../../../src/libraries/Constants.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toNAVUnits, toTrancheUnits, toUint256 } from "../../../../src/libraries/Units.sol";
 import { IdleCdoAA_TestBase } from "../base/IdleCdoAA_TestBase.t.sol";

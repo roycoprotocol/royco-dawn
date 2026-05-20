@@ -137,6 +137,9 @@ interface IRoycoDawnKernel {
     /// @notice Thrown when the to address is not whitelisted on the tranche
     error ACCOUNT_NOT_WHITELISTED_TRANCHE_LP(address to);
 
+    /// @notice Thrown when the quoter looks up a transient cache slot via an unrecognized `ConversionRateCacheKey`
+    error UNKNOWN_CONVERSION_RATE_CACHE_KEY();
+
     /// @notice Thrown when the array of accounts is empty
     error EMPTY_ARRAY();
 

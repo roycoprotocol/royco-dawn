@@ -14,7 +14,7 @@ import {
 } from "../../../../src/factory/templates/dawn/IdenticalERC4626ChainlinkOracleDeploymentTemplate.sol";
 import {
     Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
-} from "../../../../src/kernels/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
+} from "../../../../src/kernels/dawn/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
 
 /// @title Ember_eEARN_Test
 /// @notice Tests Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel with Ember Earn (disabled oracle)

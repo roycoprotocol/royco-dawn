@@ -45,8 +45,8 @@ import { IYDM } from "../../src/interfaces/IYDM.sol";
 import { IBaseTemplate } from "../../src/interfaces/factory/IBaseTemplate.sol";
 import { IRoycoFactory } from "../../src/interfaces/factory/IRoycoFactory.sol";
 import { IRoycoProtocolTemplate } from "../../src/interfaces/factory/IRoycoProtocolTemplate.sol";
-import { IdenticalAssetsChainlinkOracleQuoter } from "../../src/kernels/base/quoter/dawn/base/IdenticalAssetsChainlinkOracleQuoter.sol";
-import { IdenticalAssetsOracleQuoter } from "../../src/kernels/base/quoter/dawn/base/IdenticalAssetsOracleQuoter.sol";
+import { IdenticalAssetsChainlinkOracleQuoter } from "../../src/kernels/base/quoter/dawn/identical-assets/base/IdenticalAssetsChainlinkOracleQuoter.sol";
+import { IdenticalAssetsOracleQuoter } from "../../src/kernels/base/quoter/dawn/identical-assets/base/IdenticalAssetsOracleQuoter.sol";
 import { AssetClaims, TrancheType } from "../../src/libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toNAVUnits, toUint256 } from "../../src/libraries/Units.sol";
 import { RoycoJuniorTranche } from "../../src/tranches/RoycoJuniorTranche.sol";
@@ -283,7 +283,7 @@ abstract contract BaseTest is Test, Assertions {
     /// @notice Configuration knobs for the standard Dawn market deployment helper.
     /// @dev Subclasses populate this and call `_deployDawnMarket(...)` to register a template +
     ///      execute the deployment in one shot. Mirrors the canonical pattern used by
-    ///      `test/kernels/ReUSD_ST_JT.t.sol`.
+    ///      `test/kernels/dawn/ReUSD_ST_JT.t.sol`.
     struct DawnDeploymentParams {
         bytes32 marketId;
         address template;

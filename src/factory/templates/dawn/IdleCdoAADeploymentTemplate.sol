@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { IRoycoDawnKernel } from "../../../interfaces/IRoycoDawnKernel.sol";
 import { IRoycoFactory } from "../../../interfaces/factory/IRoycoFactory.sol";
-import { Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel } from "../../../kernels/Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel.sol";
+import { Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel } from "../../../kernels/dawn/Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel.sol";
 import { COMPONENT_ID_KERNEL_IDLECDOAA } from "../Components.sol";
 import { DawnDeploymentTemplate } from "./base/DawnDeploymentTemplate.sol";
 

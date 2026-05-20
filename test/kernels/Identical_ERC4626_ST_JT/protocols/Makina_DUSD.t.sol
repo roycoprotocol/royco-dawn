@@ -7,7 +7,7 @@ import { DeployScript } from "../../../../script/Deploy.s.sol";
 import { MarketDeploymentConfig } from "../../../../script/config/MarketDeploymentConfig.sol";
 import { IRoycoFactory } from "../../../../src/interfaces/IRoycoFactory.sol";
 import { IMachine } from "../../../../src/interfaces/external/makina/IMachine.sol";
-import { Identical_Makina_ST_JT_MachineToAdminOracle_Kernel } from "../../../../src/kernels/Identical_Makina_ST_JT_MachineToAdminOracle_Kernel.sol";
+import { Identical_Makina_ST_JT_MachineToAdminOracle_Kernel } from "../../../../src/kernels/dawn/Identical_Makina_ST_JT_MachineToAdminOracle_Kernel.sol";
 import { WAD, WAD_DECIMALS } from "../../../../src/libraries/Constants.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../../../src/libraries/Units.sol";
 

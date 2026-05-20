@@ -9,7 +9,7 @@ import { IRoycoFactory } from "../../../../src/interfaces/IRoycoFactory.sol";
 import { AggregatorV3Interface } from "../../../../src/interfaces/external/chainlink/AggregatorV3Interface.sol";
 import { IInfiniFiGateway } from "../../../../src/interfaces/external/infinifi/IInfiniFiGateway.sol";
 import { ILockingController } from "../../../../src/interfaces/external/infinifi/ILockingController.sol";
-import { Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle } from "../../../../src/kernels/Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle.sol";
+import { Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle } from "../../../../src/kernels/dawn/Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle.sol";
 import { WAD } from "../../../../src/libraries/Constants.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../../../src/libraries/Units.sol";
 

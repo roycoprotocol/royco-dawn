@@ -14,7 +14,6 @@ import {
 } from "../../../../../../../lib/balancer-v3-monorepo/pkg/interfaces/contracts/vault/VaultTypes.sol";
 import { ScalingHelpers } from "../../../../../../../lib/balancer-v3-monorepo/pkg/solidity-utils/contracts/helpers/ScalingHelpers.sol";
 import { BalancerPoolToken } from "../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BalancerPoolToken.sol";
-import { BaseHooks, IHooks } from "../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BaseHooks.sol";
 import { BasePoolMath } from "../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BasePoolMath.sol";
 import { VaultGuard } from "../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/VaultGuard.sol";
 import { IERC20Metadata } from "../../../../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
@@ -29,7 +28,7 @@ import { IRoycoDuskKernel, LiquidityPositionClaims, RoycoDuskKernel } from "../.
  * @dev The Junior Tranche's BPT (Balancer Pool Token) represents its liquidity position in the pool
  *      This quoter reads the pool's current raw token balances from the Balancer V3 Vault and derives JT's pro-rata claim from the ratio of JT's BPT holdings to total BPT supply
  */
-abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, BaseHooks, VaultGuard {
+abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, VaultGuard {
     using UnitsMathLib for uint256;
     using UnitsMathLib for QUOTE_UNIT;
     using Math for uint256;
@@ -179,158 +178,5 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Bas
         assembly ("memory-safe") {
             internalSTSharesWithdrawn := mload(add(callbackReturnData, 0x20))
         }
-    }
-
-    // =============================
-    // Balancer V3 Pool Hooks
-    // =============================
-
-    /// @inheritdoc IHooks
-    function onRegister(address, address, TokenConfig[] memory, LiquidityManagement calldata) public override(BaseHooks) onlyVault returns (bool) {
-        return true;
-    }
-
-    /// @inheritdoc IHooks
-    function onBeforeInitialize(uint256[] memory, bytes memory) public override(BaseHooks) onlyVault returns (bool) {
-        return true;
-    }
-
-    /// @inheritdoc IHooks
-    function onAfterInitialize(uint256[] memory, uint256, bytes memory) public override(BaseHooks) onlyVault returns (bool) {
-        return true;
-    }
-
-    /// @inheritdoc IHooks
-    function onBeforeAddLiquidity(
-        address,
-        address _pool,
-        AddLiquidityKind,
-        uint256[] memory,
-        uint256,
-        uint256[] memory,
-        bytes memory
-    )
-        public
-        override(BaseHooks)
-        onlyVault
-        onlyJuniorTrancheBalancerPool(_pool)
-        returns (bool)
-    {
-        _preOpSyncTrancheAccounting();
-        return true;
-    }
-
-    /// @inheritdoc IHooks
-    function onAfterAddLiquidity(
-        address,
-        address _pool,
-        AddLiquidityKind,
-        uint256[] memory,
-        uint256[] memory amountsInRaw,
-        uint256,
-        uint256[] memory,
-        bytes memory
-    )
-        public
-        override(BaseHooks)
-        onlyVault
-        onlyJuniorTrancheBalancerPool(_pool)
-        returns (bool, uint256[] memory)
-    {
-        _postLiquidityPositionOpSyncTrancheAccounting();
-        return (true, amountsInRaw);
-    }
-
-    /// @inheritdoc IHooks
-    function onBeforeRemoveLiquidity(
-        address,
-        address _pool,
-        RemoveLiquidityKind,
-        uint256,
-        uint256[] memory,
-        uint256[] memory,
-        bytes memory
-    )
-        public
-        override(BaseHooks)
-        onlyVault
-        onlyJuniorTrancheBalancerPool(_pool)
-        returns (bool)
-    {
-        _preOpSyncTrancheAccounting();
-        return true;
-    }
-
-    /// @inheritdoc IHooks
-    function onAfterRemoveLiquidity(
-        address,
-        address _pool,
-        RemoveLiquidityKind,
-        uint256,
-        uint256[] memory,
-        uint256[] memory amountsOutRaw,
-        uint256[] memory,
-        bytes memory
-    )
-        public
-        override(BaseHooks)
-        onlyVault
-        onlyJuniorTrancheBalancerPool(_pool)
-        returns (bool, uint256[] memory)
-    {
-        _postLiquidityPositionOpSyncTrancheAccounting();
-        return (true, amountsOutRaw);
-    }
-
-    /// @inheritdoc IHooks
-    function onBeforeSwap(PoolSwapParams calldata, address _pool) public override(BaseHooks) onlyVault onlyJuniorTrancheBalancerPool(_pool) returns (bool) {
-        _preOpSyncTrancheAccounting();
-        return true;
-    }
-
-    /// @inheritdoc IHooks
-    function onAfterSwap(AfterSwapParams calldata _params)
-        public
-        override(BaseHooks)
-        onlyVault
-        onlyJuniorTrancheBalancerPool(_params.pool)
-        returns (bool, uint256)
-    {
-        _postLiquidityPositionOpSyncTrancheAccounting();
-        return (true, _params.amountCalculatedRaw);
-    }
-
-    /// @inheritdoc IHooks
-    function onComputeDynamicSwapFeePercentage(
-        PoolSwapParams calldata,
-        address _pool,
-        uint256
-    )
-        public
-        view
-        override(BaseHooks)
-        onlyVault
-        onlyJuniorTrancheBalancerPool(_pool)
-        returns (bool, uint256)
-    {
-        return (false, 0);
-    }
-
-    /// @inheritdoc IHooks
-    function getHookFlags() public view override(BaseHooks) returns (HookFlags memory) {
-        return HookFlags({
-            enableHookAdjustedAmounts: true,
-            shouldCallBeforeInitialize: true,
-            shouldCallAfterInitialize: false,
-            // Set in case this kernel employs dynamically computed swap fees based on the market's state
-            shouldCallComputeDynamicSwapFee: true,
-            // The before* hooks run a PNL accounting sync before any operation on the pool and the after* hooks run a recomposition sync to reconcile the new distribution between internal and external shares
-            shouldCallBeforeSwap: true,
-            shouldCallAfterSwap: true,
-            shouldCallBeforeAddLiquidity: true,
-            shouldCallAfterAddLiquidity: true,
-            shouldCallBeforeRemoveLiquidity: true,
-            shouldCallAfterRemoveLiquidity: true
-        });
     }
 }

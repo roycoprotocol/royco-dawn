@@ -22,6 +22,14 @@ interface IRoycoDuskKernel is IRoycoDawnKernel {
     }
 
     /**
+     * @notice Initialization parameters for the Royco Dusk Kernel
+     * @custom:field dawnKernelInitParams - Initialization parameters for the Royco Dawn Kernel
+     */
+    struct RoycoDuskKernelInitParams {
+        RoycoDawnKernelInitParams dawnKernelInitParams;
+    }
+
+    /**
      * @notice Storage state for the Royco Dusk Kernel
      * @custom:storage-location erc7201:Royco.storage.RoycoDuskKernelState
      * @custom:field jtOwnedSTShares - The senior tranche shares owned by the junior tranche's LP position

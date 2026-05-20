@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IERC20Metadata } from "../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
-import { IInsuranceCapitalLayer } from "../interfaces/external/reUSD/IInsuranceCapitalLayer.sol";
-import { WAD_DECIMALS } from "../libraries/Constants.sol";
-import { RoycoDawnKernel } from "./base/RoycoDawnKernel.sol";
-import { IdenticalAssetsOracleQuoter } from "./base/quoter/dawn/identical-assets/base/IdenticalAssetsOracleQuoter.sol";
+import { IERC20Metadata } from "../../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import { IRoycoDawnKernel } from "../../interfaces/IRoycoDawnKernel.sol";
+import { IInsuranceCapitalLayer } from "../../interfaces/external/reUSD/IInsuranceCapitalLayer.sol";
+import { WAD_DECIMALS } from "../../libraries/Constants.sol";
+import { RoycoDawnKernel } from "../base/RoycoDawnKernel.sol";
+import { IdenticalAssetsOracleQuoter } from "../base/quoter/dawn/identical-assets/base/IdenticalAssetsOracleQuoter.sol";
 
 /**
  * @title ReUSD_ST_JT_ICLOracle_Kernel

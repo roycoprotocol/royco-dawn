@@ -4,7 +4,15 @@ pragma solidity ^0.8.28;
 import { IERC20Metadata } from "../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import { IRoycoDuskKernel } from "../../interfaces/IRoycoDuskKernel.sol";
 import { ZERO_NAV_UNITS, ZERO_QUOTE_UNITS, ZERO_TRANCHE_UNITS } from "../../libraries/Constants.sol";
-import { AccountingStateCheckpoint, AssetClaims, ConversionRateCacheKey, KernelType, LiquidityPositionClaims, SyncedAccountingState, TrancheType } from "../../libraries/Types.sol";
+import {
+    AccountingStateCheckpoint,
+    AssetClaims,
+    ConversionRateCacheKey,
+    KernelType,
+    LiquidityPositionClaims,
+    SyncedAccountingState,
+    TrancheType
+} from "../../libraries/Types.sol";
 import { Math, NAV_UNIT, QUOTE_UNIT, TRANCHE_UNIT, UnitsMathLib, toTrancheUnits, toUint256 } from "../../libraries/Units.sol";
 import { IERC20, IRoycoAccountant, IRoycoDawnKernel, IRoycoVaultTranche, RoycoDawnKernel, SafeERC20 } from "./RoycoDawnKernel.sol";
 
@@ -43,6 +51,12 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
         // Set the kernel's quote asset
         QUOTE_ASSET = _params.quoteAsset;
         JUNIOR_TRANCHE_UNIT_SCALE_FACTOR = 10 ** IERC20Metadata(JT_ASSET).decimals();
+    }
+
+    /// @notice Initializes the base Royco Dusk kernel state
+    /// @param _params The standard initialization parameters for the Royco Dusk kernel
+    function __RoycoDuskKernel_init(RoycoDuskKernelInitParams memory _params) internal onlyInitializing {
+        __RoycoDawnKernel_init(_params.dawnKernelInitParams);
     }
 
     // =============================
@@ -236,7 +250,9 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
         override(RoycoDawnKernel)
         returns (bool cacheHit, uint256 conversionRateWAD)
     {
-        if (_cacheKey == ConversionRateCacheKey.QUOTE_UNIT) return _decodeCachedConversionRate(cachedQuoteAssetToNAVUnitConversionRateWAD);
+        if (_cacheKey == ConversionRateCacheKey.QUOTE_UNIT) {
+            return _decodeCachedConversionRate(cachedQuoteAssetToNAVUnitConversionRateWAD);
+        }
         return super._lookupCachedConversionRate(_cacheKey);
     }
 

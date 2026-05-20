@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { IRoycoDawnKernel } from "../../../../src/interfaces/IRoycoDawnKernel.sol";
-import { MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel } from "../../../../src/kernels/MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel.sol";
+import { MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel } from "../../../../src/kernels/dawn/MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel.sol";
 
 import { UpgradeIdenticalErc4626KernelModule } from "./UpgradeIdenticalErc4626KernelModule.sol";
 

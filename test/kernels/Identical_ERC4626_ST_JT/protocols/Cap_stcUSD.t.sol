@@ -10,7 +10,7 @@ import { DeployFundamentalStablecoinChainlinkOracleScript } from "../../../../sc
 import { IRoycoFactory } from "../../../../src/interfaces/IRoycoFactory.sol";
 import {
     Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
-} from "../../../../src/kernels/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
+} from "../../../../src/kernels/dawn/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits, toUint256 } from "../../../../src/libraries/Units.sol";
 import { FundamentalStablecoinPeg_ERC4626_ChainlinkOracle_TestBase } from "../base/FundamentalStablecoinPeg_ERC4626_ChainlinkOracle_TestBase.t.sol";
 

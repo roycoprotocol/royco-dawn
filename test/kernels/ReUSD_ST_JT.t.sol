@@ -6,7 +6,7 @@ import { DeployScript } from "../../script/Deploy.s.sol";
 import { MarketDeploymentConfig } from "../../script/config/MarketDeploymentConfig.sol";
 import { IRoycoFactory } from "../../src/interfaces/IRoycoFactory.sol";
 import { IInsuranceCapitalLayer } from "../../src/interfaces/external/reUSD/IInsuranceCapitalLayer.sol";
-import { ReUSD_ST_JT_ICLOracle_Kernel } from "../../src/kernels/ReUSD_ST_JT_ICLOracle_Kernel.sol";
+import { ReUSD_ST_JT_ICLOracle_Kernel } from "../../src/kernels/dawn/ReUSD_ST_JT_ICLOracle_Kernel.sol";
 import { IdenticalAssetsOracleQuoter } from "../../src/kernels/base/quoter/dawn/identical-assets/base/IdenticalAssetsOracleQuoter.sol";
 import { WAD, WAD } from "../../src/libraries/Constants.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../src/libraries/Units.sol";

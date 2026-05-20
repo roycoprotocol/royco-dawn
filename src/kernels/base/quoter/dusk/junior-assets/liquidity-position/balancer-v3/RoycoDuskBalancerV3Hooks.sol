@@ -85,10 +85,14 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
     function onRegister(address, address, TokenConfig[] memory, LiquidityManagement calldata) public override(BaseHooks) onlyVault returns (bool) { }
 
     /// @inheritdoc IHooks
-    function onBeforeInitialize(uint256[] memory, bytes memory) public override(BaseHooks) onlyVault returns (bool) { }
+    function onBeforeInitialize(uint256[] memory, bytes memory) public override(BaseHooks) onlyVault returns (bool) {
+        return _preLiquidityOpertionSyncTrancheAccounting();
+    }
 
     /// @inheritdoc IHooks
-    function onAfterInitialize(uint256[] memory, uint256, bytes memory) public override(BaseHooks) onlyVault returns (bool) { }
+    function onAfterInitialize(uint256[] memory, uint256, bytes memory) public override(BaseHooks) onlyVault returns (bool) {
+        return _postLiquidityOpertionSyncTrancheAccounting();
+    }
 
     /// @inheritdoc IHooks
     function onBeforeAddLiquidity(
@@ -106,8 +110,7 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
         onlyJuniorTrancheBalancerV3Pool(_pool)
         returns (bool)
     {
-        _preLiquidityOpertionSyncTrancheAccounting();
-        return true;
+        return _preLiquidityOpertionSyncTrancheAccounting();
     }
 
     /// @inheritdoc IHooks
@@ -127,8 +130,7 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
         onlyJuniorTrancheBalancerV3Pool(_pool)
         returns (bool, uint256[] memory)
     {
-        _postLiquidityOpertionSyncTrancheAccounting();
-        return (true, amountsInRaw);
+        return (_postLiquidityOpertionSyncTrancheAccounting(), amountsInRaw);
     }
 
     /// @inheritdoc IHooks
@@ -148,8 +150,7 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
         onlyJuniorTrancheBalancerV3Pool(_pool)
         returns (bool)
     {
-        if (_router != ROYCO_DUSK_KERNEL) _preLiquidityOpertionSyncTrancheAccounting();
-        return true;
+        return _router == ROYCO_DUSK_KERNEL || _preLiquidityOpertionSyncTrancheAccounting();
     }
 
     /// @inheritdoc IHooks
@@ -170,14 +171,12 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
         onlyJuniorTrancheBalancerV3Pool(_pool)
         returns (bool, uint256[] memory)
     {
-        if (_router != ROYCO_DUSK_KERNEL) _postLiquidityOpertionSyncTrancheAccounting();
-        return (true, amountsOutRaw);
+        return (_router == ROYCO_DUSK_KERNEL || _postLiquidityOpertionSyncTrancheAccounting(), amountsOutRaw);
     }
 
     /// @inheritdoc IHooks
     function onBeforeSwap(PoolSwapParams calldata, address _pool) public override(BaseHooks) onlyVault onlyJuniorTrancheBalancerV3Pool(_pool) returns (bool) {
-        _preLiquidityOpertionSyncTrancheAccounting();
-        return true;
+        return _preLiquidityOpertionSyncTrancheAccounting();
     }
 
     /// @inheritdoc IHooks
@@ -188,8 +187,7 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
         onlyJuniorTrancheBalancerV3Pool(_params.pool)
         returns (bool, uint256)
     {
-        _postLiquidityOpertionSyncTrancheAccounting();
-        return (true, _params.amountCalculatedRaw);
+        return (_postLiquidityOpertionSyncTrancheAccounting(), _params.amountCalculatedRaw);
     }
 
     /// @inheritdoc IHooks
@@ -214,8 +212,8 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
     function getHookFlags() public view virtual override(BaseHooks) returns (HookFlags memory) {
         return HookFlags({
             enableHookAdjustedAmounts: false,
-            shouldCallBeforeInitialize: false,
-            shouldCallAfterInitialize: false,
+            shouldCallBeforeInitialize: true,
+            shouldCallAfterInitialize: true,
             shouldCallComputeDynamicSwapFee: false,
             shouldCallBeforeSwap: true,
             shouldCallAfterSwap: true,
@@ -235,9 +233,11 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
      * @dev Intended to be invoked from every `onBefore*` hook (add/remove liquidity, swap) so the kernel captures any oracle drift on the senior side before the operation mutates the pool's composition
      * @dev Requires this hook contract to hold the SYNCER role on the kernel
      * @dev Reverts if this hook contract is paused
+     * @return synced Always true on success; lets callers forward the result directly as the hook's required `bool` return
      */
-    function _preLiquidityOpertionSyncTrancheAccounting() internal whenNotPaused {
+    function _preLiquidityOpertionSyncTrancheAccounting() internal whenNotPaused returns (bool synced) {
         IRoycoDuskKernel(ROYCO_DUSK_KERNEL).syncTrancheAccounting();
+        return true;
     }
 
     /**
@@ -245,8 +245,10 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
      * @dev Intended to be invoked from every `onAfter*` hook (add/remove liquidity, swap) so the kernel runs the recomposition checkpoint (reconciling the new internal vs external ST share distribution) and applies the post-op PNL waterfall
      * @dev Requires this hook contract to hold the SYNCER role on the kernel
      * @dev Reverts if this hook contract is paused
+     * @return synced Always true on success; lets callers forward the result directly as the hook's required `bool` return
      */
-    function _postLiquidityOpertionSyncTrancheAccounting() internal whenNotPaused {
+    function _postLiquidityOpertionSyncTrancheAccounting() internal whenNotPaused returns (bool synced) {
         IRoycoDuskKernel(ROYCO_DUSK_KERNEL).postLiquidityPositionOpSyncTrancheAccounting();
+        return true;
     }
 }

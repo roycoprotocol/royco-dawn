@@ -497,9 +497,12 @@ abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDepl
     function _balancerVaultBinding(address _vault) private pure returns (TargetBinding memory) {
         bytes4[] memory s = new bytes4[](3);
         uint64[] memory r = new uint64[](3);
-        s[0] = IVaultAdmin.pausePool.selector;                  r[0] = ADMIN_PAUSER_ROLE;
-        s[1] = IVaultAdmin.unpausePool.selector;                r[1] = ADMIN_UNPAUSER_ROLE;
-        s[2] = IVaultAdmin.setStaticSwapFeePercentage.selector; r[2] = ADMIN_BALANCER_POOL_MANAGER_ROLE;
+        s[0] = IVaultAdmin.pausePool.selector;
+        r[0] = ADMIN_PAUSER_ROLE;
+        s[1] = IVaultAdmin.unpausePool.selector;
+        r[1] = ADMIN_UNPAUSER_ROLE;
+        s[2] = IVaultAdmin.setStaticSwapFeePercentage.selector;
+        r[2] = ADMIN_BALANCER_POOL_MANAGER_ROLE;
         return TargetBinding({ target: _vault, selectors: s, roleIds: r });
     }
 
@@ -508,12 +511,15 @@ abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDepl
     function _balancerProtocolFeeControllerBinding(address _feeController) private pure returns (TargetBinding memory) {
         bytes4[] memory s = new bytes4[](3);
         uint64[] memory r = new uint64[](3);
-        s[0] = IProtocolFeeController.setPoolCreatorSwapFeePercentage.selector;  r[0] = ADMIN_BALANCER_POOL_MANAGER_ROLE;
-        s[1] = IProtocolFeeController.setPoolCreatorYieldFeePercentage.selector; r[1] = ADMIN_BALANCER_POOL_MANAGER_ROLE;
+        s[0] = IProtocolFeeController.setPoolCreatorSwapFeePercentage.selector;
+        r[0] = ADMIN_BALANCER_POOL_MANAGER_ROLE;
+        s[1] = IProtocolFeeController.setPoolCreatorYieldFeePercentage.selector;
+        r[1] = ADMIN_BALANCER_POOL_MANAGER_ROLE;
         // The two-arg `withdrawPoolCreatorFees(address pool, address recipient)` variant. The
         // permissionless no-recipient overload doesn't need an explicit binding since anyone
         // can call it and funds always go to the registered poolCreator.
-        s[2] = bytes4(keccak256("withdrawPoolCreatorFees(address,address)"));    r[2] = ADMIN_BALANCER_POOL_MANAGER_ROLE;
+        s[2] = bytes4(keccak256("withdrawPoolCreatorFees(address,address)"));
+        r[2] = ADMIN_BALANCER_POOL_MANAGER_ROLE;
         return TargetBinding({ target: _feeController, selectors: s, roleIds: r });
     }
 

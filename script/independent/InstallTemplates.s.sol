@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+import { Gyro2CLPPoolFactory } from "../../lib/balancer-v3-monorepo/pkg/pool-gyro/contracts/Gyro2CLPPoolFactory.sol";
 import { RoycoAccountant } from "../../src/accountant/RoycoAccountant.sol";
 import {
     COMPONENT_ID_ACCOUNTANT_IMPL,
@@ -34,7 +35,6 @@ import { apyUSDDeploymentTemplate } from "../../src/factory/templates/dawn/apyUS
 import { DawnDeploymentTemplate } from "../../src/factory/templates/dawn/base/DawnDeploymentTemplate.sol";
 import { sUSDaiDeploymentTemplate } from "../../src/factory/templates/dawn/sUSDaiDeploymentTemplate.sol";
 import { sUSDatDeploymentTemplate } from "../../src/factory/templates/dawn/sUSDatDeploymentTemplate.sol";
-import { Gyro2CLPPoolFactory } from "../../lib/balancer-v3-monorepo/pkg/pool-gyro/contracts/Gyro2CLPPoolFactory.sol";
 import {
     ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_DeploymentTemplate
 } from "../../src/factory/templates/dusk/ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_DeploymentTemplate.sol";

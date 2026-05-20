@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+import { IRateProvider } from "../../../../../lib/balancer-v3-monorepo/pkg/interfaces/contracts/solidity-utils/helpers/IRateProvider.sol";
+import { IProtocolFeeController } from "../../../../../lib/balancer-v3-monorepo/pkg/interfaces/contracts/vault/IProtocolFeeController.sol";
 import { IVault } from "../../../../../lib/balancer-v3-monorepo/pkg/interfaces/contracts/vault/IVault.sol";
+import { IVaultAdmin } from "../../../../../lib/balancer-v3-monorepo/pkg/interfaces/contracts/vault/IVaultAdmin.sol";
+import {
+    HooksConfig as BalancerV3HooksConfig,
+    PoolRoleAccounts as BalancerV3PoolRoleAccounts,
+    TokenConfig as BalancerV3TokenConfig,
+    TokenType as BalancerV3TokenType
+} from "../../../../../lib/balancer-v3-monorepo/pkg/interfaces/contracts/vault/VaultTypes.sol";
 import { Gyro2CLPPoolFactory } from "../../../../../lib/balancer-v3-monorepo/pkg/pool-gyro/contracts/Gyro2CLPPoolFactory.sol";
-import { TokenConfig as BalancerV3TokenConfig, PoolRoleAccounts as BalancerV3PoolRoleAccounts, TokenType as BalancerV3TokenType, HooksConfig as BalancerV3HooksConfig } from "../../../../../lib/balancer-v3-monorepo/pkg/interfaces/contracts/vault/VaultTypes.sol";
 import { BalancerPoolToken } from "../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BalancerPoolToken.sol";
 import { AccessManagedUpgradeable } from "../../../../../lib/openzeppelin-contracts-upgradeable/contracts/access/manager/AccessManagedUpgradeable.sol";
 import { UUPSUpgradeable } from "../../../../../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -16,9 +24,11 @@ import { IRoycoEntryPoint } from "../../../../interfaces/IRoycoEntryPoint.sol";
 import { IRoycoVaultTranche } from "../../../../interfaces/IRoycoVaultTranche.sol";
 import { IRoycoFactory } from "../../../../interfaces/factory/IRoycoFactory.sol";
 import { IRoycoProtocolTemplate } from "../../../../interfaces/factory/IRoycoProtocolTemplate.sol";
+import { ConstituentTokenType } from "../../../../kernels/base/quoter/dusk/junior-assets/liquidity-position/balancer-v3/RoycoDuskRateProvider.sol";
 import { TrancheType } from "../../../../libraries/Types.sol";
 import {
     ADMIN_ACCOUNTANT_ROLE,
+    ADMIN_BALANCER_POOL_MANAGER_ROLE,
     ADMIN_KERNEL_ROLE,
     ADMIN_ORACLE_QUOTER_ROLE,
     ADMIN_PAUSER_ROLE,
@@ -32,14 +42,13 @@ import {
     TRANSFER_AGENT_ROLE
 } from "../../../RolesConfiguration.sol";
 import { BaseDeploymentTemplate } from "../../BaseDeploymentTemplate.sol";
-import { Vault } from "../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/Vault.sol";
-import { COMPONENT_ID_DUSK_BALANCER_HOOKS } from "../../Components.sol";
+import { COMPONENT_ID_DUSK_BALANCER_HOOKS, COMPONENT_ID_DUSK_BALANCER_RATE_PROVIDER } from "../../Components.sol";
 import { RoycoDuskBalancerV3HooksStub } from "./stub/RoycoDuskBalancerV3HooksStub.sol";
 
 /**
  * @title JuniorAssetsBalancerV3PoolTokensDeploymentTemplate
  * @author Ankur Dubey, Shivaansh Kapoor
- * @notice Abstract base for every Dusk-Balancer market deployment template. 
+ * @notice Abstract base for every Dusk-Balancer market deployment template.
  */
 abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDeploymentTemplate {
     // ═══════════════════════════════════════════════════════════════════════════
@@ -59,8 +68,6 @@ abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDepl
     /// @custom:field disableUnbalancedLiquidity - If true, only proportional add and remove liquidity are accepted.
     /// @custom:field jtBalancerPoolStShareShouldPayYieldFees - If true, the ST share in the Balancer pool should pay yield fees.
     /// @custom:field jtBalancerPoolQuoteToken - The quote token of the Balancer pool.
-    /// @custom:field jtBalancerPoolQuoteTokenType - The type of the quote token of the Balancer pool.
-    /// @custom:field jtBalancerPoolQuoteRateProvider - The rate provider of the quote token of the Balancer pool.
     /// @custom:field jtBalancerPoolQuotePaysYieldFees - If true, the quote token of the Balancer pool should pay yield fees.
     /// @custom:field salt - The salt value that will be passed to deployment.
     struct Gyro2CLPPoolParams {
@@ -74,8 +81,6 @@ abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDepl
         bool disableUnbalancedLiquidity;
         bool jtBalancerPoolStShareShouldPayYieldFees;
         address jtBalancerPoolQuoteToken;
-        BalancerV3TokenType jtBalancerPoolQuoteTokenType;
-        IRateProvider jtBalancerPoolQuoteRateProvider;
         bool jtBalancerPoolQuotePaysYieldFees;
         bytes32 salt;
     }
@@ -96,6 +101,8 @@ abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDepl
     /// @custom:field ydm - The params for the YDM.
     /// @custom:field gyro2CLPPoolParams - The params for the Gyro 2-CLP pool.
     /// @custom:field kernelSpecificParams - The kernel-specific params.
+    /// @custom:field protocolFeeRecipient - The protocol fee recipient.
+    /// @custom:field stSelfLiquidationBonusWAD - The senior tranche self-liquidation bonus WAD.
     /// @custom:field enforceVaultSharesTransferWhitelist - If true, the vault shares transfer whitelist is enforced.
     struct DuskBalancerParams {
         bytes32 marketId;
@@ -104,8 +111,24 @@ abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDepl
         AccountantParams accountant;
         Gyro2CLPPoolParams gyro2CLPPoolParams;
         YDMParams ydm;
+        address protocolFeeRecipient;
+        uint64 stSelfLiquidationBonusWAD;
         bytes kernelSpecificParams;
         bool enforceVaultSharesTransferWhitelist;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RESULT
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice The result of the extra contracts deployed.
+    /// @custom:field seniorTrancheShareRateProvider - The address of the senior tranche share rate provider.
+    /// @custom:field quoteAssetRateProvider - The address of the quote asset rate provider.
+    /// @custom:field balancerPoolHooks - The address of the Balancer V3 pool hooks contract.
+    struct ExtraContractsDeployedResult {
+        address seniorTrancheShareRateProvider;
+        address quoteAssetRateProvider;
+        address balancerPoolHooks;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -132,22 +155,41 @@ abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDepl
     /// @notice Thrown when the pool's token set doesn't match `[ST_PROXY, quoteAsset]` (any order).
     error POOL_TOKEN_CONFIGURATION_MISMATCH();
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONSTANTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice The salt tag for the senior tranche share rate provider.
+    bytes32 private constant SENIOR_TRANCHE_SHARE_RATE_PROVIDER_SALT_SUFFIX = bytes32("ST_SHARE_RATE_PROVIDER");
+    /// @notice The salt tag for the quote asset rate provider.
+    bytes32 private constant QUOTE_ASSET_RATE_PROVIDER_SALT_SUFFIX = bytes32("QUOTE_ASSET_RATE_PROVIDER");
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // IMMUTABLES
+    // ═══════════════════════════════════════════════════════════════════════════
+
     // The dummy hooks contract implementation that will be replaced by the actual hooks contract.
     RoycoDuskBalancerV3HooksStub public immutable HOOKS_STUB;
 
     // The factory for the Balancer V3 pool.
     Gyro2CLPPoolFactory public immutable BALANCER_V3_POOL_FACTORY;
 
+    // The vault for the Balancer V3 pool.
+    IVault public immutable BALANCER_V3_VAULT;
+
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTRUCTION
     // ═══════════════════════════════════════════════════════════════════════════
 
     constructor(IRoycoFactory _factory, Gyro2CLPPoolFactory _balancerV3PoolFactory) BaseDeploymentTemplate(_factory) {
-        // Deploy the dummy hooks contract implementation.
-        HOOKS_STUB = new RoycoDuskBalancerV3HooksStub();
-
-        // Set the factory for the Balancer V3 pool.
+        // Wire the Balancer V3 pool factory + vault.
         BALANCER_V3_POOL_FACTORY = _balancerV3PoolFactory;
+        BALANCER_V3_VAULT = IVault(address(_balancerV3PoolFactory.getVault()));
+
+        // Deploy the dummy hooks impl. The hooks proxy points here during pool registration
+        // (when the kernel doesn't exist yet) and gets upgraded to the real hooks impl after
+        // the kernel is live. The stub takes no constructor args — it has no vault binding.
+        HOOKS_STUB = new RoycoDuskBalancerV3HooksStub();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -181,8 +223,8 @@ abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDepl
         require(p.st.asset != address(0), INVALID_PARAMS());
         require(bytes(p.jt.name).length > 0, INVALID_PARAMS());
         require(bytes(p.jt.symbol).length > 0, INVALID_PARAMS());
-        require(p.quoteAsset != address(0), INVALID_PARAMS());
-        require(p.balancerPool != address(0), INVALID_PARAMS());
+        require(p.gyro2CLPPoolParams.jtBalancerPoolQuoteToken != address(0), INVALID_PARAMS());
+        require(p.protocolFeeRecipient != address(0), INVALID_PARAMS());
         require(p.ydm.componentTag != bytes32(0), INVALID_PARAMS());
         require(p.ydm.version != bytes32(0), INVALID_PARAMS());
         require(p.accountant.ydmInitializationData.length > 0, INVALID_PARAMS());
@@ -195,6 +237,8 @@ abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDepl
     /// @inheritdoc IRoycoProtocolTemplate
     function deployMarket(bytes calldata _params) external override(IRoycoProtocolTemplate) onlyRoycoFactory returns (DeploymentResult memory result) {
         DuskBalancerParams memory p = abi.decode(_params, (DuskBalancerParams));
+        ExtraContractsDeployedResult memory dusk;
+        address balancerPool;
 
         // Predict the 4 market proxy addresses.
         bytes32 stProxySalt = _marketComponentSalt(p.marketId, "ST");
@@ -215,88 +259,168 @@ abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDepl
         address stImpl = _deploySeniorTrancheImpl(p.st.asset, result.kernel, _marketComponentSalt(p.marketId, "ST_IMPL"));
         _deployProxy(stImpl, _encodeTrancheInitData(p.st.name, p.st.symbol), stProxySalt);
 
-        // Deploy the Balancer V3 Hooks contract with a dummy implementation that will be replaced by the actual hooks contract.
-        _deployProxy(address(HOOKS_STUB), "", _marketComponentSalt(p.marketId, "HOOKS"));
+        // Deploy the hooks proxy (initial impl = stub) + the Balancer V3 pool. The pool needs the
+        // hooks proxy to be live before pool.create() is called, since the pool factory bakes
+        // the hooks address into the pool's config.
+        (balancerPool, dusk.balancerPoolHooks, dusk.seniorTrancheShareRateProvider, dusk.quoteAssetRateProvider) =
+            _deployBalancerV3Pool(p.gyro2CLPPoolParams, p.marketId, result.seniorTranche);
 
-        // Deploy the Gyro 2-CLP pool.
-        BalancerV3TokenConfig[] memory tokens = new BalancerV3TokenConfig[](2);
-        tokens[0] = BalancerV3TokenConfig({
-            token: result.seniorTranche,
-            tokenType: BalancerV3TokenType.WITH_RATE,
-            // TODO: Deploy the rate provider
-            rateProvider: address(0),
-            paysYieldFees: p.gyro2CLPPoolParams.jtBalancerPoolStShareShouldPayYieldFees
+        // JT asset = the pool. Deploy JT impl (with pool baked as immutable asset) + proxy.
+        address jtImpl = _deployJuniorTrancheImpl(balancerPool, result.kernel, _marketComponentSalt(p.marketId, "JT_IMPL"));
+        _deployProxy(jtImpl, _encodeTrancheInitData(p.jt.name, p.jt.symbol), jtProxySalt);
+
+        // Deploy accountant impl + proxy.
+        address accountantImpl = _deployAccountantImpl(result.kernel, _marketComponentSalt(p.marketId, "ACCOUNTANT_IMPL"));
+        _deployProxy(accountantImpl, _encodeAccountantInitData(p.accountant, result.ydm), accountantProxySalt);
+
+        // Deploy kernel impl + proxy.
+        IRoycoDuskKernel.RoycoDuskKernelConstructionParams memory cp = IRoycoDuskKernel.RoycoDuskKernelConstructionParams({
+            dawnKernelParams: IRoycoDawnKernel.RoycoDawnKernelConstructionParams({
+                seniorTranche: result.seniorTranche,
+                stAsset: p.st.asset,
+                juniorTranche: result.juniorTranche,
+                jtAsset: balancerPool,
+                accountant: result.accountant,
+                enforceVaultSharesTransferWhitelist: p.enforceVaultSharesTransferWhitelist
+            }),
+            quoteAsset: p.gyro2CLPPoolParams.jtBalancerPoolQuoteToken
         });
-        tokens[1] = BalancerV3TokenConfig({
-            token: p.jtBalancerPoolQuoteToken,
-            tokenType: p.jtBalancerPoolQuoteTokenType,
-            rateProvider: p.jtBalancerPoolQuoteRateProvider,
-            paysYieldFees: p.jtBalancerPoolQuotePaysYieldFees
+        address kernelImpl = _deployImpl(_kernelComponentId(), abi.encode(cp), _marketComponentSalt(p.marketId, "KERNEL_IMPL"));
+
+        IRoycoDuskKernel.RoycoDuskKernelInitParams memory kip = IRoycoDuskKernel.RoycoDuskKernelInitParams({
+            dawnKernelInitParams: IRoycoDawnKernel.RoycoDawnKernelInitParams({
+                initialAuthority: ROYCO_FACTORY.ROYCO_AUTHORITY(),
+                protocolFeeRecipient: p.protocolFeeRecipient,
+                stSelfLiquidationBonusWAD: p.stSelfLiquidationBonusWAD
+            })
         });
+        _deployProxy(kernelImpl, _kernelInitData(kip, p.kernelSpecificParams), kernelProxySalt);
 
+        // Now that the kernel is live, deploy the rate providers + upgrade the hooks proxy from
+        // the stub to the real hooks impl.
+        _deployBalancerV3PeripheralContracts(p.marketId, result.kernel, dusk.balancerPoolHooks);
 
-        address gyro2CLPPool = BALANCER_V3_POOL_FACTORY.create(
-            p.gyro2CLPPoolParams.name,
-            p.gyro2CLPPoolParams.symbol,
-            p.gyro2CLPPoolParams.tokens,
-            p.gyro2CLPPoolParams.sqrtAlpha,
-            p.gyro2CLPPoolParams.sqrtBeta,
+        // Verify the pool's wiring lines up with what we built.
+        _assertPoolWiredCorrectly(balancerPool, result.seniorTranche, p.gyro2CLPPoolParams.jtBalancerPoolQuoteToken, dusk.balancerPoolHooks);
+
+        // Apply selector→role bindings + post-init grants.
+        _applyRoleBindings(_buildRoleBindings(result));
+
+        // Encode `(pool, ExtraContractsDeployedResult)` in extras so downstream consumers + `verify()` can read.
+        result.extras = abi.encode(balancerPool, dusk);
+    }
+
+    /**
+     * @notice Deploys the hooks PROXY (initial impl = stub) + the rate-provider-bearing Gyro 2-CLP pool.
+     * @dev The hooks proxy must exist before `BALANCER_V3_POOL_FACTORY.create(...)` runs because
+     *      Balancer V3 bakes the hooks contract address into the pool's immutable config.
+     *      Rate-provider proxy addresses are CREATE3-predicted; the actual rate provider impl
+     *      + proxy deployments happen in `_deployBalancerV3PeripheralContracts` once the kernel
+     *      is live (the providers' ctor needs the kernel address).
+     * @return balancerV3Pool The pool address returned by `BALANCER_V3_POOL_FACTORY.create`.
+     * @return balancerPoolHooks The hooks proxy address.
+     * @return seniorTrancheShareRateProvider Predicted ST share rate-provider proxy address.
+     * @return quoteAssetRateProvider Predicted quote-asset rate-provider proxy address.
+     */
+    function _deployBalancerV3Pool(
+        Gyro2CLPPoolParams memory _gyro2CLPPoolParams,
+        bytes32 _marketId,
+        address _seniorTranche
+    )
+        internal
+        returns (address balancerV3Pool, address balancerPoolHooks, address seniorTrancheShareRateProvider, address quoteAssetRateProvider)
+    {
+        // Predict the rate-provider proxy addresses (deployed later in the peripheral step).
+        seniorTrancheShareRateProvider =
+            ROYCO_FACTORY.predictDeterministicAddress(_marketComponentSalt(_marketId, SENIOR_TRANCHE_SHARE_RATE_PROVIDER_SALT_SUFFIX));
+        quoteAssetRateProvider = ROYCO_FACTORY.predictDeterministicAddress(_marketComponentSalt(_marketId, QUOTE_ASSET_RATE_PROVIDER_SALT_SUFFIX));
+
+        // Deploy the hooks PROXY. Initial impl is the stub; we upgrade to the real hooks impl
+        // once the kernel address is known. Pass non-empty init data (mandatory under OZ
+        // ERC1967Proxy) — the stub's `initialize` is a no-op until the real impl takes over.
+        balancerPoolHooks = _deployProxy(
+            address(HOOKS_STUB),
+            abi.encodeCall(RoycoDuskBalancerV3HooksStub.initialize, (ROYCO_FACTORY.ROYCO_AUTHORITY())),
+            _marketComponentSalt(_marketId, "BALANCER_V3_POOL_HOOKS")
         );
 
-        // // 5. Verify the pre-deployed pool matches what this market expects.
-        // _assertPoolWiredCorrectly(p.balancerPool, result.seniorTranche, p.quoteAsset, hooks);
+        // Prepare the token configs. Balancer's struct types `token` as `IERC20` and `rateProvider`
+        // as `IRateProvider` — cast our address vars accordingly.
+        BalancerV3TokenConfig[] memory tokens = new BalancerV3TokenConfig[](2);
+        tokens[0] = BalancerV3TokenConfig({
+            token: IERC20(_seniorTranche),
+            tokenType: BalancerV3TokenType.WITH_RATE,
+            rateProvider: IRateProvider(seniorTrancheShareRateProvider),
+            paysYieldFees: _gyro2CLPPoolParams.jtBalancerPoolStShareShouldPayYieldFees
+        });
+        tokens[1] = BalancerV3TokenConfig({
+            token: IERC20(_gyro2CLPPoolParams.jtBalancerPoolQuoteToken),
+            tokenType: BalancerV3TokenType.WITH_RATE,
+            rateProvider: IRateProvider(quoteAssetRateProvider),
+            paysYieldFees: _gyro2CLPPoolParams.jtBalancerPoolQuotePaysYieldFees
+        });
 
-        // // 6. JT asset = the pool. Deploy JT impl (with pool baked as immutable asset) + proxy.
-        // address jtImpl = _deployJuniorTrancheImpl(p.balancerPool, result.kernel, _marketComponentSalt(p.marketId, "JT_IMPL"));
-        // _deployProxy(jtImpl, _encodeTrancheInitData(p.jt.name, p.jt.symbol), jtProxySalt);
+        // Prepare the role accounts configuration. All three roles go to the AM authority.
+        address authority = ROYCO_FACTORY.ROYCO_AUTHORITY();
+        BalancerV3PoolRoleAccounts memory roleAccounts =
+            BalancerV3PoolRoleAccounts({ pauseManager: authority, swapFeeManager: authority, poolCreator: authority });
 
-        // // 7. Deploy accountant impl + proxy.
-        // address accountantImpl = _deployAccountantImpl(result.kernel, _marketComponentSalt(p.marketId, "ACCOUNTANT_IMPL"));
-        // _deployProxy(accountantImpl, _encodeAccountantInitData(p.accountant, result.ydm), accountantProxySalt);
+        // Deploy the Balancer V3 pool via its factory.
+        balancerV3Pool = BALANCER_V3_POOL_FACTORY.create(
+            _gyro2CLPPoolParams.name,
+            _gyro2CLPPoolParams.symbol,
+            tokens,
+            _gyro2CLPPoolParams.sqrtAlpha,
+            _gyro2CLPPoolParams.sqrtBeta,
+            roleAccounts,
+            _gyro2CLPPoolParams.swapFeePercentage,
+            balancerPoolHooks,
+            _gyro2CLPPoolParams.enableDonation,
+            _gyro2CLPPoolParams.disableUnbalancedLiquidity,
+            _gyro2CLPPoolParams.salt
+        );
+    }
 
-        // // 8. Deploy kernel impl + proxy.
-        // {
-        //     IRoycoDuskKernel.RoycoDuskKernelConstructionParams memory cp = IRoycoDuskKernel.RoycoDuskKernelConstructionParams({
-        //         dawnKernelParams: IRoycoDawnKernel.RoycoDawnKernelConstructionParams({
-        //             seniorTranche: result.seniorTranche,
-        //             stAsset: p.st.asset,
-        //             juniorTranche: result.juniorTranche,
-        //             jtAsset: p.balancerPool,
-        //             accountant: result.accountant,
-        //             enforceVaultSharesTransferWhitelist: p.enforceVaultSharesTransferWhitelist
-        //         }),
-        //         quoteAsset: p.quoteAsset
-        //     });
-        //     address kernelImpl = _deployImpl(_kernelComponentId(), abi.encode(cp), _marketComponentSalt(p.marketId, "KERNEL_IMPL"));
+    /**
+     * @notice Deploys the Balancer V3 rate-provider proxies (one for the ST share, one for the
+     *         quote asset) and upgrades the hooks proxy from the stub to the real hooks impl.
+     * @dev Called after the kernel is live — both the rate providers and the real hooks impl
+     *      take the kernel address as a constructor arg.
+     */
+    function _deployBalancerV3PeripheralContracts(bytes32 _marketId, address _kernelAddress, address _balancerPoolHooksProxy) internal {
+        address authority = ROYCO_FACTORY.ROYCO_AUTHORITY();
 
-        //     IRoycoDuskKernel.RoycoDuskKernelInitParams memory kip = IRoycoDuskKernel.RoycoDuskKernelInitParams({
-        //         dawnKernelInitParams: IRoycoDawnKernel.RoycoDawnKernelInitParams({
-        //             initialAuthority: ROYCO_FACTORY.ROYCO_AUTHORITY(),
-        //             protocolFeeRecipient: address(0), // Subclasses can override via _kernelInitData if they need it
-        //             stSelfLiquidationBonusWAD: 0
-        //         })
-        //     });
-        //     _deployProxy(kernelImpl, _kernelInitData(kip, p.kernelSpecificParams), kernelProxySalt);
-        // }
+        // Senior-tranche share rate provider — impl + proxy. Init data is the standard
+        // AccessManaged init shape (caller supplies the authority).
+        address seniorTrancheShareRateProviderImpl = _deployImpl(
+            COMPONENT_ID_DUSK_BALANCER_RATE_PROVIDER,
+            abi.encode(_kernelAddress, ConstituentTokenType.SENIOR_TRANCHE_SHARE),
+            _marketComponentSalt(_marketId, "ST_RATE_PROVIDER_IMPL")
+        );
+        _deployProxy(
+            seniorTrancheShareRateProviderImpl,
+            abi.encodeCall(RoycoDuskBalancerV3HooksStub.initialize, (authority)),
+            _marketComponentSalt(_marketId, SENIOR_TRANCHE_SHARE_RATE_PROVIDER_SALT_SUFFIX)
+        );
 
-        // // 9. Apply selector→role bindings + post-init grants. Concrete templates can override
-        // //    `_buildRoleBindings` to add more.
-        // _applyRoleBindings(_buildRoleBindings(result));
+        // Quote-asset rate provider — same shape.
+        address quoteAssetRateProviderImpl = _deployImpl(
+            COMPONENT_ID_DUSK_BALANCER_RATE_PROVIDER,
+            abi.encode(_kernelAddress, ConstituentTokenType.QUOTE_ASSET),
+            _marketComponentSalt(_marketId, "QUOTE_RATE_PROVIDER_IMPL")
+        );
+        _deployProxy(
+            quoteAssetRateProviderImpl,
+            abi.encodeCall(RoycoDuskBalancerV3HooksStub.initialize, (authority)),
+            _marketComponentSalt(_marketId, QUOTE_ASSET_RATE_PROVIDER_SALT_SUFFIX)
+        );
 
-        // // 10. (Optional) Configure the entry point's tranche configs for the new ST/JT.
-        // if (p.entryPoint != address(0)) {
-        //     address[] memory tranches = new address[](2);
-        //     tranches[0] = result.seniorTranche;
-        //     tranches[1] = result.juniorTranche;
-        //     IRoycoEntryPoint.TrancheConfig[] memory configs = new IRoycoEntryPoint.TrancheConfig[](2);
-        //     configs[0] = p.stEntryPointConfig;
-        //     configs[1] = p.jtEntryPointConfig;
-        //     ROYCO_FACTORY.executeAsFactory(p.entryPoint, abi.encodeCall(IRoycoEntryPoint.modifyTrancheConfigs, (tranches, configs)));
-        // }
-
-        // // Encode `(pool, hooks, entryPoint, stCfg, jtCfg)` in extras for downstream consumers
-        // // and for `verify()` to read back.
-        // result.extras = abi.encode(p.balancerPool, hooks, p.entryPoint, p.stEntryPointConfig, p.jtEntryPointConfig);
+        // Deploy the real hooks impl (knows the kernel address) and upgrade the live hooks
+        // proxy to point at it. `upgradeToAndCall` re-runs `initialize` on the new impl.
+        address balancerPoolHooksImpl = _deployImpl(
+            COMPONENT_ID_DUSK_BALANCER_HOOKS, abi.encode(BALANCER_V3_VAULT, _kernelAddress), _marketComponentSalt(_marketId, "BALANCER_POOL_HOOKS_IMPL")
+        );
+        UUPSUpgradeable(_balancerPoolHooksProxy).upgradeToAndCall(balancerPoolHooksImpl, abi.encodeCall(RoycoDuskBalancerV3HooksStub.initialize, (authority)));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -325,15 +449,10 @@ abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDepl
 
         require(address(IRoycoAccountant(_d.accountant).KERNEL()) == _d.kernel, INVALID_KERNEL_ON_ACCOUNTANT());
 
-        (address pool, address hooks, address entryPoint, IRoycoEntryPoint.TrancheConfig memory stCfg, IRoycoEntryPoint.TrancheConfig memory jtCfg) =
-            abi.decode(_d.extras, (address, address, address, IRoycoEntryPoint.TrancheConfig, IRoycoEntryPoint.TrancheConfig));
+        // Decode the Dusk-specific addresses from `extras` and re-assert the Balancer wiring.
+        (address pool, ExtraContractsDeployedResult memory dusk) = abi.decode(_d.extras, (address, ExtraContractsDeployedResult));
         require(kernel.JT_ASSET() == pool, INVALID_JT_ASSET_ON_KERNEL());
-        _assertPoolWiredCorrectly(pool, _d.seniorTranche, kernel.QUOTE_ASSET(), hooks);
-
-        if (entryPoint != address(0)) {
-            _assertEntryPointConfig(entryPoint, _d.seniorTranche, stCfg);
-            _assertEntryPointConfig(entryPoint, _d.juniorTranche, jtCfg);
-        }
+        _assertPoolWiredCorrectly(pool, _d.seniorTranche, kernel.QUOTE_ASSET(), dusk.balancerPoolHooks);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -345,16 +464,23 @@ abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDepl
      * @dev Same shape as Dawn. Concrete subclasses override `_extraRoleBindings` to append
      *      kernel-specific extras (e.g. additional oracle quoter setters).
      */
-    function _buildRoleBindings(DeploymentResult memory _r) internal pure virtual returns (RoleBindings memory) {
+    function _buildRoleBindings(DeploymentResult memory _r) internal view virtual returns (RoleBindings memory) {
         (TargetBinding[] memory extraTargets, RoleGrant[] memory extraGrants) = _extraRoleBindings(_r);
 
-        TargetBinding[] memory targets = new TargetBinding[](4 + extraTargets.length);
+        // 4 standard market targets (ST/JT/kernel/accountant) + 2 Balancer targets (Vault +
+        // ProtocolFeeController) + any concrete-kernel extras. The Balancer bindings route their
+        // gated functions through `AM.execute(target, data)` — Royco's AM is the `pauseManager`
+        // / `swapFeeManager` / `poolCreator` on the pool, so when AM forwards a call it appears
+        // to the Vault / FeeController as the registered role account.
+        TargetBinding[] memory targets = new TargetBinding[](6 + extraTargets.length);
         targets[0] = _trancheBinding(_r.seniorTranche, ST_LP_ROLE);
         targets[1] = _trancheBinding(_r.juniorTranche, JT_LP_ROLE);
         targets[2] = _kernelBinding(_r.kernel);
         targets[3] = _accountantBinding(_r.accountant);
+        targets[4] = _balancerVaultBinding(address(BALANCER_V3_VAULT));
+        targets[5] = _balancerProtocolFeeControllerBinding(address(BALANCER_V3_VAULT.getProtocolFeeController()));
         for (uint256 i; i < extraTargets.length; ++i) {
-            targets[4 + i] = extraTargets[i];
+            targets[6 + i] = extraTargets[i];
         }
 
         RoleGrant[] memory grants = new RoleGrant[](1 + extraGrants.length);
@@ -364,6 +490,31 @@ abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDepl
         }
 
         return RoleBindings({ targetBindings: targets, postInitGrants: grants });
+    }
+
+    /// @dev Binds the Balancer Vault's pool-admin selectors to Royco roles. AM is the
+    ///      `pauseManager` + `swapFeeManager` on the pool; role holders invoke via `AM.execute`.
+    function _balancerVaultBinding(address _vault) private pure returns (TargetBinding memory) {
+        bytes4[] memory s = new bytes4[](3);
+        uint64[] memory r = new uint64[](3);
+        s[0] = IVaultAdmin.pausePool.selector;                  r[0] = ADMIN_PAUSER_ROLE;
+        s[1] = IVaultAdmin.unpausePool.selector;                r[1] = ADMIN_UNPAUSER_ROLE;
+        s[2] = IVaultAdmin.setStaticSwapFeePercentage.selector; r[2] = ADMIN_BALANCER_POOL_MANAGER_ROLE;
+        return TargetBinding({ target: _vault, selectors: s, roleIds: r });
+    }
+
+    /// @dev Binds the Balancer ProtocolFeeController's pool-creator selectors to the pool-manager
+    ///      role. AM is the `poolCreator` on the pool; role holders invoke via `AM.execute`.
+    function _balancerProtocolFeeControllerBinding(address _feeController) private pure returns (TargetBinding memory) {
+        bytes4[] memory s = new bytes4[](3);
+        uint64[] memory r = new uint64[](3);
+        s[0] = IProtocolFeeController.setPoolCreatorSwapFeePercentage.selector;  r[0] = ADMIN_BALANCER_POOL_MANAGER_ROLE;
+        s[1] = IProtocolFeeController.setPoolCreatorYieldFeePercentage.selector; r[1] = ADMIN_BALANCER_POOL_MANAGER_ROLE;
+        // The two-arg `withdrawPoolCreatorFees(address pool, address recipient)` variant. The
+        // permissionless no-recipient overload doesn't need an explicit binding since anyone
+        // can call it and funds always go to the registered poolCreator.
+        s[2] = bytes4(keccak256("withdrawPoolCreatorFees(address,address)"));    r[2] = ADMIN_BALANCER_POOL_MANAGER_ROLE;
+        return TargetBinding({ target: _feeController, selectors: s, roleIds: r });
     }
 
     /// @dev Override in concrete kernel templates to append extra bindings + grants. Default empty.
@@ -474,7 +625,7 @@ abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDepl
         bool match1 = tokens[0] == _quoteAsset && tokens[1] == _stProxy;
         require(match0 || match1, POOL_TOKEN_CONFIGURATION_MISMATCH());
 
-        HooksConfig memory hooksConfig = vault.getHooksConfig(_pool);
+        BalancerV3HooksConfig memory hooksConfig = vault.getHooksConfig(_pool);
         require(hooksConfig.hooksContract == _expectedHooks, POOL_HOOKS_MISMATCH(_expectedHooks, hooksConfig.hooksContract));
     }
 

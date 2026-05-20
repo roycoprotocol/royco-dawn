@@ -34,6 +34,7 @@ import { apyUSDDeploymentTemplate } from "../../src/factory/templates/dawn/apyUS
 import { DawnDeploymentTemplate } from "../../src/factory/templates/dawn/base/DawnDeploymentTemplate.sol";
 import { sUSDaiDeploymentTemplate } from "../../src/factory/templates/dawn/sUSDaiDeploymentTemplate.sol";
 import { sUSDatDeploymentTemplate } from "../../src/factory/templates/dawn/sUSDatDeploymentTemplate.sol";
+import { Gyro2CLPPoolFactory } from "../../lib/balancer-v3-monorepo/pkg/pool-gyro/contracts/Gyro2CLPPoolFactory.sol";
 import {
     ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_DeploymentTemplate
 } from "../../src/factory/templates/dusk/ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_DeploymentTemplate.sol";
@@ -44,17 +45,19 @@ import {
     Identical_ERC20_ST_JT_ChainlinkToAdminOracle_SoulBoundTrancheShares_Kernel
 } from "../../src/kernels/dawn/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_SoulBoundTrancheShares_Kernel.sol";
 import { Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel } from "../../src/kernels/dawn/Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel.sol";
-import { Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel } from "../../src/kernels/dawn/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
+import {
+    Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
+} from "../../src/kernels/dawn/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
 import { Identical_Makina_ST_JT_MachineToAdminOracle_Kernel } from "../../src/kernels/dawn/Identical_Makina_ST_JT_MachineToAdminOracle_Kernel.sol";
 import { Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle } from "../../src/kernels/dawn/Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle.sol";
 import { MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel } from "../../src/kernels/dawn/MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel.sol";
 import { ReUSD_ST_JT_ICLOracle_Kernel } from "../../src/kernels/dawn/ReUSD_ST_JT_ICLOracle_Kernel.sol";
 import { apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel } from "../../src/kernels/dawn/apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
+import { sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel } from "../../src/kernels/dawn/sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel.sol";
+import { sUSDat_ST_JT_SharePriceToChainlinkOracle_Kernel } from "../../src/kernels/dawn/sUSDat_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
 import {
     ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_Kernel
 } from "../../src/kernels/dusk/ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_Kernel.sol";
-import { sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel } from "../../src/kernels/dawn/sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel.sol";
-import { sUSDat_ST_JT_SharePriceToChainlinkOracle_Kernel } from "../../src/kernels/dawn/sUSDat_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
 import { RoycoJuniorTranche } from "../../src/tranches/RoycoJuniorTranche.sol";
 import { RoycoSeniorTranche } from "../../src/tranches/RoycoSeniorTranche.sol";
 import { AdaptiveCurveYDM_V2 } from "../../src/ydm/AdaptiveCurveYDM_V2.sol";
@@ -196,13 +199,12 @@ contract InstallTemplatesScript is Script {
     // DUSK-BALANCER
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @dev Installs the Chainlink-ST / Chainlink-quote Dusk-Balancer variant. The HOOKS
-    ///      creation code is left empty — caller is expected to override component ID
-    ///      `COMPONENT_ID_DUSK_BALANCER_HOOKS` with their pool-type-specific hooks contract
-    ///      bytecode (Weighted / Stable / Gyro / etc.) at register time.
+    /// @dev Installs the Chainlink-ST / Chainlink-quote Dusk-Balancer variant. Takes the
+    ///      chain-specific `Gyro2CLPPoolFactory` address from env (`BALANCER_V3_GYRO_2CLP_FACTORY`).
     function _installDuskBalancer(IRoycoFactory _factory) internal returns (address) {
+        Gyro2CLPPoolFactory balancerV3PoolFactory = Gyro2CLPPoolFactory(vm.envAddress("BALANCER_V3_GYRO_2CLP_FACTORY"));
         ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_DeploymentTemplate dusk =
-            new ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_DeploymentTemplate(_factory);
+            new ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_DeploymentTemplate(_factory, balancerV3PoolFactory);
 
         bytes32[] memory ids = new bytes32[](5);
         bytes[] memory codes = new bytes[](5);

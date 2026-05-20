@@ -11,7 +11,9 @@ import { IMapleGlobals } from "../../../../src/interfaces/external/maple/IMapleG
 import { IMaplePool } from "../../../../src/interfaces/external/maple/IMaplePool.sol";
 import { IMaplePoolManager } from "../../../../src/interfaces/external/maple/IMaplePoolManager.sol";
 import { IMaplePoolPermissionManager } from "../../../../src/interfaces/external/maple/IMaplePoolPermissionManager.sol";
-import { MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel } from "../../../../src/kernels/dawn/MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel.sol";
+import {
+    MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel
+} from "../../../../src/kernels/dawn/MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel.sol";
 import {
     MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel
 } from "../../../../src/kernels/dawn/MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel.sol";

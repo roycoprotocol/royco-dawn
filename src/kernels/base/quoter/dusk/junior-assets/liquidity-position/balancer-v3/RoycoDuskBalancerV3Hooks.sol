@@ -250,3 +250,4 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
         IRoycoDuskKernel(ROYCO_DUSK_KERNEL).postLiquidityPositionOpSyncTrancheAccounting();
     }
 }
+

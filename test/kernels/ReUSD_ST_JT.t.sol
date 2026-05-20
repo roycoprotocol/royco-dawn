@@ -16,7 +16,6 @@ import { ReUSDDeploymentTemplate } from "../../src/factory/templates/dawn/ReUSDD
 import { DawnDeploymentTemplate } from "../../src/factory/templates/dawn/base/DawnDeploymentTemplate.sol";
 import { IRoycoAccountant } from "../../src/interfaces/IRoycoAccountant.sol";
 import { IRoycoDawnKernel } from "../../src/interfaces/IRoycoDawnKernel.sol";
-import { IRoycoEntryPoint } from "../../src/interfaces/IRoycoEntryPoint.sol";
 import { IRoycoVaultTranche } from "../../src/interfaces/IRoycoVaultTranche.sol";
 import { IYDM } from "../../src/interfaces/IYDM.sol";
 import { IInsuranceCapitalLayer } from "../../src/interfaces/external/reUSD/IInsuranceCapitalLayer.sol";

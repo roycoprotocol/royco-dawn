@@ -6,7 +6,6 @@ import { Vm } from "../../lib/forge-std/src/Vm.sol";
 import { AccessManager } from "../../lib/openzeppelin-contracts/contracts/access/manager/AccessManager.sol";
 import { ERC20Mock } from "../../lib/openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol";
 import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { UUPSUpgradeable } from "../../lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { RoycoAccountant } from "../../src/accountant/RoycoAccountant.sol";
 import {
     ADMIN_ACCOUNTANT_ROLE,
@@ -18,7 +17,6 @@ import {
     ADMIN_ROLE,
     ADMIN_UNPAUSER_ROLE,
     ADMIN_UPGRADER_ROLE,
-    BURNER_ROLE,
     DEPLOYER_ROLE,
     GUARDIAN_ROLE,
     JT_LP_ROLE,
@@ -37,16 +35,11 @@ import {
 } from "../../src/factory/templates/Components.sol";
 import { DawnDeploymentTemplate } from "../../src/factory/templates/dawn/base/DawnDeploymentTemplate.sol";
 import { IRoycoAccountant } from "../../src/interfaces/IRoycoAccountant.sol";
-import { IRoycoAuth } from "../../src/interfaces/IRoycoAuth.sol";
 import { IRoycoDawnKernel } from "../../src/interfaces/IRoycoDawnKernel.sol";
 import { IRoycoEntryPoint } from "../../src/interfaces/IRoycoEntryPoint.sol";
 import { IRoycoVaultTranche } from "../../src/interfaces/IRoycoVaultTranche.sol";
 import { IYDM } from "../../src/interfaces/IYDM.sol";
-import { IBaseTemplate } from "../../src/interfaces/factory/IBaseTemplate.sol";
-import { IRoycoFactory } from "../../src/interfaces/factory/IRoycoFactory.sol";
 import { IRoycoProtocolTemplate } from "../../src/interfaces/factory/IRoycoProtocolTemplate.sol";
-import { IdenticalAssetsChainlinkOracleQuoter } from "../../src/kernels/base/quoter/dawn/identical-assets/base/IdenticalAssetsChainlinkOracleQuoter.sol";
-import { IdenticalAssetsOracleQuoter } from "../../src/kernels/base/quoter/dawn/identical-assets/base/IdenticalAssetsOracleQuoter.sol";
 import { AssetClaims, TrancheType } from "../../src/libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toNAVUnits, toUint256 } from "../../src/libraries/Units.sol";
 import { RoycoJuniorTranche } from "../../src/tranches/RoycoJuniorTranche.sol";

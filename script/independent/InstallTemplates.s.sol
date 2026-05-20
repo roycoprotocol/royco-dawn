@@ -32,7 +32,6 @@ import { LockediUSDDeploymentTemplate } from "../../src/factory/templates/dawn/L
 import { MapleV2DeploymentTemplate } from "../../src/factory/templates/dawn/MapleV2DeploymentTemplate.sol";
 import { ReUSDDeploymentTemplate } from "../../src/factory/templates/dawn/ReUSDDeploymentTemplate.sol";
 import { apyUSDDeploymentTemplate } from "../../src/factory/templates/dawn/apyUSDDeploymentTemplate.sol";
-import { DawnDeploymentTemplate } from "../../src/factory/templates/dawn/base/DawnDeploymentTemplate.sol";
 import { sUSDaiDeploymentTemplate } from "../../src/factory/templates/dawn/sUSDaiDeploymentTemplate.sol";
 import { sUSDatDeploymentTemplate } from "../../src/factory/templates/dawn/sUSDatDeploymentTemplate.sol";
 import {

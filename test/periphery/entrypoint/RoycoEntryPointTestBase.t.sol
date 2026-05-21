@@ -97,7 +97,7 @@ abstract contract RoycoEntryPointTestBase is BaseTest {
 
     /// @notice Deploys the entry point and configures it for both tranches
     function _deployEntryPoint() internal {
-        entryPointImpl = new RoycoEntryPoint();
+        entryPointImpl = new RoycoEntryPoint(address(FACTORY));
 
         // Prepare tranche configs
         address[] memory tranches = new address[](2);
@@ -119,7 +119,7 @@ abstract contract RoycoEntryPointTestBase is BaseTest {
         });
 
         // Deploy proxy
-        bytes memory initData = abi.encodeCall(RoycoEntryPoint.initialize, (address(FACTORY), tranches, configs));
+        bytes memory initData = abi.encodeCall(RoycoEntryPoint.initialize, (tranches, configs));
         address proxy = address(new ERC1967Proxy(address(entryPointImpl), initData));
         entryPoint = IRoycoEntryPoint(proxy);
 

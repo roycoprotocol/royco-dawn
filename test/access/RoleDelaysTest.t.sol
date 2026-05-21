@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import { IAccessManager } from "../../lib/openzeppelin-contracts/contracts/access/manager/IAccessManager.sol";
 import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-
 import {
     ADMIN_ACCOUNTANT_ROLE,
     ADMIN_KERNEL_ROLE,
@@ -21,7 +20,6 @@ import {
     SYNC_ROLE,
     TRANSFER_AGENT_ROLE
 } from "../../src/factory/RolesConfiguration.sol";
-
 import { BaseTest } from "../base/BaseTest.t.sol";
 import { MockRestrictedTarget } from "./MockRestrictedTarget.sol";
 

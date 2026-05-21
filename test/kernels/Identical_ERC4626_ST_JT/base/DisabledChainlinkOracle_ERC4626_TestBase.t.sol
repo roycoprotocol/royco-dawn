@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
-
-import { AggregatorV3Interface } from "../../../../src/interfaces/external/chainlink/AggregatorV3Interface.sol";
 import {
     Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
 } from "../../../../src/kernels/dawn/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
-
 import { YieldBearingERC4626_ChainlinkOracle_TestBase } from "./YieldBearingERC4626_ChainlinkOracle_TestBase.t.sol";
 
 /// @title DisabledChainlinkOracle_ERC4626_TestBase

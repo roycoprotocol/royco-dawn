@@ -5,7 +5,6 @@ import { IRoycoDawnKernel } from "../../../../src/interfaces/IRoycoDawnKernel.so
 import {
     MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel
 } from "../../../../src/kernels/dawn/MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel.sol";
-
 import { UpgradeIdenticalErc4626KernelModule } from "./UpgradeIdenticalErc4626KernelModule.sol";
 
 /// @notice Reads the additional Maple-specific immutable.

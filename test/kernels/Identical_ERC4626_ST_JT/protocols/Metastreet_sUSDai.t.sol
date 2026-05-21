@@ -3,18 +3,13 @@ pragma solidity ^0.8.28;
 
 import { IAccessManaged } from "../../../../lib/openzeppelin-contracts/contracts/access/manager/IAccessManaged.sol";
 import { IERC20 } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-
 import { IStakedUSDai } from "../../../../src/interfaces/external/usdai/IStakedUSDai.sol";
 import { IUSDai } from "../../../../src/interfaces/external/usdai/IUSDai.sol";
 import { IdenticalAssetsAdminOracleQuoter } from "../../../../src/kernels/base/quoter/dawn/identical-assets/base/IdenticalAssetsAdminOracleQuoter.sol";
 import { sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel } from "../../../../src/kernels/dawn/sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel.sol";
 import { WAD } from "../../../../src/libraries/Constants.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../../../src/libraries/Units.sol";
-
 import { YieldBearingERC4626_TestBase } from "../base/YieldBearingERC4626_TestBase.t.sol";
-
-import { COMPONENT_ID_KERNEL_SUSDAI } from "../../../../src/factory/templates/Components.sol";
-import { sUSDaiDeploymentTemplate } from "../../../../src/factory/templates/dawn/sUSDaiDeploymentTemplate.sol";
 
 /// @title Metastreet_sUSDai_Test
 /// @notice Tests sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel with Metastreet's sUSDai on Arbitrum
@@ -70,27 +65,7 @@ contract Metastreet_sUSDai_Test is YieldBearingERC4626_TestBase {
 
     /// @notice Deploys the sUSDai kernel and market using parameters from MarketDeploymentConfig
     function _deployKernelAndMarket() internal override returns (MarketDeployment memory) {
-        sUSDaiDeploymentTemplate template = new sUSDaiDeploymentTemplate(FACTORY);
-        DawnDeploymentParams memory p;
-        p.marketId = keccak256("SUSDAI_TEST");
-        p.template = address(template);
-        p.kernelComponentId = COMPONENT_ID_KERNEL_SUSDAI;
-        p.kernelCreationCode = type(sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel).creationCode;
-        p.stAsset = config.stAsset;
-        p.jtAsset = config.jtAsset;
-        p.kernelSpecificParams = abi.encode(sUSDaiDeploymentTemplate.KernelParams({ initialConversionRateWAD: WAD }));
-        p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
-        p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
-        p.yieldShareProtocolFeeWAD = 0;
-        p.coverageWAD = COVERAGE_WAD;
-        p.betaWAD = BETA_WAD;
-        p.liquidationUtilizationWAD = LIQUIDATION_UTILIZATION_WAD;
-        p.fixedTermDurationSeconds = FIXED_TERM_DURATION_SECONDS;
-        p.stNAVDustTolerance = DUST_TOLERANCE;
-        p.jtNAVDustTolerance = DUST_TOLERANCE;
-        p.enforceVaultSharesTransferWhitelist = false;
-        p.stSelfLiquidationBonusWAD = 0;
-        return _deployDawnMarket(p);
+        return _deployMarketFromConfig(DEPLOY_SCRIPT.SUSDAI());
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

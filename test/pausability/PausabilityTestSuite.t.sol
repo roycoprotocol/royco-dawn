@@ -51,8 +51,8 @@ contract PausabilityTestSuite is BaseTest {
         p.template = address(template);
         p.kernelComponentId = COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_ADMIN_ORACLE;
         p.kernelCreationCode = type(Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel).creationCode;
-        p.stAsset = address(MOCK_USDC);
-        p.jtAsset = address(MOCK_USDC);
+        p.stAsset = address(MOCK_USDC_VAULT);
+        p.jtAsset = address(MOCK_USDC_VAULT);
         p.kernelSpecificParams = abi.encode(IdenticalERC4626AdminOracleDeploymentTemplate.KernelParams({ initialConversionRateWAD: WAD }));
         p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
         p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
@@ -261,7 +261,7 @@ contract PausabilityTestSuite is BaseTest {
         IRoycoAuth(address(JT)).pause();
 
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), depositAmount);
         vm.expectRevert(Pausable.EnforcedPause.selector);
         JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
@@ -274,7 +274,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // First deposit JT for coverage
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), jtAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), jtAmount);
         JT.deposit(toTrancheUnits(jtAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -284,7 +284,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // Try to deposit ST - should fail
         vm.startPrank(BOB_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(ST), stAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(ST), stAmount);
         vm.expectRevert(Pausable.EnforcedPause.selector);
         ST.deposit(toTrancheUnits(stAmount), BOB_ADDRESS);
         vm.stopPrank();
@@ -296,7 +296,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // First deposit JT
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), depositAmount);
         uint256 shares = JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -317,13 +317,13 @@ contract PausabilityTestSuite is BaseTest {
 
         // Deposit JT for coverage
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), jtAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), jtAmount);
         JT.deposit(toTrancheUnits(jtAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
         // Deposit ST
         vm.startPrank(BOB_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(ST), stAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(ST), stAmount);
         uint256 shares = ST.deposit(toTrancheUnits(stAmount), BOB_ADDRESS);
         vm.stopPrank();
 
@@ -343,7 +343,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // First deposit JT
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), depositAmount);
         JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -363,7 +363,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // First deposit JT
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), depositAmount);
         uint256 shares = JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -393,7 +393,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // Deposit should work
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), depositAmount);
         uint256 shares = JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -406,7 +406,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // First deposit JT
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), depositAmount);
         JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -427,7 +427,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // First deposit JT
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), depositAmount);
         uint256 shares = JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -458,7 +458,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // JT deposit should still work
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), depositAmount);
         uint256 shares = JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -472,7 +472,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // First deposit JT for coverage (before pausing)
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), jtAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), jtAmount);
         JT.deposit(toTrancheUnits(jtAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -482,7 +482,7 @@ contract PausabilityTestSuite is BaseTest {
 
         // ST deposit should still work
         vm.startPrank(BOB_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(ST), stAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(ST), stAmount);
         uint256 shares = ST.deposit(toTrancheUnits(stAmount), BOB_ADDRESS);
         vm.stopPrank();
 

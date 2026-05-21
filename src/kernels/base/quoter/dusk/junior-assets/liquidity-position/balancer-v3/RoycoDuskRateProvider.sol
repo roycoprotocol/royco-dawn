@@ -7,7 +7,6 @@ import { IRoycoDuskKernel } from "../../../../../../../interfaces/IRoycoDuskKern
 import { IRoycoVaultTranche } from "../../../../../../../interfaces/IRoycoVaultTranche.sol";
 import { WAD } from "../../../../../../../libraries/Constants.sol";
 import { toQuoteUnits, toUint256 } from "../../../../../../../libraries/Units.sol";
-
 /**
  * @notice The constituent token of a Dusk junior tranche's Balancer V3 pool that this rate provider prices
  * @custom:type SENIOR_TRANCHE_SHARE - The senior tranche share for this kernel

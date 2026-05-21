@@ -5,10 +5,10 @@ import { ERC20BurnableUpgradeable } from "../../lib/openzeppelin-contracts-upgra
 import { IERC20, SafeERC20 } from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import { RoycoBase } from "../base/RoycoBase.sol";
-import { IRoycoDawnFactory } from "../interfaces/IRoycoDawnFactory.sol";
 import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
 import { IRoycoEntryPoint } from "../interfaces/IRoycoEntryPoint.sol";
 import { IRoycoVaultTranche, TrancheType } from "../interfaces/IRoycoVaultTranche.sol";
+import { IRoycoFactory } from "../interfaces/factory/IRoycoFactory.sol";
 import { MAX_NAV_UNITS, MAX_TRANCHE_UNITS, WAD, ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "../libraries/Constants.sol";
 import { AssetClaims } from "../libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toUint256 } from "../libraries/Units.sol";
@@ -32,6 +32,9 @@ contract RoycoEntryPoint is RoycoBase, IRoycoEntryPoint {
     // keccak256(abi.encode(uint256(keccak256("Royco.storage.RoycoEntryPoint")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant ROYCO_ENTRY_POINT_STORAGE_SLOT = 0x97dbcf4566a2e818822a3079c61056404fedac337d5f1e2910e98e13410bdb00;
 
+    /// @notice The canonical Royco Factory deployment
+    address public immutable ROYCO_FACTORY;
+
     /**
      * @notice Storage state for the Royco entry point
      * @custom:field lastRequestNonce - The last assigned request nonce
@@ -48,15 +51,20 @@ contract RoycoEntryPoint is RoycoBase, IRoycoEntryPoint {
         mapping(address tranche => uint256 protocolFeeShares) trancheToProtocolFeeShares;
     }
 
+    /// @notice Constructs the entry point for the specified Royco factory
+    /// @param _roycoFactory The canonical Royco factory responsible for deploying markets and acting as the singleton access manager
+    constructor(address _roycoFactory) {
+        ROYCO_FACTORY = _roycoFactory;
+    }
+
     /**
      * @notice Initializes the entry point state
-     * @param _roycoFactory The canonical Royco factory responsible for deploying markets and acting as the singleton access manager
      * @param _tranches The tranches to enable for this entry point on initialization
      * @param _configs The configurations for each tranche
      */
-    function initialize(address _roycoFactory, address[] calldata _tranches, TrancheConfig[] calldata _configs) external initializer {
+    function initialize(address[] calldata _tranches, TrancheConfig[] calldata _configs) external initializer {
         // Initialize the base entry point state
-        __RoycoBase_init(_roycoFactory);
+        __RoycoBase_init(IRoycoFactory(ROYCO_FACTORY).ROYCO_AUTHORITY());
 
         // Initialize the entry point with the initial enabled tranches and their initial configurations
         _modifyTrancheConfigs(_tranches, _configs);
@@ -579,8 +587,8 @@ contract RoycoEntryPoint is RoycoBase, IRoycoEntryPoint {
         require(_ostensibleRoycoTranche != address(0), NULL_ADDRESS());
         // Get the paired tranche from the factory to validate the input tranche was factory-deployed
         address correspondingTranche = IRoycoVaultTranche(_ostensibleRoycoTranche).TRANCHE_TYPE() == TrancheType.SENIOR
-            ? IRoycoDawnFactory(authority()).seniorTrancheToJuniorTranche(_ostensibleRoycoTranche)
-            : IRoycoDawnFactory(authority()).juniorTrancheToSeniorTranche(_ostensibleRoycoTranche);
+            ? IRoycoFactory(ROYCO_FACTORY).seniorTrancheToJuniorTranche(_ostensibleRoycoTranche)
+            : IRoycoFactory(ROYCO_FACTORY).juniorTrancheToSeniorTranche(_ostensibleRoycoTranche);
         require(correspondingTranche != address(0), INVALID_TRANCHE());
     }
 

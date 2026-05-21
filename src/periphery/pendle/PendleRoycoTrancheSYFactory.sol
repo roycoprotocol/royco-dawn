@@ -2,8 +2,8 @@
 pragma solidity ^0.8.28;
 
 import { TransparentUpgradeableProxy } from "../../../lib/openzeppelin-contracts-v4/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import { IRoycoDawnFactory } from "../../interfaces/IRoycoDawnFactory.sol";
 import { IRoycoVaultTranche, TrancheType } from "../../interfaces/IRoycoVaultTranche.sol";
+import { IRoycoFactory } from "../../interfaces/factory/IRoycoFactory.sol";
 import { PendleERC20SYUpgV2, PendleRoycoTrancheSY } from "./PendleRoycoTrancheSY.sol";
 
 /**
@@ -87,8 +87,8 @@ contract PendleRoycoTrancheSYFactory {
         require(_ostensibleRoycoTranche != address(0), NULL_ADDRESS());
         // Get the paired tranche from the factory to validate the input tranche was factory-deployed
         address correspondingTranche = IRoycoVaultTranche(_ostensibleRoycoTranche).TRANCHE_TYPE() == TrancheType.SENIOR
-            ? IRoycoDawnFactory(ROYCO_FACTORY).seniorTrancheToJuniorTranche(_ostensibleRoycoTranche)
-            : IRoycoDawnFactory(ROYCO_FACTORY).juniorTrancheToSeniorTranche(_ostensibleRoycoTranche);
+            ? IRoycoFactory(ROYCO_FACTORY).seniorTrancheToJuniorTranche(_ostensibleRoycoTranche)
+            : IRoycoFactory(ROYCO_FACTORY).juniorTrancheToSeniorTranche(_ostensibleRoycoTranche);
         require(correspondingTranche != address(0), INVALID_TRANCHE());
     }
 }

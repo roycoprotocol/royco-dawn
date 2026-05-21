@@ -56,9 +56,13 @@ interface IRoycoFactory {
      *      declared on the interface so external tooling can read its shape.
      * @custom:storage-location erc7201:Royco.storage.RoycoFactoryV2State
      * @custom:field isTemplateEnabled - Set of registered + enabled templates.
+     * @custom:field seniorTrancheToJuniorTranche - Mapping of senior tranche to junior tranche.
+     * @custom:field juniorTrancheToSeniorTranche - Mapping of junior tranche to senior tranche.
      */
     struct RoycoFactoryState {
         mapping(address template => bool isEnabled) isTemplateEnabled;
+        mapping(address st => address jt) seniorTrancheToJuniorTranche;
+        mapping(address jt => address st) juniorTrancheToSeniorTranche;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -191,4 +195,18 @@ interface IRoycoFactory {
      * @return result The raw return bytes from `_target`.
      */
     function executeAsFactory(address _target, bytes calldata _data) external returns (bytes memory result);
+
+    /**
+     * @notice Returns the junior tranche for a given senior tranche
+     * @param _seniorTranche The senior tranche address
+     * @return juniorTranche The junior tranche address
+     */
+    function seniorTrancheToJuniorTranche(address _seniorTranche) external view returns (address juniorTranche);
+
+    /**
+     * @notice Returns the senior tranche for a given junior tranche
+     * @param _juniorTranche The junior tranche address
+     * @return seniorTranche The senior tranche address
+     */
+    function juniorTrancheToSeniorTranche(address _juniorTranche) external view returns (address seniorTranche);
 }

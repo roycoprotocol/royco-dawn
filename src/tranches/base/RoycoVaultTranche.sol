@@ -12,7 +12,7 @@ import { IRoycoDawnKernel } from "../../interfaces/IRoycoDawnKernel.sol";
 import { IRoycoVaultTranche } from "../../interfaces/IRoycoVaultTranche.sol";
 import { WAD_DECIMALS, ZERO_NAV_UNITS } from "../../libraries/Constants.sol";
 import { AssetClaims, SyncedAccountingState, TrancheType } from "../../libraries/Types.sol";
-import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "../../libraries/Units.sol";
+import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toUint256 } from "../../libraries/Units.sol";
 import { UtilsLib } from "../../libraries/UtilsLib.sol";
 
 /**
@@ -192,6 +192,13 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
         super._update(_from, address(0), _shares);
 
         emit SharesSeizedAndRedeemed(msg.sender, _from, _receiver, claims, _shares);
+    }
+
+    /// @inheritdoc IRoycoVaultTranche
+    function mint(address _account, uint256 _shares) public override(IRoycoVaultTranche) whenNotPaused {
+        require(msg.sender == KERNEL, ONLY_KERNEL());
+
+        _mint(_account, _shares);
     }
 
     /// @inheritdoc ERC20BurnableUpgradeable

@@ -5,7 +5,6 @@ import { IRoycoDawnKernel } from "../../../../src/interfaces/IRoycoDawnKernel.so
 import {
     Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
 } from "../../../../src/kernels/dawn/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
-
 import { UpgradeKernelBaseModule } from "./UpgradeKernelBaseModule.sol";
 
 /// @notice Quoter introspection — `IdenticalAssetsChainlinkOracleQuoter` storage view + admin-set rate.

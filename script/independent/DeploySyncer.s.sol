@@ -74,8 +74,10 @@ contract DeploySyncerScript is SyncerDeploymentConfig, AccessManagerConfigUtils,
      */
     function deploySyncer(address _roycoFactory, address[] memory _marketKernels, uint256 deployerPrivateKey) public returns (address syncer) {
         vm.startBroadcast(deployerPrivateKey);
-        // Deploy the syncer implementation
-        (address syncerImplAddr, bool alreadyDeployed) = deployWithSanityChecks(SYNCER_SALT_BASE, type(RoycoMarketSyncer).creationCode, false);
+        // Deploy the syncer implementation. The constructor wires `ROYCO_FACTORY` as an
+        // immutable, so we must append the abi-encoded constructor arg to the creation code.
+        (address syncerImplAddr, bool alreadyDeployed) =
+            deployWithSanityChecks(SYNCER_SALT_BASE, abi.encodePacked(type(RoycoMarketSyncer).creationCode, abi.encode(_roycoFactory)), false);
         if (ENABLE_LOGGING) {
             if (alreadyDeployed) {
                 console2.log("Syncer Implementation already deployed at:", syncerImplAddr);
@@ -86,7 +88,7 @@ contract DeploySyncerScript is SyncerDeploymentConfig, AccessManagerConfigUtils,
 
         // Deploy the syncer proxy
         (syncer, alreadyDeployed) = deployWithSanityChecks(
-            SYNCER_SALT_BASE, getERC1967ProxyCreationCode(syncerImplAddr, abi.encodeCall(RoycoMarketSyncer.initialize, (_roycoFactory, _marketKernels))), false
+            SYNCER_SALT_BASE, getERC1967ProxyCreationCode(syncerImplAddr, abi.encodeCall(RoycoMarketSyncer.initialize, (_marketKernels))), false
         );
         if (ENABLE_LOGGING) {
             if (alreadyDeployed) {

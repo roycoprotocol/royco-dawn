@@ -2,16 +2,11 @@
 pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-
-import { COMPONENT_ID_KERNEL_LOCKED_IUSD } from "../../../../src/factory/templates/Components.sol";
-import { LockediUSDDeploymentTemplate } from "../../../../src/factory/templates/dawn/LockediUSDDeploymentTemplate.sol";
 import { AggregatorV3Interface } from "../../../../src/interfaces/external/chainlink/AggregatorV3Interface.sol";
 import { IInfiniFiGateway } from "../../../../src/interfaces/external/infinifi/IInfiniFiGateway.sol";
 import { ILockingController } from "../../../../src/interfaces/external/infinifi/ILockingController.sol";
-import { Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle } from "../../../../src/kernels/dawn/Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle.sol";
 import { WAD } from "../../../../src/libraries/Constants.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../../../src/libraries/Units.sol";
-
 import { Locked_iUSD_TestBase } from "../base/Locked_iUSD_TestBase.t.sol";
 
 /// @title InfiniFi_liUSD_4w_Test
@@ -115,35 +110,7 @@ contract InfiniFi_liUSD_4w_Test is Locked_iUSD_TestBase {
 
     /// @notice Deploys the liUSD-4w kernel + market via the Locked iUSD template.
     function _deployKernelAndMarket() internal override returns (MarketDeployment memory) {
-        LockediUSDDeploymentTemplate template = new LockediUSDDeploymentTemplate(FACTORY);
-        DawnDeploymentParams memory p;
-        p.marketId = keccak256("LIUSD_4W_TEST");
-        p.template = address(template);
-        p.kernelComponentId = COMPONENT_ID_KERNEL_LOCKED_IUSD;
-        p.kernelCreationCode = type(Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle).creationCode;
-        p.stAsset = config.stAsset;
-        p.jtAsset = config.jtAsset;
-        p.kernelSpecificParams = abi.encode(
-            LockediUSDDeploymentTemplate.KernelParams({
-                infiniFiGateway: INFINIFI_GATEWAY,
-                unwindingEpochs: UNWINDING_EPOCHS,
-                initialConversionRateWAD: 0,
-                iUSDToNavAssetOracle: IUSD_USD_ORACLE,
-                stalenessThresholdSeconds: _getStalenessThreshold()
-            })
-        );
-        p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
-        p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
-        p.yieldShareProtocolFeeWAD = 0;
-        p.coverageWAD = COVERAGE_WAD;
-        p.betaWAD = BETA_WAD;
-        p.liquidationUtilizationWAD = LIQUIDATION_UTILIZATION_WAD;
-        p.fixedTermDurationSeconds = FIXED_TERM_DURATION_SECONDS;
-        p.stNAVDustTolerance = DUST_TOLERANCE;
-        p.jtNAVDustTolerance = DUST_TOLERANCE;
-        p.enforceVaultSharesTransferWhitelist = false;
-        p.stSelfLiquidationBonusWAD = 0;
-        return _deployDawnMarket(p);
+        return _deployMarketFromConfig(DEPLOY_SCRIPT.LIUSD_4W());
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

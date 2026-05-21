@@ -6,7 +6,6 @@ import { AssetClaims, TrancheType } from "../../../src/libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT } from "../../../src/libraries/Units.sol";
 import { RoycoJuniorTranche } from "../../../src/tranches/RoycoJuniorTranche.sol";
 import { RoycoSeniorTranche } from "../../../src/tranches/RoycoSeniorTranche.sol";
-
 import { UpgradeModuleBase } from "./UpgradeModuleBase.sol";
 
 /**

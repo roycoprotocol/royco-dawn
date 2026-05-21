@@ -2,12 +2,8 @@
 pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { COMPONENT_ID_KERNEL_IDENTICAL_ERC20_CHAINLINK } from "../../../../src/factory/templates/Components.sol";
-import { IdenticalERC20ChainlinkDeploymentTemplate } from "../../../../src/factory/templates/dawn/IdenticalERC20ChainlinkDeploymentTemplate.sol";
 import { AggregatorV3Interface } from "../../../../src/interfaces/external/chainlink/AggregatorV3Interface.sol";
-import { Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel } from "../../../../src/kernels/dawn/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../../../src/libraries/Units.sol";
-
 import { YieldBearingERC20Chainlink_TestBase } from "../base/YieldBearingERC20Chainlink_TestBase.t.sol";
 
 /// @title MfOne_Test
@@ -100,34 +96,15 @@ contract MfOne_Test is YieldBearingERC20Chainlink_TestBase {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Deploys the mF-ONE kernel + market via the ERC20-chainlink template.
-    function _deployKernelAndMarket() internal override returns (MarketDeployment memory) {
-        IdenticalERC20ChainlinkDeploymentTemplate template = new IdenticalERC20ChainlinkDeploymentTemplate(FACTORY);
-        DawnDeploymentParams memory p;
-        p.marketId = keccak256("MFONE_TEST");
-        p.template = address(template);
-        p.kernelComponentId = COMPONENT_ID_KERNEL_IDENTICAL_ERC20_CHAINLINK;
-        p.kernelCreationCode = type(Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel).creationCode;
-        p.stAsset = config.stAsset;
-        p.jtAsset = config.jtAsset;
-        p.kernelSpecificParams = abi.encode(
-            IdenticalERC20ChainlinkDeploymentTemplate.KernelParams({
-                initialConversionRateWAD: _getInitialConversionRate(),
-                trancheAssetToReferenceAssetOracle: MFONE_CHAINLINK_ORACLE,
-                stalenessThresholdSeconds: _getStalenessThreshold()
-            })
-        );
-        p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
-        p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
-        p.yieldShareProtocolFeeWAD = 0;
-        p.coverageWAD = COVERAGE_WAD;
-        p.betaWAD = BETA_WAD;
-        p.liquidationUtilizationWAD = LIQUIDATION_UTILIZATION_WAD;
-        p.fixedTermDurationSeconds = FIXED_TERM_DURATION_SECONDS;
-        p.stNAVDustTolerance = DUST_TOLERANCE;
-        p.jtNAVDustTolerance = DUST_TOLERANCE;
-        p.enforceVaultSharesTransferWhitelist = false;
-        p.stSelfLiquidationBonusWAD = 0;
-        return _deployDawnMarket(p);
+    /// @dev Override the kernel's staleness threshold to `_getStalenessThreshold()` so the
+    ///      stale-price scenario is driven by the test base's explicit warp, not by fork age
+    ///      against the tight production threshold from `MarketDeploymentConfig`.
+    function _deployKernelAndMarket() internal override returns (MarketDeployment memory result) {
+        result = _deployMarketFromConfig(DEPLOY_SCRIPT.MFONE());
+        bytes memory data = abi.encodeWithSignature("setChainlinkOracle(address,uint48,bool)", _getChainlinkOracle(), _getStalenessThreshold(), false);
+        vm.prank(ORACLE_QUOTER_ADMIN_ADDRESS);
+        (bool ok,) = address(result.kernel).call(data);
+        require(ok, "staleness override failed");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

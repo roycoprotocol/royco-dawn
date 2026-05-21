@@ -7,6 +7,7 @@ import { SafeERC20 } from "../../../../lib/openzeppelin-contracts/contracts/toke
 import { Math } from "../../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 import { IRoycoVaultTranche } from "../../../../src/interfaces/IRoycoVaultTranche.sol";
+import { IRoycoFactory } from "../../../../src/interfaces/factory/IRoycoFactory.sol";
 import { MAX_NAV_UNITS, ZERO_NAV_UNITS } from "../../../../src/libraries/Constants.sol";
 import { AssetClaims, TrancheType } from "../../../../src/libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toNAVUnits, toTrancheUnits, toUint256 } from "../../../../src/libraries/Units.sol";
@@ -82,6 +83,11 @@ contract MockTranche is IRoycoVaultTranche, ERC20 {
     /// @param _lossPercentWAD Loss percentage in WAD (e.g., 0.1e18 for 10%)
     function simulateLoss(uint256 _lossPercentWAD) external {
         sharePriceWAD = sharePriceWAD.mulDiv(1e18 - _lossPercentWAD, 1e18);
+    }
+
+    /// @notice Mints shares (used by entry point for yield distribution)
+    function mint(address _account, uint256 _shares) external override {
+        _mint(_account, _shares);
     }
 
     /// @notice Burns shares from the caller (used by entry point for yield forfeiture)

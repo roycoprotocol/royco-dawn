@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import { NAV_UNIT, QUOTE_UNIT, TRANCHE_UNIT } from "./Units.sol";
-
 /**
  * @title MarketState
  * @notice Defines the operational state of a Royco market

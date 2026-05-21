@@ -140,7 +140,9 @@ contract RoycoFactory is AccessManagedUpgradeable, RoycoBase, IRoycoFactory {
         whenNotPaused
         returns (IRoycoProtocolTemplate.DeploymentResult memory result)
     {
-        require(_getRoycoFactoryStorage().isTemplateEnabled[_template], TEMPLATE_NOT_ENABLED());
+        RoycoFactoryState storage $ = _getRoycoFactoryStorage();
+
+        require($.isTemplateEnabled[_template], TEMPLATE_NOT_ENABLED());
         require(_activeTemplate == address(0), NO_ACTIVE_TEMPLATE());
 
         // Bind the active template.
@@ -155,6 +157,11 @@ contract RoycoFactory is AccessManagedUpgradeable, RoycoBase, IRoycoFactory {
 
         // Explicit clear for clarity; transient storage auto-clears at tx-end as a backstop.
         _activeTemplate = address(0);
+
+        // Store the senior and junior tranche addresses in the factory storage.
+        $.seniorTrancheToJuniorTranche[result.seniorTranche] = result.juniorTranche;
+        $.juniorTrancheToSeniorTranche[result.juniorTranche] = result.seniorTranche;
+
         emit MarketDeploymentCompleted(_template, result);
     }
 
@@ -235,6 +242,21 @@ contract RoycoFactory is AccessManagedUpgradeable, RoycoBase, IRoycoFactory {
         (success, result) = _target.call(_data);
         require(success, FACTORY_CALL_FAILED(result));
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GETTERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @inheritdoc IRoycoFactory
+    function seniorTrancheToJuniorTranche(address _seniorTranche) external view override(IRoycoFactory) returns (address juniorTranche) {
+        return _getRoycoFactoryStorage().seniorTrancheToJuniorTranche[_seniorTranche];
+    }
+
+    /// @inheritdoc IRoycoFactory
+    function juniorTrancheToSeniorTranche(address _juniorTranche) external view override(IRoycoFactory) returns (address seniorTranche) {
+        return _getRoycoFactoryStorage().juniorTrancheToSeniorTranche[_juniorTranche];
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // INTERNAL
     // ═══════════════════════════════════════════════════════════════════════════

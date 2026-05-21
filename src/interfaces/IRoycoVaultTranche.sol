@@ -179,6 +179,14 @@ interface IRoycoVaultTranche is IERC20Metadata {
     function redeem(uint256 _shares, address _receiver, address _owner) external returns (AssetClaims memory claims);
 
     /**
+     * @notice Mints shares to the specified account
+     * @dev Only callable by the kernel
+     * @param _account The address to mint shares to
+     * @param _shares The number of shares to mint
+     */
+    function mint(address _account, uint256 _shares) external;
+
+    /**
      * @notice Burns shares from the caller
      * @dev Only callable by the kernel during accounting synchronization
      * @param _shares The number of shares to burn

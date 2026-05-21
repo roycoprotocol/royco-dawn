@@ -11,7 +11,12 @@ import { IRoycoFactory } from "../../interfaces/factory/IRoycoFactory.sol";
 import { IRoycoProtocolTemplate } from "../../interfaces/factory/IRoycoProtocolTemplate.sol";
 import { NAV_UNIT } from "../../libraries/Units.sol";
 import { RoycoSeniorTranche } from "../../tranches/RoycoSeniorTranche.sol";
-import { COMPONENT_ID_ACCOUNTANT_IMPL, COMPONENT_ID_JUNIOR_TRANCHE_IMPL, COMPONENT_ID_SENIOR_TRANCHE_IMPL, COMPONENT_ID_YDM } from "./Components.sol";
+import {
+    COMPONENT_ID_ACCOUNTANT_IMPL,
+    COMPONENT_ID_JUNIOR_TRANCHE_IMPL,
+    COMPONENT_ID_SENIOR_TRANCHE_IMPL,
+    COMPONENT_ID_YDM_ADAPTIVE_CURVE_V2
+} from "./Components.sol";
 
 /**
  * @title BaseDeploymentTemplate
@@ -72,7 +77,7 @@ abstract contract BaseDeploymentTemplate is Initializable, IBaseTemplate {
     }
 
     /// @notice Shape every template uses for the YDM singleton.
-    /// @dev YDM creation code lives in SSTORE2 keyed by `COMPONENT_ID_YDM`. Salt is derived
+    /// @dev YDM creation code lives in SSTORE2 keyed by `COMPONENT_ID_YDM_ADAPTIVE_CURVE_V2`. Salt is derived
     ///      from `_singletonSalt(componentTag, version)` so Dawn and Dusk templates passing
     ///      the same `(componentTag, version)` land on the same address.
     struct YDMParams {
@@ -224,7 +229,7 @@ abstract contract BaseDeploymentTemplate is Initializable, IBaseTemplate {
     /// @dev The ONLY component permitted to be already-deployed — bypasses the freshness check
     ///      enforced by `_deployImpl` because two markets legitimately share the same YDM.
     function _deployYDM(YDMParams memory _p) internal returns (address ydm, bool alreadyDeployed) {
-        bytes memory creationCode = _readCreationCode(COMPONENT_ID_YDM);
+        bytes memory creationCode = _readCreationCode(COMPONENT_ID_YDM_ADAPTIVE_CURVE_V2);
         (ydm, alreadyDeployed) = ROYCO_FACTORY.deployDeterministicContract(creationCode, _singletonSalt(_p.componentTag, _p.version));
     }
 

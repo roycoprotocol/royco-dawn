@@ -42,8 +42,8 @@ contract GuardianCancellationTest is BaseTest {
         p.template = address(template);
         p.kernelComponentId = COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_ADMIN_ORACLE;
         p.kernelCreationCode = type(Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel).creationCode;
-        p.stAsset = address(MOCK_USDC);
-        p.jtAsset = address(MOCK_USDC);
+        p.stAsset = address(MOCK_USDC_VAULT);
+        p.jtAsset = address(MOCK_USDC_VAULT);
         p.kernelSpecificParams = abi.encode(IdenticalERC4626AdminOracleDeploymentTemplate.KernelParams({ initialConversionRateWAD: WAD }));
         p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
         p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import { PendleRoycoTrancheSYFactory } from "../../src/periphery/pendle/PendleRoycoTrancheSYFactory.sol";
-
 import { Create2DeployUtils } from "../utils/Create2DeployUtils.sol";
 import { console2 } from "lib/forge-std/src/console2.sol";
 

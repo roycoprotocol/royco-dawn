@@ -16,7 +16,7 @@ pragma solidity ^0.8.28;
 bytes32 constant COMPONENT_ID_SENIOR_TRANCHE_IMPL = keccak256("ROYCO_COMPONENT_SENIOR_TRANCHE_IMPL");
 bytes32 constant COMPONENT_ID_JUNIOR_TRANCHE_IMPL = keccak256("ROYCO_COMPONENT_JUNIOR_TRANCHE_IMPL");
 bytes32 constant COMPONENT_ID_ACCOUNTANT_IMPL = keccak256("ROYCO_COMPONENT_ACCOUNTANT_IMPL");
-bytes32 constant COMPONENT_ID_YDM = keccak256("ROYCO_COMPONENT_YDM");
+bytes32 constant COMPONENT_ID_YDM_ADAPTIVE_CURVE_V2 = keccak256("ROYCO_COMPONENT_YDM_ADAPTIVE_CURVE_V2");
 
 // ─── Dawn kernel variants ────────────────────────────────────────────────────
 

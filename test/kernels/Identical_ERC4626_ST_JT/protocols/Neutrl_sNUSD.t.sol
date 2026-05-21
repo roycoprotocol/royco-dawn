@@ -2,21 +2,11 @@
 pragma solidity ^0.8.28;
 
 import { IERC4626 } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-
 import {
     Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
 } from "../../../../src/kernels/dawn/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../../../src/libraries/Units.sol";
-
 import { YieldBearingERC4626_ChainlinkOracle_TestBase } from "../base/YieldBearingERC4626_ChainlinkOracle_TestBase.t.sol";
-
-import { COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_CHAINLINK_ORACLE } from "../../../../src/factory/templates/Components.sol";
-import {
-    IdenticalERC4626ChainlinkOracleDeploymentTemplate
-} from "../../../../src/factory/templates/dawn/IdenticalERC4626ChainlinkOracleDeploymentTemplate.sol";
-import {
-    Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
-} from "../../../../src/kernels/dawn/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
 
 /// @title sNUSD_sNUSD_Test
 /// @notice Tests Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel with sNUSD
@@ -62,31 +52,7 @@ contract sNUSD_sNUSD_Test is YieldBearingERC4626_ChainlinkOracle_TestBase {
     /// @notice Deploys the sNUSD kernel and market using parameters from MarketDeploymentConfig
     /// @dev Uses the Chainlink oracle from the deployment config for NUSD->USD pricing
     function _deployKernelAndMarket() internal override returns (MarketDeployment memory) {
-        IdenticalERC4626ChainlinkOracleDeploymentTemplate template = new IdenticalERC4626ChainlinkOracleDeploymentTemplate(FACTORY);
-        DawnDeploymentParams memory p;
-        p.marketId = keccak256("SNUSD_TEST");
-        p.template = address(template);
-        p.kernelComponentId = COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_CHAINLINK_ORACLE;
-        p.kernelCreationCode = type(Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel).creationCode;
-        p.stAsset = config.stAsset;
-        p.jtAsset = config.jtAsset;
-        p.kernelSpecificParams = abi.encode(
-            IdenticalERC4626ChainlinkOracleDeploymentTemplate.KernelParams({
-                initialConversionRateWAD: 0, baseAssetToNavAssetOracle: 0x5e7281f74e74D76347f0b8f4a36Fd3cb29c19d95, stalenessThresholdSeconds: 48 hours
-            })
-        );
-        p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
-        p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
-        p.yieldShareProtocolFeeWAD = 0;
-        p.coverageWAD = COVERAGE_WAD;
-        p.betaWAD = BETA_WAD;
-        p.liquidationUtilizationWAD = LIQUIDATION_UTILIZATION_WAD;
-        p.fixedTermDurationSeconds = FIXED_TERM_DURATION_SECONDS;
-        p.stNAVDustTolerance = DUST_TOLERANCE;
-        p.jtNAVDustTolerance = DUST_TOLERANCE;
-        p.enforceVaultSharesTransferWhitelist = false;
-        p.stSelfLiquidationBonusWAD = 0;
-        return _deployDawnMarket(p);
+        return _deployMarketFromConfig(DEPLOY_SCRIPT.SNUSD());
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+import { AggregatorV3Interface } from "../../../src/interfaces/external/chainlink/AggregatorV3Interface.sol";
 import { Vm } from "lib/forge-std/src/Vm.sol";
 import { console2 } from "lib/forge-std/src/console2.sol";
-
-import { AggregatorV3Interface } from "../../../src/interfaces/external/chainlink/AggregatorV3Interface.sol";
 
 /**
  * @title ChainlinkFreshness

@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import { IRoycoDawnKernel } from "../../../../src/interfaces/IRoycoDawnKernel.sol";
 import { NAV_UNIT, TRANCHE_UNIT } from "../../../../src/libraries/Units.sol";
-
 import { UpgradeModuleBase } from "../UpgradeModuleBase.sol";
 
 /// @notice Minimal interface to read the immutable bool that's exposed on the concrete `RoycoKernel`

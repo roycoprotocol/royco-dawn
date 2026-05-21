@@ -19,7 +19,7 @@ import {
     COMPONENT_ID_KERNEL_SUSDAI,
     COMPONENT_ID_KERNEL_SUSDAT,
     COMPONENT_ID_SENIOR_TRANCHE_IMPL,
-    COMPONENT_ID_YDM
+    COMPONENT_ID_YDM_ADAPTIVE_CURVE_V2
 } from "../../src/factory/templates/Components.sol";
 import { COMPONENT_ID_DUSK_KERNEL_CHAINLINK_ST_BPT_CHAINLINK_QUOTE } from "../../src/factory/templates/Components.sol";
 import { IdenticalERC20ChainlinkDeploymentTemplate } from "../../src/factory/templates/dawn/IdenticalERC20ChainlinkDeploymentTemplate.sol";
@@ -185,7 +185,7 @@ contract InstallTemplatesScript is Script {
         codes[1] = type(RoycoJuniorTranche).creationCode;
         ids[2] = COMPONENT_ID_ACCOUNTANT_IMPL;
         codes[2] = type(RoycoAccountant).creationCode;
-        ids[3] = COMPONENT_ID_YDM;
+        ids[3] = COMPONENT_ID_YDM_ADAPTIVE_CURVE_V2;
         codes[3] = type(AdaptiveCurveYDM_V2).creationCode;
         ids[4] = _kernelComponentId;
         codes[4] = _kernelCreationCode;
@@ -214,7 +214,7 @@ contract InstallTemplatesScript is Script {
         codes[1] = type(RoycoJuniorTranche).creationCode;
         ids[2] = COMPONENT_ID_ACCOUNTANT_IMPL;
         codes[2] = type(RoycoAccountant).creationCode;
-        ids[3] = COMPONENT_ID_YDM;
+        ids[3] = COMPONENT_ID_YDM_ADAPTIVE_CURVE_V2;
         codes[3] = type(AdaptiveCurveYDM_V2).creationCode;
         ids[4] = COMPONENT_ID_DUSK_KERNEL_CHAINLINK_ST_BPT_CHAINLINK_QUOTE;
         codes[4] = type(ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_Kernel).creationCode;

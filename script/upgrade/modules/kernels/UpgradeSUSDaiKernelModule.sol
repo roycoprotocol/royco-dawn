@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import { IRoycoDawnKernel } from "../../../../src/interfaces/IRoycoDawnKernel.sol";
 import { sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel } from "../../../../src/kernels/dawn/sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel.sol";
-
 import { UpgradeKernelBaseModule } from "./UpgradeKernelBaseModule.sol";
 
 /// @notice Reads the sUSDai-specific immutable + the admin-set conversion rate.

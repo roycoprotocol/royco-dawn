@@ -2,8 +2,6 @@
 pragma solidity ^0.8.28;
 
 import { IERC20 } from "../../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import { COMPONENT_ID_KERNEL_IDLECDOAA } from "../../../../src/factory/templates/Components.sol";
-import { IdleCdoAADeploymentTemplate } from "../../../../src/factory/templates/dawn/IdleCdoAADeploymentTemplate.sol";
 import { IIdleCDO } from "../../../../src/interfaces/external/idle-finance/IIdleCDO.sol";
 import { Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel } from "../../../../src/kernels/dawn/Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel.sol";
 import { WAD_DECIMALS } from "../../../../src/libraries/Constants.sol";
@@ -75,27 +73,7 @@ contract ParetoFalconx_Test is IdleCdoAA_TestBase {
         AA_TRANCHE = IERC20(AA_TRANCHE_TOKEN);
         CDO = IIdleCDO(PARETO_FALCONX_CDO);
 
-        IdleCdoAADeploymentTemplate template = new IdleCdoAADeploymentTemplate(FACTORY);
-        DawnDeploymentParams memory p;
-        p.marketId = keccak256("PARETO_FALCONX_TEST");
-        p.template = address(template);
-        p.kernelComponentId = COMPONENT_ID_KERNEL_IDLECDOAA;
-        p.kernelCreationCode = type(Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel).creationCode;
-        p.stAsset = config.stAsset;
-        p.jtAsset = config.jtAsset;
-        p.kernelSpecificParams = abi.encode(IdleCdoAADeploymentTemplate.KernelParams({ idleCDO: PARETO_FALCONX_CDO }));
-        p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
-        p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
-        p.yieldShareProtocolFeeWAD = 0;
-        p.coverageWAD = COVERAGE_WAD;
-        p.betaWAD = BETA_WAD;
-        p.liquidationUtilizationWAD = LIQUIDATION_UTILIZATION_WAD;
-        p.fixedTermDurationSeconds = FIXED_TERM_DURATION_SECONDS;
-        p.stNAVDustTolerance = toNAVUnits(uint256(5 * (10 ** (18 - 6))));
-        p.jtNAVDustTolerance = toNAVUnits(uint256(5 * (10 ** (18 - 6))));
-        p.enforceVaultSharesTransferWhitelist = false;
-        p.stSelfLiquidationBonusWAD = 0;
-        return _deployDawnMarket(p);
+        return _deployMarketFromConfig(DEPLOY_SCRIPT.AA_FALCONX_USDC());
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

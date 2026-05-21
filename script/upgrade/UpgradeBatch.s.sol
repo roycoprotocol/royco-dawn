@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import { TrancheType } from "../../src/libraries/Types.sol";
-
 import { UpgradeBase } from "./base/UpgradeBase.sol";
 import { UpgradeAccountantModule } from "./modules/UpgradeAccountantModule.sol";
 import { UpgradeModuleBase } from "./modules/UpgradeModuleBase.sol";

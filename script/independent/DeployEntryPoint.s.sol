@@ -106,7 +106,7 @@ contract DeployEntryPointScript is EntryPointDeploymentConfig, AccessManagerConf
             else console2.log("EntryPoint Implementation deployed at:", implAddr);
         }
 
-        bytes memory initData = abi.encodeCall(RoycoEntryPoint.initialize, (_config.roycoFactory, tranches, trancheConfigs));
+        bytes memory initData = abi.encodeCall(RoycoEntryPoint.initialize, (tranches, trancheConfigs));
         bytes memory proxyCreationCode = abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(implAddr, initData));
         entryPoint = CREATE3.deployDeterministic(proxyCreationCode, ENTRY_POINT_SALT_BASE);
         if (ENABLE_LOGGING) console2.log("EntryPoint Proxy deployed at:", entryPoint);

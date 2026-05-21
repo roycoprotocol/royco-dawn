@@ -3,9 +3,9 @@ pragma solidity ^0.8.28;
 
 import { EnumerableSet } from "../../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import { RoycoBase } from "../base/RoycoBase.sol";
-import { IRoycoDawnFactory } from "../interfaces/IRoycoDawnFactory.sol";
 import { IRoycoDawnKernel } from "../interfaces/IRoycoDawnKernel.sol";
 import { IRoycoVaultTranche } from "../interfaces/IRoycoVaultTranche.sol";
+import { IRoycoFactory } from "../interfaces/factory/IRoycoFactory.sol";
 
 /**
  * @title RoycoMarketSyncer
@@ -53,14 +53,21 @@ contract RoycoMarketSyncer is RoycoBase {
     /// @param kernel The address of the kernel that does not exist
     error KERNEL_IS_NOT_REGISTERED(address kernel);
 
+    /// @notice The canonical Royco Factory deployment
+    address public immutable ROYCO_FACTORY;
+
+    /// @notice Constructs the market syncer for the specified Royco factory
+    constructor(address _roycoFactory) {
+        ROYCO_FACTORY = _roycoFactory;
+    }
+
     /**
      * @notice Initializes the market syncer state
-     * @param _roycoFactory The canonical Royco factory responsible for deploying markets and acting as the singleton access manager
      * @param _marketKernels The initial kernels that this syncer will synchronize NAV accounting for
      */
-    function initialize(address _roycoFactory, address[] calldata _marketKernels) external initializer {
+    function initialize(address[] calldata _marketKernels) external initializer {
         // Initialize the base syncer state
-        __RoycoBase_init(_roycoFactory);
+        __RoycoBase_init(IRoycoFactory(ROYCO_FACTORY).ROYCO_AUTHORITY());
         // Initialize the syncer state with the market kernels
         _modifyMarketKernels(true, _marketKernels);
     }
@@ -201,7 +208,7 @@ contract RoycoMarketSyncer is RoycoBase {
 
         // Get the senior tranche for this kernel from the kernel itself and the corresponding junior tranche from the canonical factory mapping
         address seniorTranche = IRoycoDawnKernel(_ostensibleMarketKernel).SENIOR_TRANCHE();
-        address juniorTranche = IRoycoDawnFactory(authority()).seniorTrancheToJuniorTranche(seniorTranche);
+        address juniorTranche = IRoycoFactory(ROYCO_FACTORY).seniorTrancheToJuniorTranche(seniorTranche);
 
         // Ensure that the kernel was deployed by the Royco factory
         require(juniorTranche != address(0) && _ostensibleMarketKernel == IRoycoVaultTranche(seniorTranche).KERNEL(), INVALID_KERNEL(_ostensibleMarketKernel));

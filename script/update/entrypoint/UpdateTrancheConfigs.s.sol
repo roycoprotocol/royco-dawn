@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { console2 } from "lib/forge-std/src/console2.sol";
-
 import { IRoycoEntryPoint } from "../../../src/interfaces/IRoycoEntryPoint.sol";
 import { IRoycoVaultTranche } from "../../../src/interfaces/IRoycoVaultTranche.sol";
 import { TrancheType } from "../../../src/libraries/Types.sol";
-
 import { ParameterUpdateBase } from "../base/ParameterUpdateBase.sol";
+import { console2 } from "lib/forge-std/src/console2.sol";
 
 /**
  * @title UpdateTrancheConfigs

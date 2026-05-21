@@ -18,7 +18,6 @@ import { WAD } from "../../src/libraries/Constants.sol";
 import { toTrancheUnits } from "../../src/libraries/Units.sol";
 import { RoycoJuniorTranche } from "../../src/tranches/RoycoJuniorTranche.sol";
 import { RoycoSeniorTranche } from "../../src/tranches/RoycoSeniorTranche.sol";
-
 import { BaseTest } from "../base/BaseTest.t.sol";
 
 /// @title UpgradabilityTestSuite
@@ -69,8 +68,8 @@ contract UpgradabilityTestSuite is BaseTest {
         p.template = address(template);
         p.kernelComponentId = COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_ADMIN_ORACLE;
         p.kernelCreationCode = type(Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel).creationCode;
-        p.stAsset = address(MOCK_USDC);
-        p.jtAsset = address(MOCK_USDC);
+        p.stAsset = address(MOCK_USDC_VAULT);
+        p.jtAsset = address(MOCK_USDC_VAULT);
         p.kernelSpecificParams = abi.encode(IdenticalERC4626AdminOracleDeploymentTemplate.KernelParams({ initialConversionRateWAD: WAD }));
         p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
         p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
@@ -87,10 +86,10 @@ contract UpgradabilityTestSuite is BaseTest {
     }
 
     function _deployNewImplementations() internal {
-        newSTImpl = new RoycoSeniorTranche(address(MOCK_USDC), address(KERNEL));
+        newSTImpl = new RoycoSeniorTranche(address(MOCK_USDC_VAULT), address(KERNEL));
         vm.label(address(newSTImpl), "NewSTImpl");
 
-        newJTImpl = new RoycoJuniorTranche(address(MOCK_USDC), address(KERNEL));
+        newJTImpl = new RoycoJuniorTranche(address(MOCK_USDC_VAULT), address(KERNEL));
         vm.label(address(newJTImpl), "NewJTImpl");
 
         newAccountantImpl = new RoycoAccountant(address(KERNEL));
@@ -98,9 +97,9 @@ contract UpgradabilityTestSuite is BaseTest {
 
         IRoycoDawnKernel.RoycoDawnKernelConstructionParams memory constructionParams = IRoycoDawnKernel.RoycoDawnKernelConstructionParams({
             seniorTranche: address(ST),
-            stAsset: address(MOCK_USDC),
+            stAsset: address(MOCK_USDC_VAULT),
             juniorTranche: address(JT),
-            jtAsset: address(MOCK_USDC),
+            jtAsset: address(MOCK_USDC_VAULT),
             accountant: address(ACCOUNTANT),
             enforceVaultSharesTransferWhitelist: false
         });
@@ -308,7 +307,7 @@ contract UpgradabilityTestSuite is BaseTest {
 
         // Deposit to JT
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), depositAmount);
         uint256 shares = JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -332,13 +331,13 @@ contract UpgradabilityTestSuite is BaseTest {
 
         // Deposit to JT first (for coverage)
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), jtDepositAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), jtDepositAmount);
         JT.deposit(toTrancheUnits(jtDepositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
         // Deposit to ST
         vm.startPrank(BOB_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(ST), stDepositAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(ST), stDepositAmount);
         uint256 shares = ST.deposit(toTrancheUnits(stDepositAmount), BOB_ADDRESS);
         vm.stopPrank();
 
@@ -361,7 +360,7 @@ contract UpgradabilityTestSuite is BaseTest {
 
         // Deposit before upgrade
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), depositAmount);
         uint256 sharesBefore = JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 
@@ -370,7 +369,7 @@ contract UpgradabilityTestSuite is BaseTest {
 
         // Deposit after upgrade should still work
         vm.startPrank(JT_BOB_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), depositAmount);
         uint256 sharesAfter = JT.deposit(toTrancheUnits(depositAmount), JT_BOB_ADDRESS);
         vm.stopPrank();
 
@@ -388,7 +387,7 @@ contract UpgradabilityTestSuite is BaseTest {
 
         // Setup: deposit JT
         vm.startPrank(ALICE_ADDRESS);
-        IERC20(address(MOCK_USDC)).approve(address(JT), depositAmount);
+        IERC20(address(MOCK_USDC_VAULT)).approve(address(JT), depositAmount);
         JT.deposit(toTrancheUnits(depositAmount), ALICE_ADDRESS);
         vm.stopPrank();
 

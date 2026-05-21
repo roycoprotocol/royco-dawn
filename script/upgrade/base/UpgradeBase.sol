@@ -3,12 +3,11 @@ pragma solidity ^0.8.28;
 
 import { IAccessManager } from "../../../lib/openzeppelin-contracts/contracts/access/manager/IAccessManager.sol";
 import { UUPSUpgradeable } from "../../../lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
-import { console2 } from "lib/forge-std/src/console2.sol";
-
 import { AccessManagerConfigUtils } from "../../utils/AccessManagerConfigUtils.sol";
 import { Create2DeployUtils } from "../../utils/Create2DeployUtils.sol";
 import { ChainlinkFreshness } from "./ChainlinkFreshness.sol";
 import { UpgradeConfig } from "./UpgradeConfig.sol";
+import { console2 } from "lib/forge-std/src/console2.sol";
 
 /**
  * @title UpgradeBase

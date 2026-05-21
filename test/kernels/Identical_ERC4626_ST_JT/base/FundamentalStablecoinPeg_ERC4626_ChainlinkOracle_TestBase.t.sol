@@ -5,7 +5,6 @@ import { AggregatorV3Interface } from "../../../../src/interfaces/external/chain
 import { IdenticalAssetsChainlinkOracleQuoter } from "../../../../src/kernels/base/quoter/dawn/identical-assets/base/IdenticalAssetsChainlinkOracleQuoter.sol";
 import { NAV_UNIT } from "../../../../src/libraries/Units.sol";
 import { FundamentalStablecoinChainlinkOracle } from "../../../../src/periphery/oracle/FundamentalStablecoinChainlinkOracle.sol";
-
 import { YieldBearingERC4626_ChainlinkOracle_TestBase } from "./YieldBearingERC4626_ChainlinkOracle_TestBase.t.sol";
 
 /// @title FundamentalStablecoinPeg_ERC4626_ChainlinkOracle_TestBase

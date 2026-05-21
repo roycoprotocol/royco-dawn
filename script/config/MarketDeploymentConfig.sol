@@ -1,6 +1,20 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+import {
+    COMPONENT_ID_KERNEL_APYUSD,
+    COMPONENT_ID_KERNEL_IDENTICAL_ERC20_CHAINLINK,
+    COMPONENT_ID_KERNEL_IDENTICAL_ERC20_CHAINLINK_SBT,
+    COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_CHAINLINK_ORACLE,
+    COMPONENT_ID_KERNEL_IDENTICAL_MAKINA,
+    COMPONENT_ID_KERNEL_IDLECDOAA,
+    COMPONENT_ID_KERNEL_LOCKED_IUSD,
+    COMPONENT_ID_KERNEL_MAPLE_V2,
+    COMPONENT_ID_KERNEL_REUSD,
+    COMPONENT_ID_KERNEL_SUSDAI,
+    COMPONENT_ID_KERNEL_SUSDAT
+} from "../../src/factory/templates/Components.sol";
+
 /**
  * @title MarketDeploymentConfig
  * @notice Single configuration contract for all deployment parameters
@@ -9,21 +23,6 @@ abstract contract MarketDeploymentConfig {
     // ═══════════════════════════════════════════════════════════════════════════
     // TYPES
     // ═══════════════════════════════════════════════════════════════════════════
-
-    enum KernelType {
-        ReUSD_ST_ReUSD_JT,
-        Identical_ERC20_ST_JT_ChainlinkToAdminOracle_SoulBoundTrancheShares_Kernel,
-        Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel,
-        Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel,
-        Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel,
-        IdleCdoAA_ST_IdleCdoAA_JT,
-        Identical_Makina_ST_JT_MachineToAdminOracle_Kernel,
-        sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel,
-        MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel,
-        apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel,
-        Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle_Kernel,
-        sUSDat_ST_JT_SharePriceToChainlinkOracle_Kernel
-    }
 
     enum YDMType {
         StaticCurve,
@@ -175,8 +174,10 @@ abstract contract MarketDeploymentConfig {
         // Dust tolerances
         uint256 stDustTolerance;
         uint256 jtDustTolerance;
-        // Kernel
-        KernelType kernelType;
+        // Kernel — `component` is the SSTORE2 component ID from `Components.sol` (e.g.
+        // `COMPONENT_ID_KERNEL_REUSD`). The deploy script maps this to the right concrete
+        // `*DeploymentTemplate` at deploy time.
+        bytes32 component;
         bytes kernelSpecificParams;
         uint64 stSelfLiquidationBonusWAD;
         bool enforceVaultSharesTransferWhitelist;
@@ -271,7 +272,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0x88887bE419578051FF9F4eb6C858A951921D8888,
             stDustTolerance: 1e16,
             jtDustTolerance: 1e16,
-            kernelType: KernelType.Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_CHAINLINK_ORACLE,
             kernelSpecificParams: abi.encode(
                 IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
                     // Enable the Oracle Leg by setting the initial conversion rate to the sentinel conversion rate
@@ -311,7 +312,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0x08EFCC2F3e61185D0EA7F8830B3FEc9Bfa2EE313,
             stDustTolerance: 5,
             jtDustTolerance: 5,
-            kernelType: KernelType.Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_CHAINLINK_ORACLE,
             kernelSpecificParams: abi.encode(
                 IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
                     // Enable the Oracle Leg by setting the initial conversion rate to the sentinel conversion rate
@@ -354,7 +355,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0x38EEb52F0771140d10c4E9A9a72349A329Fe8a6A,
             stDustTolerance: 5,
             jtDustTolerance: 5,
-            kernelType: KernelType.apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_APYUSD,
             kernelSpecificParams: abi.encode(
                 IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
                     // Enable the Oracle Leg by setting the initial conversion rate to the sentinel conversion rate
@@ -394,7 +395,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0x06d47F3fb376649c3A9Dafe069B3D6E35572219E,
             stDustTolerance: 5,
             jtDustTolerance: 5,
-            kernelType: KernelType.Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_CHAINLINK_ORACLE,
             kernelSpecificParams: abi.encode(
                 IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
                     // Disable the Oracle Leg by setting the initial conversion rate to 1e18
@@ -437,7 +438,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0xa7569A44f348d3D70d8ad5889e50F78E33d80D35,
             stDustTolerance: 5,
             jtDustTolerance: 5,
-            kernelType: KernelType.Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_CHAINLINK_ORACLE,
             kernelSpecificParams: abi.encode(
                 IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
                     // Disable the Oracle Leg by setting the initial conversion rate to 1e18
@@ -480,7 +481,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0x238a700eD6165261Cf8b2e544ba797BC11e466Ba,
             stDustTolerance: 5,
             jtDustTolerance: 5,
-            kernelType: KernelType.Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_IDENTICAL_ERC20_CHAINLINK,
             kernelSpecificParams: abi.encode(
                 IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams({
                     initialConversionRateWAD: 1e18,
@@ -521,7 +522,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0x545A490f9ab534AdF409A2E682bc4098f49952e3,
             stDustTolerance: 5,
             jtDustTolerance: 5,
-            kernelType: KernelType.Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_IDENTICAL_ERC20_CHAINLINK,
             kernelSpecificParams: abi.encode(
                 IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams({
                     initialConversionRateWAD: 1e18,
@@ -561,7 +562,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0x5086bf358635B81D8C47C66d1C8b9E567Db70c72,
             stDustTolerance: 5,
             jtDustTolerance: 5,
-            kernelType: KernelType.ReUSD_ST_ReUSD_JT,
+            component: COMPONENT_ID_KERNEL_REUSD,
             enforceVaultSharesTransferWhitelist: false,
             kernelSpecificParams: abi.encode(
                 ReUSDSTReUSDJTKernelParams({
@@ -601,7 +602,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0xC26A6Fa2C37b38E549a4a1807543801Db684f99C,
             stDustTolerance: 5 * (10 ** (18 - 6)),
             jtDustTolerance: 5 * (10 ** (18 - 6)),
-            kernelType: KernelType.IdleCdoAA_ST_IdleCdoAA_JT,
+            component: COMPONENT_ID_KERNEL_IDLECDOAA,
             kernelSpecificParams: abi.encode(IdleAACdoSTCdoJTKernelParams({ idleCDO: 0x433D5B175148dA32Ffe1e1A37a939E1b7e79be4d })),
             enforceVaultSharesTransferWhitelist: false,
             stSelfLiquidationBonusWAD: 0.01e18,
@@ -632,7 +633,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0xBEeFFF209270748ddd194831b3fa287a5386f5bC,
             stDustTolerance: 5 * (10 ** (18 - 6)),
             jtDustTolerance: 5 * (10 ** (18 - 6)),
-            kernelType: KernelType.Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_CHAINLINK_ORACLE,
             kernelSpecificParams: abi.encode(
                 IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
                     // Disable the Oracle Leg by setting the initial conversion rate to 1e18
@@ -675,7 +676,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0x9a1D6bd5b8642C41F25e0958129B85f8E1176F3e,
             stDustTolerance: 5 * (10 ** (18 - 6)),
             jtDustTolerance: 5 * (10 ** (18 - 6)),
-            kernelType: KernelType.Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_CHAINLINK_ORACLE,
             kernelSpecificParams: abi.encode(
                 IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
                     // Disable the Oracle Leg by setting the initial conversion rate to 1e18
@@ -717,7 +718,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0x17418038ecF73BA4026c4f428547BF099706F27B,
             stDustTolerance: 5,
             jtDustTolerance: 5,
-            kernelType: KernelType.Identical_ERC20_ST_JT_ChainlinkToAdminOracle_SoulBoundTrancheShares_Kernel,
+            component: COMPONENT_ID_KERNEL_IDENTICAL_ERC20_CHAINLINK_SBT,
             enforceVaultSharesTransferWhitelist: true,
             kernelSpecificParams: abi.encode(
                 IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams({
@@ -762,7 +763,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0x1e33E98aF620F1D563fcD3cfd3C75acE841204ef,
             stDustTolerance: 5 * 10 ** 12,
             jtDustTolerance: 5 * 10 ** 12,
-            kernelType: KernelType.Identical_Makina_ST_JT_MachineToAdminOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_IDENTICAL_MAKINA,
             enforceVaultSharesTransferWhitelist: false,
             kernelSpecificParams: abi.encode(
                 IdenticalMakinaSTMakinaJTKernelParams({ makinaMachine: 0x6b006870C83b1Cd49E766Ac9209f8d68763Df721, initialConversionRateWAD: 1e18 })
@@ -799,7 +800,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0x0B2b2B2076d95dda7817e785989fE353fe955ef9,
             stDustTolerance: 5,
             jtDustTolerance: 5,
-            kernelType: KernelType.sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_SUSDAI,
             enforceVaultSharesTransferWhitelist: false,
             kernelSpecificParams: abi.encode(IdenticalAssetsAdminOracleQuoterKernelParams({ initialConversionRateWAD: 1e18 })),
             stSelfLiquidationBonusWAD: 0.01e18,
@@ -833,7 +834,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0x0000000f2eB9f69274678c76222B35eEc7588a65,
             stDustTolerance: 5,
             jtDustTolerance: 5,
-            kernelType: KernelType.Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_CHAINLINK_ORACLE,
             kernelSpecificParams: abi.encode(
                 IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
                     // Disable the Oracle Leg by setting the initial conversion rate to 1e18
@@ -875,7 +876,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b,
             stDustTolerance: 5 * (10 ** 12),
             jtDustTolerance: 5 * (10 ** 12),
-            kernelType: KernelType.MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_MAPLE_V2,
             kernelSpecificParams: abi.encode(
                 IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
                     // Disable the Oracle Leg by setting the initial conversion rate to 1e18
@@ -916,7 +917,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0xD166337499E176bbC38a1FBd113Ab144e5bd2Df7,
             stDustTolerance: 5,
             jtDustTolerance: 5,
-            kernelType: KernelType.sUSDat_ST_JT_SharePriceToChainlinkOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_SUSDAT,
             kernelSpecificParams: abi.encode(
                 IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
                     // Disable the Oracle Leg by setting the initial conversion rate to 1e18
@@ -961,7 +962,7 @@ abstract contract MarketDeploymentConfig {
             // USDC base asset has 6 decimals; NAV is 18-decimal, so dust = 5 * 10^(18-6)
             stDustTolerance: 5 * (10 ** (18 - 6)),
             jtDustTolerance: 5 * (10 ** (18 - 6)),
-            kernelType: KernelType.Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_CHAINLINK_ORACLE,
             kernelSpecificParams: abi.encode(
                 IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
                     // Disable the Oracle Leg by setting the initial conversion rate to 1e18 (USDC pegged at $1)
@@ -1001,7 +1002,7 @@ abstract contract MarketDeploymentConfig {
             juniorAsset: 0x66bCF6151D5558AfB47c38B20663589843156078,
             stDustTolerance: 5,
             jtDustTolerance: 5,
-            kernelType: KernelType.Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle_Kernel,
+            component: COMPONENT_ID_KERNEL_LOCKED_IUSD,
             kernelSpecificParams: abi.encode(
                 LockedIUSDKernelParams({
                     infiniFiGateway: 0x3f04b65Ddbd87f9CE0A2e7Eb24d80e7fb87625b5,

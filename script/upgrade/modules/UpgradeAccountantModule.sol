@@ -7,7 +7,6 @@ import { IRoycoDawnKernel } from "../../../src/interfaces/IRoycoDawnKernel.sol";
 import { IRoycoVaultTranche } from "../../../src/interfaces/IRoycoVaultTranche.sol";
 import { SyncedAccountingState } from "../../../src/libraries/Types.sol";
 import { NAV_UNIT } from "../../../src/libraries/Units.sol";
-
 import { UpgradeModuleBase } from "./UpgradeModuleBase.sol";
 
 /**

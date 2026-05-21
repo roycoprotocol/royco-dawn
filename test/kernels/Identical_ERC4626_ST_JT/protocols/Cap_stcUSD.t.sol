@@ -5,10 +5,6 @@ import { IERC20 } from "../../../../lib/openzeppelin-contracts/contracts/interfa
 import { IERC4626 } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import { FundamentalStablecoinChainlinkOracleDeploymentConfig } from "../../../../script/config/FundamentalStablecoinChainlinkOracleDeploymentConfig.sol";
 import { DeployFundamentalStablecoinChainlinkOracleScript } from "../../../../script/independent/DeployFundamentalStablecoinChainlinkOracle.s.sol";
-import { COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_CHAINLINK_ORACLE } from "../../../../src/factory/templates/Components.sol";
-import {
-    IdenticalERC4626ChainlinkOracleDeploymentTemplate
-} from "../../../../src/factory/templates/dawn/IdenticalERC4626ChainlinkOracleDeploymentTemplate.sol";
 import {
     Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
 } from "../../../../src/kernels/dawn/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
@@ -66,39 +62,25 @@ contract stcUSD_stcUSD_Test is FundamentalStablecoinPeg_ERC4626_ChainlinkOracle_
     // DEPLOYMENT (uses MarketDeploymentConfig)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Deploys the stcUSD kernel + market using the chainlink-oracle template with the
-    ///         FundamentalStablecoinChainlinkOracle deployed at runtime for cUSD→USD.
-    function _deployKernelAndMarket() internal override returns (MarketDeployment memory) {
+    /// @notice Deploys the stcUSD kernel + market via the canonical config-driven path, then
+    ///         swaps in a runtime-deployed `FundamentalStablecoinChainlinkOracle` for cUSD→USD
+    ///         via `setChainlinkOracle(...)`. The production config's oracle address is a
+    ///         placeholder (the real Cap fundamental-peg adapter is deployed per-market), so
+    ///         we override post-deploy.
+    function _deployKernelAndMarket() internal override returns (MarketDeployment memory result) {
+        result = _deployMarketFromConfig(DEPLOY_SCRIPT.STCUSD());
+
+        // Deploy the Cap fundamental-peg adapter for cUSD→USD.
         DeployFundamentalStablecoinChainlinkOracleScript ORACLE_DEPLOY_SCRIPT = new DeployFundamentalStablecoinChainlinkOracleScript();
         FundamentalStablecoinChainlinkOracleDeploymentConfig.OracleConfig memory oracleConfig =
             ORACLE_DEPLOY_SCRIPT.getOracleConfig(ORACLE_DEPLOY_SCRIPT.MAINNET_CUSD_USD());
         address cUSDOracle = ORACLE_DEPLOY_SCRIPT.deployOracle(oracleConfig.underlyingOracle, oracleConfig.minPegPrice, DEPLOYER.privateKey);
 
-        IdenticalERC4626ChainlinkOracleDeploymentTemplate template = new IdenticalERC4626ChainlinkOracleDeploymentTemplate(FACTORY);
-        DawnDeploymentParams memory p;
-        p.marketId = keccak256("STCUSD_TEST");
-        p.template = address(template);
-        p.kernelComponentId = COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_CHAINLINK_ORACLE;
-        p.kernelCreationCode = type(Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel).creationCode;
-        p.stAsset = config.stAsset;
-        p.jtAsset = config.jtAsset;
-        p.kernelSpecificParams = abi.encode(
-            IdenticalERC4626ChainlinkOracleDeploymentTemplate.KernelParams({
-                initialConversionRateWAD: 0, baseAssetToNavAssetOracle: cUSDOracle, stalenessThresholdSeconds: 86_400
-            })
-        );
-        p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
-        p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
-        p.yieldShareProtocolFeeWAD = 0;
-        p.coverageWAD = COVERAGE_WAD;
-        p.betaWAD = BETA_WAD;
-        p.liquidationUtilizationWAD = LIQUIDATION_UTILIZATION_WAD;
-        p.fixedTermDurationSeconds = FIXED_TERM_DURATION_SECONDS;
-        p.stNAVDustTolerance = DUST_TOLERANCE;
-        p.jtNAVDustTolerance = DUST_TOLERANCE;
-        p.enforceVaultSharesTransferWhitelist = false;
-        p.stSelfLiquidationBonusWAD = 0;
-        return _deployDawnMarket(p);
+        // Swap the kernel's chainlink oracle to the freshly-deployed Cap adapter.
+        bytes memory data = abi.encodeWithSignature("setChainlinkOracle(address,uint48,bool)", cUSDOracle, _getStalenessThreshold(), false);
+        vm.prank(ORACLE_QUOTER_ADMIN_ADDRESS);
+        (bool ok,) = address(result.kernel).call(data);
+        require(ok, "oracle swap failed");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

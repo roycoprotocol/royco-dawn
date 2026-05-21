@@ -5,33 +5,17 @@ import { Test } from "../../lib/forge-std/src/Test.sol";
 import { Vm } from "../../lib/forge-std/src/Vm.sol";
 import { AccessManager } from "../../lib/openzeppelin-contracts/contracts/access/manager/AccessManager.sol";
 import { ERC20Mock } from "../../lib/openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol";
-import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ERC4626Mock } from "../../lib/openzeppelin-contracts/contracts/mocks/token/ERC4626Mock.sol";
+import { DeployScript } from "../../script/Deploy.s.sol";
 import { RoycoAccountant } from "../../src/accountant/RoycoAccountant.sol";
-import {
-    ADMIN_ACCOUNTANT_ROLE,
-    ADMIN_FACTORY_ROLE,
-    ADMIN_KERNEL_ROLE,
-    ADMIN_ORACLE_QUOTER_ROLE,
-    ADMIN_PAUSER_ROLE,
-    ADMIN_PROTOCOL_FEE_SETTER_ROLE,
-    ADMIN_ROLE,
-    ADMIN_UNPAUSER_ROLE,
-    ADMIN_UPGRADER_ROLE,
-    DEPLOYER_ROLE,
-    GUARDIAN_ROLE,
-    JT_LP_ROLE,
-    LP_ROLE_ADMIN_ROLE,
-    ST_LP_ROLE,
-    SYNC_ROLE,
-    TRANSFER_AGENT_ROLE
-} from "../../src/factory/RolesConfiguration.sol";
+import { JT_LP_ROLE, ST_LP_ROLE } from "../../src/factory/RolesConfiguration.sol";
 import { RoycoFactory } from "../../src/factory/RoycoFactory.sol";
 import { BaseDeploymentTemplate } from "../../src/factory/templates/BaseDeploymentTemplate.sol";
 import {
     COMPONENT_ID_ACCOUNTANT_IMPL,
     COMPONENT_ID_JUNIOR_TRANCHE_IMPL,
     COMPONENT_ID_SENIOR_TRANCHE_IMPL,
-    COMPONENT_ID_YDM
+    COMPONENT_ID_YDM_ADAPTIVE_CURVE_V2
 } from "../../src/factory/templates/Components.sol";
 import { DawnDeploymentTemplate } from "../../src/factory/templates/dawn/base/DawnDeploymentTemplate.sol";
 import { IRoycoAccountant } from "../../src/interfaces/IRoycoAccountant.sol";
@@ -167,6 +151,16 @@ abstract contract BaseTest is Test, Assertions {
     ERC20Mock internal MOCK_USDC;
     ERC20Mock internal MOCK_USDT;
     ERC20Mock internal MOCK_DAI;
+
+    /// @notice 1:1 ERC4626 wrappers over the underlying mocks. Tests using an ERC4626-shaped
+    ///         kernel template (`IdenticalERC4626*DeploymentTemplate`) point `stAsset`/`jtAsset`
+    ///         at these wrappers — `asset()` returns the underlying, and `convertToAssets`
+    ///         stays ≈1:1 because `_setupAssets` deposits underlying into the vault matching
+    ///         every share it mints.
+    ERC4626Mock internal MOCK_USDC_VAULT;
+    ERC4626Mock internal MOCK_USDT_VAULT;
+    ERC4626Mock internal MOCK_DAI_VAULT;
+
     address[] internal ASSETS;
 
     // -----------------------------------------
@@ -179,6 +173,8 @@ abstract contract BaseTest is Test, Assertions {
 
     /// @notice The new template-driven factory.
     RoycoFactory internal FACTORY;
+
+    DeployScript internal DEPLOY_SCRIPT;
 
     IYDM internal YDM;
     IRoycoVaultTranche internal ST;
@@ -229,48 +225,13 @@ abstract contract BaseTest is Test, Assertions {
     // BOOTSTRAP — fresh AM + factory + standard role grants.
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Deploys + initializes a fresh AccessManager and RoycoFactory and wires the
-    ///         standard role grants every test relies on.
-    /// @dev `OWNER_ADDRESS` becomes the AM's `ADMIN_ROLE` holder. The factory's `initialize`
-    ///      asserts that the factory itself holds `ADMIN_ROLE` on the AM, so we must grant the
-    ///      role BEFORE the proxy's constructor fires the initializer. The factory proxy address
-    ///      is predicted via the test-contract's next CREATE nonce.
+    /// @notice Stands up a fresh AccessManager and RoycoFactory and wires the standard role
+    ///         grants every test relies on, by delegating to `DEPLOY_SCRIPT.bootstrapFactory(...)`.
+    /// @dev Single source of truth — same code path the production `DeployScript.deploy(...)`
+    ///      flow uses, so test role delays (e.g. ADMIN_KERNEL_ROLE = 2 days) match the
+    ///      `RolesConfiguration.getRoleConfig` values on main.
     function _bootstrapFactory() internal {
-        AM = new AccessManager(OWNER_ADDRESS);
-
-        RoycoFactory factoryImpl = new RoycoFactory();
-
-        // Predict the proxy's address — it's the next CREATE-deployed contract from this address.
-        address predictedProxy = vm.computeCreateAddress(address(this), vm.getNonce(address(this)));
-
-        vm.prank(OWNER_ADDRESS);
-        AM.grantRole(ADMIN_ROLE, predictedProxy, 0);
-
-        // Deploy the proxy + initialize atomically.
-        FACTORY = RoycoFactory(address(new ERC1967Proxy(address(factoryImpl), abi.encodeCall(RoycoFactory.initialize, (address(AM))))));
-        require(address(FACTORY) == predictedProxy, "predicted-vs-actual proxy mismatch");
-
-        vm.startPrank(OWNER_ADDRESS);
-
-        AM.grantRole(ADMIN_FACTORY_ROLE, OWNER_ADDRESS, 0);
-        AM.grantRole(DEPLOYER_ROLE, DEPLOYER_ADDRESS, 0);
-        AM.grantRole(ADMIN_PAUSER_ROLE, PAUSER_ADDRESS, 0);
-        AM.grantRole(ADMIN_UNPAUSER_ROLE, UNPAUSER_ADDRESS, 1 days);
-        AM.grantRole(ADMIN_UPGRADER_ROLE, UPGRADER_ADDRESS, 0);
-        AM.grantRole(SYNC_ROLE, SYNC_ROLE_ADDRESS, 0);
-        AM.grantRole(ADMIN_KERNEL_ROLE, KERNEL_ADMIN_ADDRESS, 0);
-        AM.grantRole(ADMIN_ACCOUNTANT_ROLE, ACCOUNTANT_ADMIN_ADDRESS, 0);
-        AM.grantRole(ADMIN_PROTOCOL_FEE_SETTER_ROLE, PROTOCOL_FEE_SETTER_ADDRESS, 0);
-        AM.grantRole(ADMIN_ORACLE_QUOTER_ROLE, ORACLE_QUOTER_ADMIN_ADDRESS, 0);
-        AM.grantRole(LP_ROLE_ADMIN_ROLE, LP_ROLE_ADMIN_ADDRESS, 0);
-        AM.grantRole(GUARDIAN_ROLE, ROLE_GUARDIAN_ADDRESS, 0);
-        AM.grantRole(TRANSFER_AGENT_ROLE, TRANSFER_AGENT_ADDRESS, 0);
-
-        // LP roles are admined by LP_ROLE_ADMIN — set the admin on the role, not a member.
-        AM.setRoleAdmin(ST_LP_ROLE, LP_ROLE_ADMIN_ROLE);
-        AM.setRoleAdmin(JT_LP_ROLE, LP_ROLE_ADMIN_ROLE);
-
-        vm.stopPrank();
+        (AM, FACTORY) = DEPLOY_SCRIPT.bootstrapFactory(OWNER_ADDRESS, _roleAssignmentAddresses(), DEPLOYER.privateKey);
     }
 
     /// @notice Configuration knobs for the standard Dawn market deployment helper.
@@ -324,7 +285,7 @@ abstract contract BaseTest is Test, Assertions {
         codes[1] = type(RoycoJuniorTranche).creationCode;
         ids[2] = COMPONENT_ID_ACCOUNTANT_IMPL;
         codes[2] = type(RoycoAccountant).creationCode;
-        ids[3] = COMPONENT_ID_YDM;
+        ids[3] = COMPONENT_ID_YDM_ADAPTIVE_CURVE_V2;
         codes[3] = type(AdaptiveCurveYDM_V2).creationCode;
         ids[4] = _kernelComponentId;
         codes[4] = _kernelCreationCode;
@@ -397,7 +358,41 @@ abstract contract BaseTest is Test, Assertions {
             vm.createSelectFork(forkRpcUrl, forkBlock);
         }
         _setupWallets();
+        DEPLOY_SCRIPT = new DeployScript();
         _bootstrapFactory();
+    }
+
+    /// @notice Stands up a fresh market by name through the on-chain `DeployScript`.
+    /// @dev Mirrors the main-branch ergonomics — single call resolves the named config from
+    ///      `MarketDeploymentConfig`, has the script deploy AM+factory+market, and rewires
+    ///      `AM`/`FACTORY` on this test contract to point at the script's fresh deployment
+    ///      (overwriting whatever `_bootstrapFactory` left behind — the script owns the full
+    ///      stack going forward).
+    function _deployMarketFromConfig(string memory _marketName) internal returns (MarketDeployment memory) {
+        DeployScript.DeploymentResult memory r = DEPLOY_SCRIPT.deploy(
+            DEPLOY_SCRIPT.getMarketConfig(_marketName), OWNER_ADDRESS, PROTOCOL_FEE_RECIPIENT_ADDRESS, _roleAssignmentAddresses(), DEPLOYER.privateKey
+        );
+        AM = r.accessManager;
+        FACTORY = r.factory;
+        return MarketDeployment({ seniorTranche: r.seniorTranche, juniorTranche: r.juniorTranche, kernel: r.kernel, accountant: r.accountant, ydm: r.ydm });
+    }
+
+    function _roleAssignmentAddresses() internal view returns (DeployScript.RoleAssignmentAddresses memory) {
+        return DeployScript.RoleAssignmentAddresses({
+            pauserAddress: PAUSER_ADDRESS,
+            unpauserAddress: UNPAUSER_ADDRESS,
+            upgraderAddress: UPGRADER_ADDRESS,
+            syncRoleAddress: SYNC_ROLE_ADDRESS,
+            adminKernelAddress: KERNEL_ADMIN_ADDRESS,
+            adminAccountantAddress: ACCOUNTANT_ADMIN_ADDRESS,
+            adminProtocolFeeSetterAddress: PROTOCOL_FEE_SETTER_ADDRESS,
+            adminOracleQuoterAddress: ORACLE_QUOTER_ADMIN_ADDRESS,
+            adminBalancerPoolManagerAddress: ACCOUNTANT_ADMIN_ADDRESS,
+            lpRoleAdminAddress: LP_ROLE_ADMIN_ADDRESS,
+            guardianAddress: ROLE_GUARDIAN_ADDRESS,
+            deployerAddress: DEPLOYER_ADDRESS,
+            transferAgentAddress: TRANSFER_AGENT_ADDRESS
+        });
     }
 
     function _setupFork(uint256 _forkBlock, string memory _forkRpcUrlEnvVar) internal {
@@ -411,28 +406,34 @@ abstract contract BaseTest is Test, Assertions {
 
     function _setupAssets(uint256 _seedAmount) internal {
         MOCK_USDC = new ERC20Mock();
-        MOCK_USDC.mint(OWNER_ADDRESS, _seedAmount * (10 ** 18));
-        MOCK_USDC.mint(ST_ALICE_ADDRESS, _seedAmount * (10 ** 18));
-        MOCK_USDC.mint(JT_ALICE_ADDRESS, _seedAmount * (10 ** 18));
-        MOCK_USDC.mint(ST_BOB_ADDRESS, _seedAmount * (10 ** 18));
-        MOCK_USDC.mint(JT_BOB_ADDRESS, _seedAmount * (10 ** 18));
-        ASSETS.push(address(MOCK_USDC));
-
         MOCK_USDT = new ERC20Mock();
-        MOCK_USDT.mint(OWNER_ADDRESS, _seedAmount * (10 ** 18));
-        MOCK_USDT.mint(ST_ALICE_ADDRESS, _seedAmount * (10 ** 18));
-        MOCK_USDT.mint(JT_ALICE_ADDRESS, _seedAmount * (10 ** 18));
-        MOCK_USDT.mint(ST_BOB_ADDRESS, _seedAmount * (10 ** 18));
-        MOCK_USDT.mint(JT_BOB_ADDRESS, _seedAmount * (10 ** 18));
-        ASSETS.push(address(MOCK_USDT));
-
         MOCK_DAI = new ERC20Mock();
-        MOCK_DAI.mint(OWNER_ADDRESS, _seedAmount * (10 ** 18));
-        MOCK_DAI.mint(ST_ALICE_ADDRESS, _seedAmount * (10 ** 18));
-        MOCK_DAI.mint(JT_ALICE_ADDRESS, _seedAmount * (10 ** 18));
-        MOCK_DAI.mint(ST_BOB_ADDRESS, _seedAmount * (10 ** 18));
-        MOCK_DAI.mint(JT_BOB_ADDRESS, _seedAmount * (10 ** 18));
+
+        MOCK_USDC_VAULT = new ERC4626Mock(address(MOCK_USDC));
+        MOCK_USDT_VAULT = new ERC4626Mock(address(MOCK_USDT));
+        MOCK_DAI_VAULT = new ERC4626Mock(address(MOCK_DAI));
+
+        _seedUnderlyingAndVault(MOCK_USDC, MOCK_USDC_VAULT, _seedAmount);
+        _seedUnderlyingAndVault(MOCK_USDT, MOCK_USDT_VAULT, _seedAmount);
+        _seedUnderlyingAndVault(MOCK_DAI, MOCK_DAI_VAULT, _seedAmount);
+
+        ASSETS.push(address(MOCK_USDC));
+        ASSETS.push(address(MOCK_USDT));
         ASSETS.push(address(MOCK_DAI));
+    }
+
+    /// @dev Mints `_seedAmount * 1e18` underlying tokens to OWNER + the four ST/JT providers,
+    ///      and pre-deposits matching underlying into the vault while minting an equal share
+    ///      balance — keeping `convertToAssets(shares) ≈ shares` for any reasonable test action.
+    function _seedUnderlyingAndVault(ERC20Mock _token, ERC4626Mock _vault, uint256 _seedAmount) private {
+        address[5] memory recipients = [OWNER_ADDRESS, ST_ALICE_ADDRESS, JT_ALICE_ADDRESS, ST_BOB_ADDRESS, JT_BOB_ADDRESS];
+        uint256 perWallet = _seedAmount * (10 ** 18);
+        for (uint256 i; i < recipients.length; ++i) {
+            _token.mint(recipients[i], perWallet);
+            // Back the vault with `perWallet` underlying and mint matching shares to the recipient.
+            _token.mint(address(_vault), perWallet);
+            _vault.mint(recipients[i], perWallet);
+        }
     }
 
     function _setupWallets() internal {

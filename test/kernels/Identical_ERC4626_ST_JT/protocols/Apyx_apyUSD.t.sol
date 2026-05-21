@@ -3,9 +3,6 @@ pragma solidity ^0.8.28;
 
 import { IERC20 } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import { IERC4626 } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-
-import { COMPONENT_ID_KERNEL_APYUSD } from "../../../../src/factory/templates/Components.sol";
-import { apyUSDDeploymentTemplate } from "../../../../src/factory/templates/dawn/apyUSDDeploymentTemplate.sol";
 import { IAddressList } from "../../../../src/interfaces/external/apyx/IAddressList.sol";
 import { IApyUSD } from "../../../../src/interfaces/external/apyx/IApyUSD.sol";
 import {
@@ -13,7 +10,6 @@ import {
 } from "../../../../src/kernels/dawn/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
 import { apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel } from "../../../../src/kernels/dawn/apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../../../src/libraries/Units.sol";
-
 import { YieldBearingERC4626_ChainlinkOracle_TestBase } from "../base/YieldBearingERC4626_ChainlinkOracle_TestBase.t.sol";
 
 /// @title apyUSD_apyUSD_Test
@@ -63,34 +59,24 @@ contract apyUSD_apyUSD_Test is YieldBearingERC4626_ChainlinkOracle_TestBase {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @notice Deploys the apyUSD kernel and market via the apyUSD template.
-    function _deployKernelAndMarket() internal override returns (MarketDeployment memory) {
-        apyUSDDeploymentTemplate template = new apyUSDDeploymentTemplate(FACTORY);
-        DawnDeploymentParams memory p;
-        p.marketId = keccak256("APYUSD_TEST");
-        p.template = address(template);
-        p.kernelComponentId = COMPONENT_ID_KERNEL_APYUSD;
-        p.kernelCreationCode = type(apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel).creationCode;
-        p.stAsset = config.stAsset;
-        p.jtAsset = config.jtAsset;
-        // The Redstone NUSD/USD-style feed used by apyUSD pushes infrequently. Relax staleness for tests.
-        p.kernelSpecificParams = abi.encode(
-            apyUSDDeploymentTemplate.KernelParams({
-                initialConversionRateWAD: 0, baseAssetToNavAssetOracle: 0x2037a5Eb67aa9B2FBF50042B724D8c4dB80F23b4, stalenessThresholdSeconds: 365 days
-            })
-        );
-        p.stProtocolFeeWAD = ST_PROTOCOL_FEE_WAD;
-        p.jtProtocolFeeWAD = JT_PROTOCOL_FEE_WAD;
-        p.yieldShareProtocolFeeWAD = 0;
-        p.coverageWAD = COVERAGE_WAD;
-        p.betaWAD = BETA_WAD;
-        p.liquidationUtilizationWAD = LIQUIDATION_UTILIZATION_WAD;
-        p.fixedTermDurationSeconds = FIXED_TERM_DURATION_SECONDS;
-        p.stNAVDustTolerance = DUST_TOLERANCE;
-        p.jtNAVDustTolerance = DUST_TOLERANCE;
-        p.enforceVaultSharesTransferWhitelist = false;
-        p.stSelfLiquidationBonusWAD = 0;
-        return _deployDawnMarket(p);
+    /// @dev Override the deployed kernel's chainlink staleness to `type(uint48).max` — the
+    ///      Redstone NUSD/USD-style feed used by apyUSD pushes infrequently, so the tight
+    ///      production threshold in `MarketDeploymentConfig` (48h) trips at this fork block.
+    function _deployKernelAndMarket() internal override returns (MarketDeployment memory result) {
+        result = _deployMarketFromConfig(DEPLOY_SCRIPT.APYUSD());
+        // Production config points at a chainlink oracle that doesn't exist at this fork block.
+        // Swap to the Redstone NUSD/USD feed the original inline test used, with a relaxed
+        // staleness threshold so the fork's block-age doesn't trip STALE_PRICE.
+        bytes memory data = abi.encodeWithSignature("setChainlinkOracle(address,uint48,bool)", APYUSD_TEST_ORACLE, uint48(365 days), false);
+        vm.prank(ORACLE_QUOTER_ADMIN_ADDRESS);
+        (bool ok,) = address(result.kernel).call(data);
+        require(ok, "staleness override failed");
     }
+
+    /// @dev Redstone NUSD/USD feed; what the pre-migration inline test used. The prod oracle in
+    ///      `MarketDeploymentConfig` is the canonical Chainlink apxUSD/USD feed, which doesn't
+    ///      exist at this test's fork block.
+    address internal constant APYUSD_TEST_ORACLE = 0x2037a5Eb67aa9B2FBF50042B724D8c4dB80F23b4;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // TOLERANCE OVERRIDES

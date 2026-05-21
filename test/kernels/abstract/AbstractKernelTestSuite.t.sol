@@ -5,6 +5,7 @@ import { Vm } from "../../../lib/forge-std/src/Vm.sol";
 import { IERC20 } from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { Math } from "../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import { DeployScript } from "../../../script/Deploy.s.sol";
 import { JT_LP_ROLE, ST_LP_ROLE } from "../../../src/factory/RolesConfiguration.sol";
 import { IRoycoAccountant } from "../../../src/interfaces/IRoycoAccountant.sol";
 import { IRoycoVaultTranche } from "../../../src/interfaces/IRoycoVaultTranche.sol";
@@ -107,6 +108,10 @@ abstract contract AbstractKernelTestSuite is BaseTest, IKernelTestHooks {
 
         // Setup base wallets
         _setupWallets();
+
+        // Instantiate the DeployScript first so `_bootstrapFactory` can delegate to it
+        // (single source of truth for AM + factory + role wiring delays).
+        DEPLOY_SCRIPT = new DeployScript();
 
         // Bootstrap fresh AccessManager + RoycoFactory and wire standard role grants.
         _bootstrapFactory();

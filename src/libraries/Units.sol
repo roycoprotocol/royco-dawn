@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
-
 /// @notice Standard unit of account for a Royco market (eg. USD, BTC, ETC, etc.)
 /// @dev `NAV_UNIT` must be expressed in the same underlying unit with 18 decimals of precision for a given Royco market
 type NAV_UNIT is uint256;

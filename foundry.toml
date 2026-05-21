@@ -12,7 +12,7 @@ evm_version = "prague"
 via_ir = true
 deny = "never"
 fs_permissions = [{ access = "read", path = "./out" }, { access = "read-write", path = "./output" }]
-solc_version = "0.8.34"
+solc_version = "0.8.35"
 ignored_warnings_from = ["test/*", "lib/*"]
 show_progress = true
 remappings = [

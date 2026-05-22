@@ -6,6 +6,9 @@ import { RoycoDuskKernel } from "../base/RoycoDuskKernel.sol";
 import {
     ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_Quoter
 } from "../base/quoter/dusk/ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_Quoter.sol";
+import {
+    JuniorAssetsBalancerV3PoolTokensQuoter
+} from "../base/quoter/dusk/junior-assets/liquidity-position/balancer-v3/JuniorAssetsBalancerV3PoolTokensQuoter.sol";
 
 /**
  * @title ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_Kernel
@@ -17,7 +20,10 @@ import {
 contract ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_Kernel is ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_Quoter {
     /// @notice Constructs the kernel state
     /// @param _params The standard construction parameters for the Royco Dusk kernel
-    constructor(RoycoDuskKernelConstructionParams memory _params) RoycoDuskKernel(_params) { }
+    constructor(RoycoDuskKernelConstructionParams memory _params)
+        RoycoDuskKernel(_params)
+        JuniorAssetsBalancerV3PoolTokensQuoter(_params.dawnKernelParams.jtAsset)
+    { }
 
     /**
      * @notice Initializes the Royco Kernel

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { Gyro2CLPPoolFactory } from "../../../../lib/balancer-v3-monorepo/pkg/pool-gyro/contracts/Gyro2CLPPoolFactory.sol";
+import { GyroECLPPoolFactory } from "../../../../lib/balancer-v3-monorepo/pkg/pool-gyro/contracts/GyroECLPPoolFactory.sol";
 import { IRoycoDuskKernel } from "../../../interfaces/IRoycoDuskKernel.sol";
 import { IRoycoFactory } from "../../../interfaces/factory/IRoycoFactory.sol";
 import {
@@ -28,7 +28,7 @@ contract ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_DeploymentTemp
 
     constructor(
         IRoycoFactory _factory,
-        Gyro2CLPPoolFactory _balancerV3PoolFactory
+        GyroECLPPoolFactory _balancerV3PoolFactory
     )
         JuniorAssetsBalancerV3PoolTokensDeploymentTemplate(_factory, _balancerV3PoolFactory)
     { }

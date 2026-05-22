@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { Gyro2CLPPoolFactory } from "../../lib/balancer-v3-monorepo/pkg/pool-gyro/contracts/Gyro2CLPPoolFactory.sol";
+import { GyroECLPPoolFactory } from "../../lib/balancer-v3-monorepo/pkg/pool-gyro/contracts/GyroECLPPoolFactory.sol";
 import { RoycoAccountant } from "../../src/accountant/RoycoAccountant.sol";
 import {
     COMPONENT_ID_ACCOUNTANT_IMPL,
@@ -21,7 +21,11 @@ import {
     COMPONENT_ID_SENIOR_TRANCHE_IMPL,
     COMPONENT_ID_YDM_ADAPTIVE_CURVE_V2
 } from "../../src/factory/templates/Components.sol";
-import { COMPONENT_ID_DUSK_KERNEL_CHAINLINK_ST_BPT_CHAINLINK_QUOTE } from "../../src/factory/templates/Components.sol";
+import {
+    COMPONENT_ID_DUSK_BALANCER_HOOKS,
+    COMPONENT_ID_DUSK_BALANCER_RATE_PROVIDER,
+    COMPONENT_ID_DUSK_KERNEL_CHAINLINK_ST_BPT_CHAINLINK_QUOTE
+} from "../../src/factory/templates/Components.sol";
 import { IdenticalERC20ChainlinkDeploymentTemplate } from "../../src/factory/templates/dawn/IdenticalERC20ChainlinkDeploymentTemplate.sol";
 import { IdenticalERC20ChainlinkSBTDeploymentTemplate } from "../../src/factory/templates/dawn/IdenticalERC20ChainlinkSBTDeploymentTemplate.sol";
 import { IdenticalERC4626AdminOracleDeploymentTemplate } from "../../src/factory/templates/dawn/IdenticalERC4626AdminOracleDeploymentTemplate.sol";
@@ -38,6 +42,8 @@ import {
     ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_DeploymentTemplate
 } from "../../src/factory/templates/dusk/ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_DeploymentTemplate.sol";
 import { IRoycoFactory } from "../../src/interfaces/factory/IRoycoFactory.sol";
+import { RoycoDuskBalancerV3Hooks } from "../../src/kernels/base/quoter/dusk/junior-assets/liquidity-position/balancer-v3/RoycoDuskBalancerV3Hooks.sol";
+import { RoycoDuskBalancerV3RateProvider } from "../../src/kernels/base/quoter/dusk/junior-assets/liquidity-position/balancer-v3/RoycoDuskRateProvider.sol";
 import { Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel } from "../../src/kernels/dawn/Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel.sol";
 import { Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel } from "../../src/kernels/dawn/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel.sol";
 import {
@@ -199,14 +205,14 @@ contract InstallTemplatesScript is Script {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Installs the Chainlink-ST / Chainlink-quote Dusk-Balancer variant. Takes the
-    ///      chain-specific `Gyro2CLPPoolFactory` address from env (`BALANCER_V3_GYRO_2CLP_FACTORY`).
+    ///      chain-specific `GyroECLPPoolFactory` address from env (`BALANCER_V3_GYRO_ECLP_FACTORY`).
     function _installDuskBalancer(IRoycoFactory _factory) internal returns (address) {
-        Gyro2CLPPoolFactory balancerV3PoolFactory = Gyro2CLPPoolFactory(vm.envAddress("BALANCER_V3_GYRO_2CLP_FACTORY"));
+        GyroECLPPoolFactory balancerV3PoolFactory = GyroECLPPoolFactory(vm.envAddress("BALANCER_V3_GYRO_ECLP_FACTORY"));
         ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_DeploymentTemplate dusk =
             new ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_DeploymentTemplate(_factory, balancerV3PoolFactory);
 
-        bytes32[] memory ids = new bytes32[](5);
-        bytes[] memory codes = new bytes[](5);
+        bytes32[] memory ids = new bytes32[](7);
+        bytes[] memory codes = new bytes[](7);
 
         ids[0] = COMPONENT_ID_SENIOR_TRANCHE_IMPL;
         codes[0] = type(RoycoSeniorTranche).creationCode;
@@ -218,10 +224,11 @@ contract InstallTemplatesScript is Script {
         codes[3] = type(AdaptiveCurveYDM_V2).creationCode;
         ids[4] = COMPONENT_ID_DUSK_KERNEL_CHAINLINK_ST_BPT_CHAINLINK_QUOTE;
         codes[4] = type(ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_Kernel).creationCode;
+        ids[5] = COMPONENT_ID_DUSK_BALANCER_HOOKS;
+        codes[5] = type(RoycoDuskBalancerV3Hooks).creationCode;
+        ids[6] = COMPONENT_ID_DUSK_BALANCER_RATE_PROVIDER;
+        codes[6] = type(RoycoDuskBalancerV3RateProvider).creationCode;
 
-        // HOOKS bytecode is pool-type-specific — caller registers it via a second template
-        // instance with `COMPONENT_ID_DUSK_BALANCER_HOOKS` populated, or by re-registering
-        // this template with hooks bytecode appended to `ids`/`codes`.
         _factory.registerTemplate(address(dusk), ids, codes);
         if (ENABLE_LOGGING) console2.log("Chainlink-ST/Chainlink-quote Dusk-Balancer template registered:", address(dusk));
         return address(dusk);

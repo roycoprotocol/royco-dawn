@@ -8,8 +8,8 @@ import { BasePoolMath } from "../../../../../../../../lib/balancer-v3-monorepo/p
 import { VaultGuard } from "../../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/VaultGuard.sol";
 import { IERC20Metadata } from "../../../../../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import { IERC20 } from "../../../../../../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import { TRANCHE_UNIT, toQuoteUnits, toUint256 } from "../../../../../../../libraries/Units.sol";
-import { IRoycoDuskKernel, LiquidityPositionClaims, RoycoDuskKernel } from "../../../../../RoycoDuskKernel.sol";
+import { QUOTE_UNIT, TRANCHE_UNIT, toQuoteUnits, toUint256 } from "../../../../../../../libraries/Units.sol";
+import { IRoycoDuskKernel, LiquidityPositionClaims, RoycoDuskKernel, SyncedAccountingState } from "../../../../../RoycoDuskKernel.sol";
 
 /**
  * @title JuniorAssetsBalancerV3PoolTokensQuoter
@@ -51,10 +51,13 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Vau
 
     /**
      * @notice Constructs the Junior Assets Balancer V3 pool tokens quoter
-     * @dev Derives the Vault address from JT_ASSET via `BalancerPoolToken.getVault()`
-     * @dev Caches the constituent token indices and per-token decimal scaling factors as immutables since they are fixed at pool registration
+     * @dev Takes the JT pool address as a direct constructor argument - the immutable JT_ASSET is not initialized yet at construction header-evaluation time.
+     * @param _jtAssetForVault The JT pool (BPT) address - must match the inherited `JT_ASSET` immutable.
      */
-    constructor() VaultGuard(BalancerPoolToken(JT_ASSET).getVault()) {
+    constructor(address _jtAssetForVault) VaultGuard(BalancerPoolToken(_jtAssetForVault).getVault()) {
+        // Sanity-check the param matches the inherited immutable so callers can't supply
+        // a different pool to back the VaultGuard from the one configured in the kernel.
+        require(_jtAssetForVault == JT_ASSET, POOL_NOT_REGISTERED());
         // Ensure that the Balancer V3 Pool is registered with the vault
         require(_vault.isPoolRegistered(JT_ASSET), POOL_NOT_REGISTERED());
 
@@ -71,6 +74,24 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Vau
         // Cache the quote asset's per-token decimal scaling factor: `10^(18 - tokenDecimals)` matches the Balancer V3 derivation
         // NOTE: The senior tranche share is always 18 decimals, so its scaling factor is implicitly 1 and does not need to be cached
         QUOTE_ASSET_POOL_DECIMAL_SCALING_FACTOR = 10 ** (18 - IERC20Metadata(QUOTE_ASSET).decimals());
+    }
+
+    // =============================
+    // JT Deposit Helper Functions
+    // =============================
+    function jtBuildPositionFromSTUnderlyingAndQuoteAsset(
+        TRANCHE_UNIT _stUnderlying,
+        QUOTE_UNIT _quoteAsset
+    )
+        external
+        restricted
+        whenNotPaused
+        nonReentrant
+        withQuoterCache
+        returns (uint256 jtShares)
+    {
+        // Execute an accounting sync to reconcile underlying PNL
+        SyncedAccountingState memory state = _preOpSyncTrancheAccounting();
     }
 
     // =============================

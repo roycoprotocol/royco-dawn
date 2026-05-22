@@ -3,8 +3,15 @@ pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import { IRoycoDuskKernel } from "../../interfaces/IRoycoDuskKernel.sol";
-import { ZERO_NAV_UNITS, ZERO_QUOTE_UNITS } from "../../libraries/Constants.sol";
-import { AccountingStateCheckpoint, ConversionRateCacheKey, KernelType, LiquidityPositionClaims, SyncedAccountingState } from "../../libraries/Types.sol";
+import { ZERO_NAV_UNITS, ZERO_QUOTE_UNITS, ZERO_TRANCHE_UNITS } from "../../libraries/Constants.sol";
+import {
+    AccountingStateCheckpoint,
+    AssetClaims,
+    ConversionRateCacheKey,
+    KernelType,
+    LiquidityPositionClaims,
+    SyncedAccountingState
+} from "../../libraries/Types.sol";
 import { Math, NAV_UNIT, QUOTE_UNIT, TRANCHE_UNIT, UnitsMathLib, toTrancheUnits, toUint256 } from "../../libraries/Units.sol";
 import { IERC20, IRoycoAccountant, IRoycoDawnKernel, IRoycoVaultTranche, RoycoDawnKernel, SafeERC20 } from "./RoycoDawnKernel.sol";
 
@@ -188,23 +195,40 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
         return jtConvertTrancheUnitsToNAVUnits(_getRoycoDawnKernelStorage().jtOwnedYieldBearingAssets);
     }
 
-    /// @inheritdoc RoycoDawnKernel
-    /// @dev Unwraps the liquidity position tied to the specified JT assets (LP tokens) and remits the internal ST shares withdrawn to this kernel and quote assets withdrawn to the receiver
-    /// @dev Burns any internal ST shares withdrawn and remits their proportional claim on ST assets to the specified receiver
-    function _jtWithdrawAssets(TRANCHE_UNIT _jtAssets, address _receiver) internal virtual override(RoycoDawnKernel) {
-        // Unwrap the liquidity position: the internal ST shares withdrawn must be in the kernel and the quote assets withdrawn must have been remitted to the specified receiver
-        uint256 internalSTSharesWithdrawn = _jtUnwrapLiquidityPosition(_jtAssets, _receiver);
-        // Preemptively return if their were no internal ST shares withdrawn
-        if (internalSTSharesWithdrawn == 0) return;
-        // Convert the internal ST shares withdrawn to their claims on ST assets
-        TRANCHE_UNIT internalSTAssetsToWithdraw = convertInternalSTSharesToSTAssets(internalSTSharesWithdrawn);
-        // Debit the ST assets being withdrawn
+    /**
+     * @inheritdoc RoycoDawnKernel
+     * @dev Remits any ST yield bearing assets in the claims directly to the receiver
+     * @dev Unwraps the liquidity position tied to the specified JT assets (LP tokens) and remits the internal ST shares withdrawn to this kernel and quote assets withdrawn to the receiver
+     * @dev Burns any internal ST shares withdrawn and remits their proportional claim on ST assets to the specified receiver
+     */
+    function _withdrawAssets(AssetClaims memory _claims, address _receiver) internal virtual override(RoycoDawnKernel) {
+        // Cache the individual claims
+        TRANCHE_UNIT stAssetsToClaim = _claims.stAssets;
+        TRANCHE_UNIT jtAssetsToClaim = _claims.jtAssets;
+
+        // Credit the assets being withdrawn to the receiver
+        // Do one batch withdrawal if they are the same asset, else do two separate transfers
+        if (jtAssetsToClaim != ZERO_TRANCHE_UNITS) {
+            // Unwrap the liquidity position: the internal ST shares withdrawn must be in the kernel and the quote assets withdrawn must have been remitted to the specified receiver
+            uint256 internalSTSharesWithdrawn = _jtUnwrapLiquidityPosition(jtAssetsToClaim, _receiver);
+            // If their were no internal ST shares withdrawn, the JT assets claims have been withdrawn
+            if (internalSTSharesWithdrawn != 0) {
+                // Convert the internal ST shares withdrawn to their claims on ST assets
+                TRANCHE_UNIT internalSTAssetsToWithdraw = convertInternalSTSharesToSTAssets(internalSTSharesWithdrawn);
+                // Burn the internal ST shares this kernel received
+                IRoycoVaultTranche(SENIOR_TRANCHE).burn(internalSTSharesWithdrawn);
+                // Credit the ST assets being withdrawn
+                stAssetsToClaim = stAssetsToClaim + internalSTAssetsToWithdraw;
+            }
+        }
+
+        // Debit the ST and JT assets being withdrawn from each tranche if non-zero
         RoycoDawnKernelState storage $ = _getRoycoDawnKernelStorage();
-        $.stOwnedYieldBearingAssets = $.stOwnedYieldBearingAssets - internalSTAssetsToWithdraw;
-        // Burn the internal ST shares this kernel received
-        IRoycoVaultTranche(SENIOR_TRANCHE).burn(internalSTSharesWithdrawn);
+        if (stAssetsToClaim != ZERO_TRANCHE_UNITS) $.stOwnedYieldBearingAssets = $.stOwnedYieldBearingAssets - stAssetsToClaim;
+        if (jtAssetsToClaim != ZERO_TRANCHE_UNITS) $.jtOwnedYieldBearingAssets = $.jtOwnedYieldBearingAssets - jtAssetsToClaim;
+
         // Remit the ST assets directly to the specified receiver
-        IERC20(ST_ASSET).safeTransfer(_receiver, toUint256(internalSTAssetsToWithdraw));
+        IERC20(ST_ASSET).safeTransfer(_receiver, toUint256(stAssetsToClaim));
     }
 
     /**

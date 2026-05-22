@@ -850,37 +850,13 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
         if (jtAssetsToClaim != ZERO_TRANCHE_UNITS) $.jtOwnedYieldBearingAssets = $.jtOwnedYieldBearingAssets - jtAssetsToClaim;
 
         // Credit the yield bearing assets being withdrawn to the receiver
-        // Do one batch withdrawal if they are the same asset, else do two separate transfers
+        // Do one batch transfer if they are the same asset, else do two separate transfers
         if (ST_ASSET == JT_ASSET) {
-            _stWithdrawAssets((stAssetsToClaim + jtAssetsToClaim), _receiver);
+            IERC20(ST_ASSET).safeTransfer(_receiver, toUint256(stAssetsToClaim + jtAssetsToClaim));
         } else {
-            if (stAssetsToClaim != ZERO_TRANCHE_UNITS) _stWithdrawAssets(stAssetsToClaim, _receiver);
-            if (jtAssetsToClaim != ZERO_TRANCHE_UNITS) _jtWithdrawAssets(jtAssetsToClaim, _receiver);
+            if (stAssetsToClaim != ZERO_TRANCHE_UNITS) IERC20(ST_ASSET).safeTransfer(_receiver, toUint256(stAssetsToClaim));
+            if (jtAssetsToClaim != ZERO_TRANCHE_UNITS) IERC20(JT_ASSET).safeTransfer(_receiver, toUint256(jtAssetsToClaim));
         }
-    }
-
-    /**
-     * @notice Process a withdrawal of senior tranche assets
-     * @dev Withdraws the assets directly to the specified receiver
-     * @dev Should only be called by `_withdrawAssets` since this function does not debit assets from the internal ledger
-     * @param _stAssets The senior tranche assets to be withdrawn to the specified receiver
-     * @param _receiver The receiver of the withdrawn senior tranche asset
-     */
-    function _stWithdrawAssets(TRANCHE_UNIT _stAssets, address _receiver) internal virtual {
-        // Transfer the ST assets to the specified receiver
-        IERC20(ST_ASSET).safeTransfer(_receiver, toUint256(_stAssets));
-    }
-
-    /**
-     * @notice Process a withdrawal of junior tranche assets
-     * @dev Withdraws the assets directly to the specified receiver
-     * @dev Should only be called by `_withdrawAssets` since this function does not debit assets from the internal ledger
-     * @param _jtAssets The junior tranche assets to be withdrawn to the specified receiver
-     * @param _receiver The receiver of the withdrawn junior tranche asset
-     */
-    function _jtWithdrawAssets(TRANCHE_UNIT _jtAssets, address _receiver) internal virtual {
-        // Transfer the JT assets to the specified receiver
-        IERC20(JT_ASSET).safeTransfer(_receiver, toUint256(_jtAssets));
     }
 
     /**

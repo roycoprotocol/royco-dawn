@@ -31,6 +31,7 @@ hook TIMESTAMP uint256 time {
 definition excludeUpgradeAndCall(method f) returns bool =
     f.selector != sig:upgradeToAndCall(address,bytes).selector;
 
+/* @title KER10 */
 rule maxStDepositCorrect {
     env e;
     RoycoAccountant.NAV_UNIT stRawNAV;
@@ -52,7 +53,7 @@ rule maxStDepositCorrect {
     assert state.utilizationWAD <= WAD(), "utilization is below max";
 }
 
-
+/* @title KER09 */
 rule maxJtRedeemCorrect {
     env e;
     RoycoAccountant.NAV_UNIT stRawNAV;

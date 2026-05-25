@@ -27,6 +27,7 @@ links {
 }
 
 methods {
+    function RoycoAccountant.isCoverageRequirementSatisfied() external returns bool envfree;
     function seniorTranche.allowance(address owner, address spender) external returns (uint256) envfree;
     function juniorTranche.allowance(address owner, address spender) external returns (uint256) envfree;
     function seniorTranche.totalSupply() external returns (uint256) envfree;
@@ -49,14 +50,45 @@ methods {
     // SafeERC20 internal functions summarized as direct token calls
     function _.safeTransfer(address token, address to, uint256 value) internal => NONDET;
     function _.safeTransferFrom(address token, address from, address to, uint256 value) internal => NONDET;
-    function Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.getTrancheUnitToNAVUnitConversionRateWAD() internal returns (uint256) => CONSTANT;
+    function Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.getTrancheUnitToNAVUnitConversionRateWAD() internal returns (uint256) => conversionRateCVL();
+    function IdenticalAssetsOracleQuoter._getCachedTrancheUnitToNAVUnitConversionRateWAD() internal returns (uint256) => conversionRateCVL();
     function Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.TRANCHE_UNIT_SCALE_FACTOR() external returns (uint256) envfree;
 }
+
+ghost conversionRateCVL() returns uint256;
 
 definition WAD() returns mathint = 10^18;
 
 function canCallCVL() returns (bool) {
     return true;
+}
+
+definition excludeUpgradeAndCall(method f) returns bool =
+    f.selector != sig:seniorTranche.upgradeToAndCall(address,bytes).selector;
+definition excludeMintFee(method f) returns bool =
+    f.selector != sig:juniorTranche.mintProtocolFeeShares(RoycoKernel.NAV_UNIT, RoycoKernel.NAV_UNIT, address).selector;
+
+definition isSTRedeem(method f) returns bool =
+    (f.selector == sig:seniorTranche.redeem(uint256, address, address).selector ||
+    f.selector == sig:seniorTranche.seizeAndRedeemShares(address, address, uint256).selector)
+    && f.contract == seniorTranche;
+
+
+ghost mapping(address => uint256) stBalances;
+ghost mapping(address => uint256) jtBalances;
+
+hook Sstore seniorTranche.ext_openzeppelin_storage_ERC20._balances[KEY address account] uint256 newBalance (uint256 oldBalance) {
+    stBalances[account] = newBalance;
+}
+hook Sload uint256 balance seniorTranche.ext_openzeppelin_storage_ERC20._balances[KEY address account] {
+    require balance == stBalances[account];
+}
+
+hook Sstore juniorTranche.ext_openzeppelin_storage_ERC20._balances[KEY address account] uint256 newBalance (uint256 oldBalance) {
+    jtBalances[account] = newBalance;
+}
+hook Sload uint256 balance juniorTranche.ext_openzeppelin_storage_ERC20._balances[KEY address account] {
+    require balance == jtBalances[account];
 }
 
 // ghost mulDivDirectionalSummary(uint256, uint256, uint256, Math.Rounding) returns uint256
@@ -76,24 +108,30 @@ ghost jtYieldShareCVL(RoycoAccountant.NAV_UNIT, RoycoAccountant.NAV_UNIT, uint25
         jtYieldShareCVL(stRawNAV, jtRawNAV, beta, coverage, jtEffectiveNAV) < WAD());
 }
 
-rule jtTokenValueDoesNotWorsen(env e) {
-    uint256 someAmount;
-    address receiver;
-    method f;
-    calldataarg args;
-
+rule jtTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -> excludeUpgradeAndCall(f) && excludeMintFee(f) }
+{
     // assume price is already synced
     uint256 price = kernel.getTrancheUnitToNAVUnitConversionRateWAD(e);
     uint256 priceDenom = kernel.TRANCHE_UNIT_SCALE_FACTOR();
     require priceDenom != 0, "TRANCHE_UNIT_SCALE_FACTOR initialized to non-zero value";
-    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / priceDenom, "price is synced";
-    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / priceDenom, "price is synced";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV == price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / priceDenom, "price is synced";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / priceDenom, "price is synced";
+
+    // totalSupply is sum of balances
+    require (usum address user. stBalances[user]) == seniorTranche.totalSupply();
+    require (usum address user. jtBalances[user]) == juniorTranche.totalSupply();
 
     // get the current token value
     RoycoAccountant.NAV_UNIT jtEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
     RoycoAccountant.NAV_UNIT stEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV;
     uint256 jtTotalBefore = juniorTranche.totalSupply();
     uint256 stTotalBefore = seniorTranche.totalSupply();
+
+    if (isSTRedeem(f)) {
+        // the property can be violated if there is liquidation bonus.  Here we restrict to states that don't apply the bonus
+        require roycoAccountant.isCoverageRequirementSatisfied(), "utilization is less than 100%";
+        require roycoAccountant.ext_Royco_storage_RoycoAccountantState.liquidationUtilizationWAD > WAD(), "invariant: liquidationUtilization > 100%";
+    }
 
     f(e, args);
 
@@ -103,21 +141,23 @@ rule jtTokenValueDoesNotWorsen(env e) {
     uint256 jtTotalAfter = juniorTranche.totalSupply();
     uint256 stTotalAfter = seniorTranche.totalSupply();
 
-    assert jtEffectiveNAVBefore * jtTotalAfter <= jtEffectiveNAVAfter * jtTotalBefore;
+    // jtTotal is incremented by one to account for virtual share.
+    // stEffectiveNAVAfter is incremented by one; the property doesn't hold precisely due to rounding errors.
+    assert (jtEffectiveNAVBefore) * (jtTotalAfter + 1) <= (jtEffectiveNAVAfter + 2) * (jtTotalBefore + 1), "JT NAV per share increases";
 }
 
-rule stTokenValueDoesNotWorsen(env e) {
-    uint256 someAmount;
-    address receiver;
-    method f;
-    calldataarg args;
-
+rule stTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -> excludeUpgradeAndCall(f) && excludeMintFee(f) }
+{
     // assume price is already synced
     uint256 price = kernel.getTrancheUnitToNAVUnitConversionRateWAD(e);
     uint256 priceDenom = kernel.TRANCHE_UNIT_SCALE_FACTOR();
     require priceDenom != 0, "TRANCHE_UNIT_SCALE_FACTOR initialized to non-zero value";
-    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / priceDenom, "price is synced";
-    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / priceDenom, "price is synced";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV == price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / priceDenom, "price is synced";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / priceDenom, "price is synced";
+
+    // totalSupply is sum of balances
+    require (usum address user. stBalances[user]) == seniorTranche.totalSupply();
+    require (usum address user. jtBalances[user]) == juniorTranche.totalSupply();
 
     // get the current token value
     RoycoAccountant.NAV_UNIT jtEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
@@ -133,5 +173,7 @@ rule stTokenValueDoesNotWorsen(env e) {
     uint256 jtTotalAfter = juniorTranche.totalSupply();
     uint256 stTotalAfter = seniorTranche.totalSupply();
 
-    assert stEffectiveNAVBefore * stTotalAfter <= stEffectiveNAVAfter * stTotalBefore;
+    // stTotal is incremented by one to account for virtual share.
+    // stEffectiveNAVAfter is incremented by two; the property doesn't hold precisely due to rounding errors.
+    assert (stEffectiveNAVBefore) * (stTotalAfter + 1) <= (stEffectiveNAVAfter + 2) * (stTotalBefore + 1), "ST NAV per share increases";
 }

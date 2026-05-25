@@ -41,11 +41,16 @@ methods {
     // SafeERC20 internal functions summarized as direct token calls
     function _.safeTransfer(address token, address to, uint256 value) internal => NONDET;
     function _.safeTransferFrom(address token, address from, address to, uint256 value) internal => NONDET;
-    function Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.getTrancheUnitToNAVUnitConversionRateWAD() internal returns (uint256) => CONSTANT;
+    function Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.getTrancheUnitToNAVUnitConversionRateWAD() internal returns (uint256) => conversionRateCVL();
+    function IdenticalAssetsOracleQuoter._getCachedTrancheUnitToNAVUnitConversionRateWAD() internal returns (uint256) => conversionRateCVL();
     function RoycoAccountant.isCoverageRequirementSatisfied() external returns bool envfree;
+    function Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.TRANCHE_UNIT_SCALE_FACTOR() external returns (uint256) envfree;
 }
 
+ghost conversionRateCVL() returns uint256;
 definition WAD() returns mathint = 10^18;
+definition MIN_COVERAGE_WAD() returns mathint = 10^16;   // 1 %
+definition MAX_COVERAGE_WAD() returns mathint = 10^18-1; // 99.9999999999999999 %
 
 rule stDepositEnsuresUtilization(env e) {
     address receiver;
@@ -70,9 +75,83 @@ rule jtDepositPreservesUtilization(env e) {
     address receiver;
     uint256 amount;
 
+    uint256 cov = roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD;
+    uint256 beta = roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD;
+
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD *
+        roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD < WAD()*WAD(), "cov*beta < 1";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD >= MIN_COVERAGE_WAD(), "cov >= MIN";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD <= MAX_COVERAGE_WAD(), "cov <= MAX";
+
     require roycoAccountant.isCoverageRequirementSatisfied(), "coverage enough in pre-state";
+    // assume price is already synced
+    uint256 price = kernel.getTrancheUnitToNAVUnitConversionRateWAD(e);
+    uint256 priceDenom = kernel.TRANCHE_UNIT_SCALE_FACTOR();
+    require priceDenom != 0, "TRANCHE_UNIT_SCALE_FACTOR initialized to non-zero value";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV == price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / priceDenom, "price is synced";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / priceDenom, "price is synced";
+
+    uint256 jtEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
+    uint256 jtRawNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV;
+    uint256 stRawNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV;
+
+    mathint toCoverBefore = (stRawNAVBefore + (jtRawNAVBefore * beta / WAD())) * cov;
 
     juniorTranche.deposit(e, amount, receiver);
+
+    uint256 jtEffectiveNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
+    uint256 jtRawNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV;
+    uint256 stRawNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV;
+    mathint toCoverAfter = (stRawNAVAfter + (jtRawNAVAfter * beta / WAD())) * cov;
+
+    assert stRawNAVAfter == stRawNAVBefore;
+    assert jtEffectiveNAVAfter >= jtEffectiveNAVBefore;
+    assert jtRawNAVAfter - jtRawNAVBefore == jtEffectiveNAVAfter - jtEffectiveNAVBefore;
+    assert toCoverAfter - toCoverBefore <= jtEffectiveNAVAfter - jtEffectiveNAVBefore;
+    
+    assert roycoAccountant.isCoverageRequirementSatisfied(),  "jtRedeem must not violate utilization";
+}
+
+rule stRedeemPreservesUtilization(env e) {
+    address receiver;
+    address owner;
+    uint256 amount;
+
+    uint256 cov = roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD;
+    uint256 beta = roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD;
+
+    // invariants proven in AccountantInvariants
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD *
+        roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD < WAD()*WAD(), "cov*beta < 1";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD >= MIN_COVERAGE_WAD(), "cov >= MIN";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD <= MAX_COVERAGE_WAD(), "cov <= MAX";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.liquidationUtilizationWAD > WAD(), "liquidationUtilization > 1";
+
+    require roycoAccountant.isCoverageRequirementSatisfied(), "coverage enough in pre-state";
+    // assume price is already synced
+    uint256 price = kernel.getTrancheUnitToNAVUnitConversionRateWAD(e);
+    uint256 priceDenom = kernel.TRANCHE_UNIT_SCALE_FACTOR();
+    require priceDenom != 0, "TRANCHE_UNIT_SCALE_FACTOR initialized to non-zero value";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV == price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / priceDenom, "price is synced";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / priceDenom, "price is synced";
+
+    uint256 jtEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
+    uint256 jtRawNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV;
+    uint256 stRawNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV;
+
+    mathint toCoverBefore = (stRawNAVBefore + (jtRawNAVBefore * beta / WAD())) * cov;
+
+    seniorTranche.redeem(e, amount, receiver, owner);
+
+    uint256 jtEffectiveNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
+    uint256 jtRawNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV;
+    uint256 stRawNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV;
+    mathint toCoverAfter = (stRawNAVAfter + (jtRawNAVAfter * beta / WAD())) * cov;
+
+    assert stRawNAVAfter <= stRawNAVBefore;
+    assert jtRawNAVAfter <= jtRawNAVBefore;
+    assert jtEffectiveNAVAfter == jtEffectiveNAVBefore;
+    assert toCoverAfter <= toCoverBefore;
 
     assert roycoAccountant.isCoverageRequirementSatisfied(),  "jtRedeem must not violate utilization";
 }
@@ -91,5 +170,13 @@ rule jtDepositRevertsInFixedTerm(env e) {
     address receiver;
     juniorTranche.deposit(e, amount, receiver);
 
-    assert roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState != RoycoAccountant.MarketState.FIXED_TERM, "stRedeem reverts in fixe term";
+    assert roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState != RoycoAccountant.MarketState.FIXED_TERM, "jtDeposit reverts in fixe term";
+}
+
+rule stDepositRevertsWithImpermanentLoss(env e) {
+    uint256 amount;
+    address receiver;
+    seniorTranche.deposit(e, amount, receiver);
+
+    assert roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss == 0, "stDeposit reverts with impermanent loss";
 }

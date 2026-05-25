@@ -245,3 +245,21 @@ rule postSyncJTImpermanentLossProportionally() {
     assert impermanentLossAfter * effNAVBefore <= impermanentLossBefore * effNAVAfter, "impermanentLoss per NAV decreases";
     assert (impermanentLossAfter + 1) * effNAVBefore >= impermanentLossBefore * effNAVAfter, "impermanentLoss only suffers rounding";
 }
+
+/* @title KER06 */
+rule StNAVIncreasesUnlessJTIsZero() {
+
+    env e;
+    RoycoAccountant.NAV_UNIT newStRawNAV;
+    RoycoAccountant.NAV_UNIT newJtRawNAV;
+    RoycoAccountant.SyncedAccountingState state;
+
+    RoycoAccountant.NAV_UNIT stEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV;
+
+    state = roycoAccountant.preOpSyncTrancheAccounting(e, newStRawNAV, newJtRawNAV);
+
+    RoycoAccountant.NAV_UNIT stEffectiveNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV;
+    RoycoAccountant.NAV_UNIT jtEffectiveNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
+
+    assert stEffectiveNAVAfter < stEffectiveNAVBefore => jtEffectiveNAVAfter == 0;
+}

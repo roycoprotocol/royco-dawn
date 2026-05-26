@@ -91,27 +91,6 @@ struct SyncedAccountingState {
 }
 
 /**
- * @title AccountingStateCheckpoint
- * @dev Contains the last checkpointed mark-to-market NAV accounting data for the market's tranches
- * @custom:field lastSTRawNAV - The last recorded pure NAV (excluding any coverage taken and yield shared) of the senior tranche
- * @custom:field lastJTRawNAV - The last recorded pure NAV (excluding any coverage given and yield shared) of the junior tranche
- * @custom:field lastSTEffectiveNAV - The last recorded effective NAV (including any prior applied coverage, ST yield distribution, and uncovered losses) of the senior tranche
- * @custom:field lastJTEffectiveNAV - The last recorded effective NAV (including any prior provided coverage, JT yield, ST yield distribution, and JT losses) of the junior tranche
- * @custom:field lastSTImpermanentLoss - The impermanent loss that ST has suffered after exhausting JT's loss-absorption buffer
- *                                       This represents the first claim on capital that the senior tranche has on future ST and JT recoveries
- * @custom:field lastJTImpermanentLoss - The impermanent loss that JT has suffered after providing coverage for ST losses
- *                                       This represents the second claim on capital that the junior tranche has on future ST recoveries
- */
-struct AccountingStateCheckpoint {
-    NAV_UNIT lastSTRawNAV;
-    NAV_UNIT lastJTRawNAV;
-    NAV_UNIT lastSTEffectiveNAV;
-    NAV_UNIT lastJTEffectiveNAV;
-    NAV_UNIT lastSTImpermanentLoss;
-    NAV_UNIT lastJTImpermanentLoss;
-}
-
-/**
  * @title Operation
  * @dev Defines the type of operation being executed by the user
  * @custom:type ST_DEPOSIT - A senior tranche deposit that increases ST's effective NAV

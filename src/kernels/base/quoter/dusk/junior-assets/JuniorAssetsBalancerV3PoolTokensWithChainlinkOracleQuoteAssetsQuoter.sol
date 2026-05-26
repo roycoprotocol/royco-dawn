@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+import { IRoycoDawnKernel } from "../../../../../interfaces/IRoycoDawnKernel.sol";
+import { NAV_UNIT, TRANCHE_UNIT } from "../../../../../libraries/Units.sol";
+import { RoycoDawnKernel } from "../../../RoycoDawnKernel.sol";
 import { RoycoDuskKernel } from "../../../RoycoDuskKernel.sol";
 import { JuniorAssetsBalancerV3PoolTokensQuoter } from "./liquidity-position/balancer-v3/JuniorAssetsBalancerV3PoolTokensQuoter.sol";
 import { QuoteAssetsChainlinkOracleQuoter } from "./quote-assets/base/QuoteAssetsChainlinkOracleQuoter.sol";
@@ -41,5 +44,17 @@ abstract contract JuniorAssetsBalancerV3PoolTokensWithChainlinkOracleQuoteAssets
     /// @dev Delegates cache teardown to the inherited overrides in QuoteAssetsChainlinkOracleQuoter and RoycoDuskKernel
     function _clearQuoterCache() internal virtual override(QuoteAssetsChainlinkOracleQuoter, RoycoDuskKernel) {
         super._clearQuoterCache();
+    }
+
+    /// @inheritdoc IRoycoDawnKernel
+    /// @dev Diamond resolution: the junior tranche (BPT) NAV is sourced from the Balancer V3 pool tokens quoter
+    function jtConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _jtAssets)
+        public
+        view
+        virtual
+        override(IRoycoDawnKernel, RoycoDawnKernel, JuniorAssetsBalancerV3PoolTokensQuoter)
+        returns (NAV_UNIT)
+    {
+        return JuniorAssetsBalancerV3PoolTokensQuoter.jtConvertTrancheUnitsToNAVUnits(_jtAssets);
     }
 }

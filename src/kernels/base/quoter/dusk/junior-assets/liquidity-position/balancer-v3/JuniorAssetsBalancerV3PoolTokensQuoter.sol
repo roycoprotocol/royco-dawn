@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+import { IVault } from "../../../../../../../../lib/balancer-v3-monorepo/pkg/interfaces/contracts/vault/IVault.sol";
 import { RemoveLiquidityKind, RemoveLiquidityParams } from "../../../../../../../../lib/balancer-v3-monorepo/pkg/interfaces/contracts/vault/VaultTypes.sol";
-import { ScalingHelpers } from "../../../../../../../../lib/balancer-v3-monorepo/pkg/solidity-utils/contracts/helpers/ScalingHelpers.sol";
-import { BalancerPoolToken } from "../../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BalancerPoolToken.sol";
-import { BasePoolMath } from "../../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/BasePoolMath.sol";
+import { LPOracleBase } from "../../../../../../../../lib/balancer-v3-monorepo/pkg/oracles/contracts/LPOracleBase.sol";
 import { VaultGuard } from "../../../../../../../../lib/balancer-v3-monorepo/pkg/vault/contracts/VaultGuard.sol";
-import { IERC20Metadata } from "../../../../../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import { IERC20 } from "../../../../../../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import { QUOTE_UNIT, TRANCHE_UNIT, toQuoteUnits, toUint256 } from "../../../../../../../libraries/Units.sol";
-import { IRoycoDuskKernel, LiquidityPositionClaims, RoycoDuskKernel, SyncedAccountingState } from "../../../../../RoycoDuskKernel.sol";
+import { ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "../../../../../../../libraries/Constants.sol";
+import { Math, NAV_UNIT, QUOTE_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toUint256 } from "../../../../../../../libraries/Units.sol";
+import { IRoycoDawnKernel, RoycoDawnKernel, RoycoDuskKernel, SyncedAccountingState } from "../../../../../RoycoDuskKernel.sol";
 
 /**
  * @title JuniorAssetsBalancerV3PoolTokensQuoter
@@ -19,16 +18,20 @@ import { IRoycoDuskKernel, LiquidityPositionClaims, RoycoDuskKernel, SyncedAccou
  *      This quoter reads the pool's current raw token balances from the Balancer V3 Vault and derives JT's pro-rata claim from the ratio of JT's BPT holdings to total BPT supply
  */
 abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, VaultGuard {
-    using ScalingHelpers for uint256;
+    using UnitsMathLib for NAV_UNIT;
 
-    /// @notice Index of the Senior Tranche share token in the pool's token registration order
-    uint256 internal immutable ST_SHARE_POOL_INDEX;
+    /// @dev Storage slot for JuniorAssetsBalancerV3PoolTokensQuoterState using ERC-7201 pattern
+    // keccak256(abi.encode(uint256(keccak256("Royco.storage.JuniorAssetsBalancerV3PoolTokensQuoterState")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant JUNIOR_ASSETS_BALANCER_V3_POOL_TOKENS_QUOTER_STORAGE_SLOT = 0xcb864d5a84df475b0a3b2c58a883c323a7153e386508eff47aa48ffccf304100;
 
-    /// @notice Index of the quote asset in the pool's token registration order
-    uint256 internal immutable QUOTE_ASSET_POOL_INDEX;
+    /// @dev Storage state for the Royco junior assets Balancer V3 pool tokens quoter
+    /// @custom:storage-location erc7201:Royco.storage.JuniorAssetsBalancerV3PoolTokensQuoterState
+    struct JuniorAssetsBalancerV3PoolTokensQuoterState {
+        address juniorTrancheBPTOracle;
+    }
 
-    /// @dev Decimal scaling factor for the quote asset token, cached at construction since it is fixed at pool registration: 10^(18 - tokenDecimals)
-    uint256 internal immutable QUOTE_ASSET_POOL_DECIMAL_SCALING_FACTOR;
+    /// @notice Emitted when the junior tranche BPT oracle is updated
+    event JuniorTrancheBPTOracleUpdated(address indexed juniorTrancheBPTOracle);
 
     /// @dev Thrown when the pool invoking a hook isn't this market's junior tranche pool
     error ONLY_JUNIOR_TRANCHE_BALANCER_POOL();
@@ -36,44 +39,31 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Vau
     /// @notice Thrown when the Balancer pool is not registered with the Balancer V3 Vault
     error POOL_NOT_REGISTERED();
 
-    /// @notice Thrown when the Balancer pool is not configured with exactly two tokens (ST share and the kernel's quote asset)
-    error POOL_MUST_HAVE_TWO_TOKENS();
-
-    /// @notice Thrown when the pool's tokens don't match the kernel's configured ST asset and quote asset
+    /// @notice Thrown when the pool's tokens don't match the ST tranche share (index 0) and quote asset (index 1)
     error INVALID_POOL_TOKEN_CONFIGURATION();
 
-    /// @dev Ensures that the pool invoking a hook is this market's junior tranche pool
-    /// @param _pool The pool invoking the hook
-    modifier onlyJuniorTrancheBalancerPool(address _pool) {
-        require(_pool == JT_ASSET, ONLY_JUNIOR_TRANCHE_BALANCER_POOL());
-        _;
-    }
+    /// @notice Thrown when the BPT oracle does not price this market's junior tranche pool (the JT asset)
+    error JUNIOR_TRANCHE_BPT_ORACLE_POOL_MISMATCH();
 
     /**
      * @notice Constructs the Junior Assets Balancer V3 pool tokens quoter
-     * @dev Takes the JT pool address as a direct constructor argument - the immutable JT_ASSET is not initialized yet at construction header-evaluation time.
-     * @param _jtAssetForVault The JT pool (BPT) address - must match the inherited `JT_ASSET` immutable.
+     * @param _balancerV3Vault The canonical Balancer V3 Vault
      */
-    constructor(address _jtAssetForVault) VaultGuard(BalancerPoolToken(_jtAssetForVault).getVault()) {
-        // Sanity-check the param matches the inherited immutable so callers can't supply
-        // a different pool to back the VaultGuard from the one configured in the kernel.
-        require(_jtAssetForVault == JT_ASSET, POOL_NOT_REGISTERED());
+    constructor(address _balancerV3Vault) VaultGuard(IVault(_balancerV3Vault)) {
         // Ensure that the Balancer V3 Pool is registered with the vault
         require(_vault.isPoolRegistered(JT_ASSET), POOL_NOT_REGISTERED());
 
-        // Retrieve the constituent tokens of this kernel's Balancer V3 pool and ensure that their are exactly 2
+        // Retrieve the constituent tokens of this kernel's Balancer V3 pool and ensure that their are exactly 2 with ST share at index 0 and the kernel's quote asset at index 1
         IERC20[] memory tokens = _vault.getPoolTokens(JT_ASSET);
-        require(tokens.length == 2, POOL_MUST_HAVE_TWO_TOKENS());
+        require(tokens.length == 2 && address(tokens[0]) == SENIOR_TRANCHE && address(tokens[1]) == QUOTE_ASSET, INVALID_POOL_TOKEN_CONFIGURATION());
+    }
 
-        // Resolve and cache the indexes of the ST share and the kernel's quote asset in the pool configuration
-        // Revert if the pool is not configured with ST share and the kernel's quote asset as its constituents
-        if (address(tokens[0]) == SENIOR_TRANCHE && address(tokens[1]) == QUOTE_ASSET) QUOTE_ASSET_POOL_INDEX = 1;
-        else if (address(tokens[0]) == QUOTE_ASSET && address(tokens[1]) == SENIOR_TRANCHE) ST_SHARE_POOL_INDEX = 1;
-        else revert INVALID_POOL_TOKEN_CONFIGURATION();
-
-        // Cache the quote asset's per-token decimal scaling factor: `10^(18 - tokenDecimals)` matches the Balancer V3 derivation
-        // NOTE: The senior tranche share is always 18 decimals, so its scaling factor is implicitly 1 and does not need to be cached
-        QUOTE_ASSET_POOL_DECIMAL_SCALING_FACTOR = 10 ** (18 - IERC20Metadata(QUOTE_ASSET).decimals());
+    /**
+     * @notice Initializes the junior assets Balancer V3 pool tokens quoter
+     * @param _bptOracle The Balancer V3 LP oracle pricing 1 BPT of the junior tranche pool conservatively (as if at balance) in NAV units
+     */
+    function __JuniorAssetsBalancerV3PoolTokensQuoter_init_unchained(address _bptOracle) internal onlyInitializing {
+        _setJuniorTrancheBPTOracle(_bptOracle);
     }
 
     // =============================
@@ -95,45 +85,21 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Vau
     }
 
     // =============================
-    // Junior Tranche Liquidity Position Quoter Functions
+    // Junior Tranche Quoter Functions
     // =============================
 
-    /**
-     * @inheritdoc IRoycoDuskKernel
-     * @notice Converts the specificed amount of BPTs into their pro-rata claim on the pool's constituent tokens
-     * @dev Returns zero claims when the pool has no outstanding claims on its constituent tokens
-     * @param _jtAssets The Balancer Pool Tokens to get the pro-rata constituent token claims for
-     * @return claims The pro-rata claim on the pool's ST shares and quote assets
-     */
-    function jtConvertTrancheUnitsToLPClaims(TRANCHE_UNIT _jtAssets)
-        public
-        view
-        virtual
-        override(RoycoDuskKernel)
-        returns (LiquidityPositionClaims memory claims)
-    {
-        // Mirror the Balancer V3 Vault's proportional remove liquidity path so that the position returned contains the exact same constituent token amounts that our JT withdrawals will deliver
-        // Preemptively return zero claims if the pool has no outstanding claims on its constituent tokens
-        uint256 bptTotalSupply = _vault.totalSupply(JT_ASSET);
-        if (bptTotalSupply == 0) return claims;
+    /// @inheritdoc IRoycoDawnKernel
+    function jtConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _jtAssets) public view virtual override(IRoycoDawnKernel, RoycoDawnKernel) returns (NAV_UNIT nav) {
+        // Preemptively return zero NAV for zero BPTs
+        if (_jtAssets == ZERO_TRANCHE_UNITS) return ZERO_NAV_UNITS;
 
-        // Delegate the proportional math across the constituent tokens to Balancer's library to guarantee bit-for-bit equivalence with the kernel's liquidity position unwrap logic
-        // NOTE: The live balances are the raw token amounts scaled by their corresponding rates, net of yield fees, normalized to WAD decimals
-        uint256[] memory constituentTokenAmountsOutWAD =
-            BasePoolMath.computeProportionalAmountsOut(_vault.getCurrentLiveBalances(JT_ASSET), bptTotalSupply, toUint256(_jtAssets));
+        // Get the conservative TVL of the JT Balancer pool in NAV units
+        // The rate providers of the pool are configured to price both constituent assets in this kernel's NAV units
+        // NOTE: No need to check for price staleness since the pool's rate providers use this kernel's quoter which employ their own staleness enforcement
+        NAV_UNIT poolNAV = toNAVUnits(LPOracleBase(_getJuniorAssetsBalancerV3PoolTokensQuoterStorage().juniorTrancheBPTOracle).computeTVL());
 
-        // Get the constituent token rates in NAV units used by the junior tranche pool
-        /// NOTE: The rate providers for the junior tranche pool proxy this kernel's NAV for ST shares and quote assets
-        (, uint256[] memory constituentTokenRatesWAD) = _vault.getPoolTokenRates(JT_ASSET);
-
-        // Revert the decimal scaling normalization done by Balancer to the actual token precision
-        // NOTE: The senior tranche share is always 18 decimals so its decimal scaling factor is implicitly 1
-        claims.stShares = constituentTokenAmountsOutWAD[ST_SHARE_POOL_INDEX].toRawUndoRateRoundDown(1, constituentTokenRatesWAD[ST_SHARE_POOL_INDEX]);
-        claims.quoteAssets = toQuoteUnits(
-            constituentTokenAmountsOutWAD[QUOTE_ASSET_POOL_INDEX].toRawUndoRateRoundDown(
-                QUOTE_ASSET_POOL_DECIMAL_SCALING_FACTOR, constituentTokenRatesWAD[QUOTE_ASSET_POOL_INDEX]
-            )
-        );
+        // Compute the proportional value of the specified JT assets (BPTs)
+        return poolNAV.mulDiv(toUint256(_jtAssets), _vault.totalSupply(JT_ASSET), Math.Rounding.Floor);
     }
 
     // =============================
@@ -160,10 +126,32 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Vau
             })
         );
         // Credit the internal ST shares withdrawn to this kernel: these will be burnt and their claim on ST assets will be remitted to the receiver upstream
-        _vault.sendTo(IERC20(SENIOR_TRANCHE), address(this), (internalSTSharesWithdrawn = amountsOut[ST_SHARE_POOL_INDEX]));
+        _vault.sendTo(IERC20(SENIOR_TRANCHE), address(this), (internalSTSharesWithdrawn = amountsOut[0]));
         // Credit the quote assets withdrawn directly to the specified receiver
-        _vault.sendTo(IERC20(QUOTE_ASSET), _receiver, amountsOut[QUOTE_ASSET_POOL_INDEX]);
+        _vault.sendTo(IERC20(QUOTE_ASSET), _receiver, amountsOut[1]);
         /// @dev All credit and debt created during this callback has been settled
+    }
+
+    // =============================
+    // BPT Oracle Administration Functions
+    // =============================
+
+    /**
+     * @notice Sets the Balancer V3 LP oracle used to price the junior tranche BPT in NAV units
+     * @dev Executes an accounting sync after, and optionally before, updating the oracle
+     * @dev Only callable by a designated admin
+     * @param _bptOracle The new Balancer V3 LP oracle pricing 1 BPT of the junior tranche pool in NAV units
+     * @param _syncBeforeUpdate Whether to sync the tranche accounting before updating the oracle
+     */
+    function setJuniorTrancheBPTOracle(address _bptOracle, bool _syncBeforeUpdate) external restricted {
+        if (_syncBeforeUpdate) _preOpSyncTrancheAccounting();
+        _setJuniorTrancheBPTOracle(_bptOracle);
+        _preOpSyncTrancheAccounting();
+    }
+
+    /// @notice Returns the Balancer V3 LP oracle pricing the junior tranche BPT in NAV units
+    function getJuniorTrancheBPTOracle() external view returns (address juniorTrancheBPTOracle) {
+        return _getJuniorAssetsBalancerV3PoolTokensQuoterStorage().juniorTrancheBPTOracle;
     }
 
     // =============================
@@ -185,6 +173,35 @@ abstract contract JuniorAssetsBalancerV3PoolTokensQuoter is RoycoDuskKernel, Vau
         bytes memory callbackReturnData = _vault.unlock(abi.encodeCall(this.jtUnwrapBalancerV3LiquidityPosition, (_jtAssets, _receiver)));
         assembly ("memory-safe") {
             internalSTSharesWithdrawn := mload(add(callbackReturnData, 0x20))
+        }
+    }
+
+    // =============================
+    // Internal BPT Oracle Functions
+    // =============================
+
+    /**
+     * @notice Validates and sets the junior tranche BPT oracle
+     * @dev Reverts if the oracle is null or does not price this market's junior tranche pool (the JT asset)
+     * @param _bptOracle The new Balancer V3 LP oracle pricing 1 BPT of the junior tranche pool in NAV units
+     */
+    function _setJuniorTrancheBPTOracle(address _bptOracle) internal {
+        require(_bptOracle != address(0), NULL_ADDRESS());
+        // Ensure that the BPT oracle prices this market's junior tranche pool (the JT asset)
+        require(address(LPOracleBase(_bptOracle).pool()) == JT_ASSET, JUNIOR_TRANCHE_BPT_ORACLE_POOL_MISMATCH());
+
+        _getJuniorAssetsBalancerV3PoolTokensQuoterStorage().juniorTrancheBPTOracle = _bptOracle;
+        emit JuniorTrancheBPTOracleUpdated(_bptOracle);
+    }
+
+    // =============================
+    // Quoter State Accessor Functions
+    // =============================
+
+    /// @dev Returns a storage pointer to the JuniorAssetsBalancerV3PoolTokensQuoterState storage
+    function _getJuniorAssetsBalancerV3PoolTokensQuoterStorage() private pure returns (JuniorAssetsBalancerV3PoolTokensQuoterState storage $) {
+        assembly ("memory-safe") {
+            $.slot := JUNIOR_ASSETS_BALANCER_V3_POOL_TOKENS_QUOTER_STORAGE_SLOT
         }
     }
 }

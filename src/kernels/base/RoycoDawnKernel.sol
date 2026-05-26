@@ -11,7 +11,6 @@ import { IRoycoDawnKernel } from "../../interfaces/IRoycoDawnKernel.sol";
 import { IRoycoVaultTranche } from "../../interfaces/IRoycoVaultTranche.sol";
 import { MAX_TRANCHE_UNITS, WAD, ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "../../libraries/Constants.sol";
 import {
-    AccountingStateCheckpoint,
     AssetClaims,
     ConversionRateCacheKey,
     KernelType,
@@ -237,7 +236,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
         // ST deposits are enabled as long as ST IL is nonexistent and coverage is satisfied
         // No need to include ST liquidation proceeds in the raw NAV because those assets are not exposed to any volatility
         NAV_UNIT stMaxDepositableNAV =
-            IRoycoAccountant(ACCOUNTANT).maxSTDepositGivenCoverage(_getLastAccountingCheckpoint(), _getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
+            IRoycoAccountant(ACCOUNTANT).maxSTDepositGivenCoverage(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
         return stConvertNAVUnitsToTrancheUnits(stMaxDepositableNAV);
     }
 
@@ -314,7 +313,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
         claimOnStNAV = stConvertTrancheUnitsToNAVUnits(jtNotionalClaims.stAssets);
         claimOnJtNAV = jtConvertTrancheUnitsToNAVUnits(jtNotionalClaims.jtAssets);
         (, NAV_UNIT stClaimableGivenCoverage, NAV_UNIT jtClaimableGivenCoverage) = IRoycoAccountant(ACCOUNTANT)
-            .maxJTWithdrawalGivenCoverage(_getLastAccountingCheckpoint(), state.stRawNAV, state.jtRawNAV, claimOnStNAV, claimOnJtNAV);
+            .maxJTWithdrawalGivenCoverage(state.stRawNAV, state.jtRawNAV, claimOnStNAV, claimOnJtNAV);
 
         // Bound the claims by the max withdrawable assets globally for each tranche and compute the cumulative NAV
         stMaxWithdrawableNAV = stClaimableGivenCoverage;
@@ -619,23 +618,23 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
 
     /**
      * @notice Previews an accounting sync via the accountant
-     * @dev Seeds the waterfall with the checkpoint returned by `_getLastAccountingCheckpoint()`, which subclasses may override to inject a recomposed starting state
+     * @dev Reads the accountant's persisted NAV checkpoint directly from its storage
      * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function _previewSyncTrancheAccounting() internal view virtual whenNotPaused returns (SyncedAccountingState memory state) {
         // Preview an accounting sync via the accountant
-        state = IRoycoAccountant(ACCOUNTANT).previewSyncTrancheAccounting(_getLastAccountingCheckpoint(), _getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
+        state = IRoycoAccountant(ACCOUNTANT).previewSyncTrancheAccounting(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
     }
 
     /**
      * @notice Invokes the accountant to do a pre-operation (deposit and withdrawal) NAV sync and mints any protocol fee shares accrued
      * @dev A sync must be executed before every NAV mutating operation (deposit and withdrawal)
-     * @dev Seeds the waterfall with the checkpoint returned by `_getLastAccountingCheckpoint()`, which subclasses may override to inject a recomposed starting state
+     * @dev Reads the accountant's persisted NAV checkpoint directly from its storage
      * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function _preOpSyncTrancheAccounting() internal virtual returns (SyncedAccountingState memory state) {
         // Execute the pre-op sync via the accountant
-        state = IRoycoAccountant(ACCOUNTANT).preOpSyncTrancheAccounting(_getLastAccountingCheckpoint(), _getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
+        state = IRoycoAccountant(ACCOUNTANT).preOpSyncTrancheAccounting(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
 
         // Collect any protocol fees accrued
         _collectProtocolFees(state.stProtocolFeeAccrued, state.jtProtocolFeeAccrued, state.stEffectiveNAV, state.jtEffectiveNAV);
@@ -644,7 +643,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
     /**
      * @notice Invokes the accountant to do a NAV sync and mints any protocol fee shares accrued
      * @dev A sync must be executed before every NAV mutating operation (deposit and withdrawal)
-     * @dev Seeds the waterfall with the checkpoint returned by `_getLastAccountingCheckpoint()`, which subclasses may override to inject a recomposed starting state
+     * @dev Reads the accountant's persisted NAV checkpoint directly from its storage
      * @notice Returns the asset claims and total tranche shares after minting any fees for the specified tranche
      * @param _trancheType An enumerator indicating which tranche to return claims and total tranche shares for
      * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
@@ -657,7 +656,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
         returns (SyncedAccountingState memory state, AssetClaims memory claims, uint256 totalTrancheShares)
     {
         // Execute the pre-op sync via the accountant
-        state = IRoycoAccountant(ACCOUNTANT).preOpSyncTrancheAccounting(_getLastAccountingCheckpoint(), _getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
+        state = IRoycoAccountant(ACCOUNTANT).preOpSyncTrancheAccounting(_getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
 
         // Collect any protocol fees accrued from the sync to the fee recipient
         RoycoDawnKernelState storage $ = _getRoycoDawnKernelStorage();
@@ -800,16 +799,6 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
     function _getJuniorTrancheRawNAV() internal view virtual returns (NAV_UNIT jtRawNAV) {
         // Get the yield bearing assets owned by JT and convert them to NAV units via the configured quoter
         return jtConvertTrancheUnitsToNAVUnits(_getRoycoDawnKernelStorage().jtOwnedYieldBearingAssets);
-    }
-
-    /**
-     * @notice Returns the mark-to-market NAV accounting checkpoint that seeds every accountant sync and coverage query in this kernel
-     * @dev This is the canonical read-side override seam: subclasses that need to inject a different starting state (e.g. Dusk's recomposed checkpoint that reflects an internal/external ST share partition shift) should override this function
-     * @dev Overrides must remain pure-view since this is consumed by view-only paths (e.g. `_previewSyncTrancheAccounting`)
-     * @return checkpoint The last mark-to-market NAV accounting checkpoint
-     */
-    function _getLastAccountingCheckpoint() internal view virtual returns (AccountingStateCheckpoint memory checkpoint) {
-        return IRoycoAccountant(ACCOUNTANT).getLastAccountingStateCheckpoint();
     }
 
     /**

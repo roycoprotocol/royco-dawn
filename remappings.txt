@@ -11,3 +11,4 @@ lib/Pendle-SY-Public/:@openzeppelin/contracts/=lib/openzeppelin-contracts-v4/con
 @balancer-labs/v3-standalone-utils/=lib/balancer-v3-monorepo/pkg/standalone-utils/
 @balancer-labs/v3-oracles/=lib/balancer-v3-monorepo/pkg/oracles/
 @balancer-labs/v3-governance-scripts/=lib/balancer-v3-monorepo/pkg/governance-scripts/
+@chainlink/contracts/src/v0.8/shared/interfaces/=src/interfaces/external/chainlink/

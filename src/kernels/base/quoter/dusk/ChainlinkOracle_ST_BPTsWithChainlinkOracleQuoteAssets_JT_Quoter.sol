@@ -85,28 +85,21 @@ abstract contract ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_Quote
         return SeniorAssetsChainlinkOracleQuoter.stConvertNAVUnitsToTrancheUnits(_navAssets);
     }
 
-    /// @inheritdoc RoycoDuskKernel
-    /// @dev Delegates to the Dusk junior tranche asset model
-    function jtConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _jtAssets) public view override(RoycoDawnKernel, RoycoDuskKernel) returns (NAV_UNIT) {
-        return RoycoDuskKernel.jtConvertTrancheUnitsToNAVUnits(_jtAssets);
+    /// @inheritdoc IRoycoDawnKernel
+    /// @dev Diamond resolution: the junior tranche (BPT) NAV is sourced from the Balancer V3 pool tokens quoter
+    function jtConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _jtAssets)
+        public
+        view
+        override(RoycoDawnKernel, JuniorAssetsBalancerV3PoolTokensWithChainlinkOracleQuoteAssetsQuoter)
+        returns (NAV_UNIT)
+    {
+        return JuniorAssetsBalancerV3PoolTokensWithChainlinkOracleQuoteAssetsQuoter.jtConvertTrancheUnitsToNAVUnits(_jtAssets);
     }
 
     /// @inheritdoc RoycoDuskKernel
     /// @dev Delegates to the Dusk junior tranche asset model
     function jtConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) public view override(RoycoDawnKernel, RoycoDuskKernel) returns (TRANCHE_UNIT) {
         return RoycoDuskKernel.jtConvertNAVUnitsToTrancheUnits(_navAssets);
-    }
-
-    /// @inheritdoc RoycoDuskKernel
-    /// @dev Delegates to the Dusk recomposed senior tranche raw NAV
-    function _getSeniorTrancheRawNAV() internal view override(RoycoDawnKernel, RoycoDuskKernel) returns (NAV_UNIT stRawNAV) {
-        return RoycoDuskKernel._getSeniorTrancheRawNAV();
-    }
-
-    /// @inheritdoc RoycoDuskKernel
-    /// @dev Delegates to the Dusk junior tranche raw NAV
-    function _getJuniorTrancheRawNAV() internal view override(RoycoDawnKernel, RoycoDuskKernel) returns (NAV_UNIT jtRawNAV) {
-        return RoycoDuskKernel._getJuniorTrancheRawNAV();
     }
 
     /// @inheritdoc RoycoDuskKernel

@@ -248,7 +248,8 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
      * @return synced Always true on success; lets callers forward the result directly as the hook's required `bool` return
      */
     function _postLiquidityOpertionSyncTrancheAccounting() internal whenNotPaused returns (bool synced) {
-        IRoycoDuskKernel(ROYCO_DUSK_KERNEL).postLiquidityPositionOpSyncTrancheAccounting();
+        // NOTE: recomposition-based post-op sync removed; pending the Dusk v2 conservative-valuation model this is a no-op.
+        // A plain post-op sync is intentionally NOT performed here: under the current spot-composition valuation it would book phantom PNL from the swap's composition shift.
         return true;
     }
 }

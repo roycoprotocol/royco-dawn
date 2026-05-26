@@ -1,3 +1,17 @@
+/*
+ * MODULE
+ * @module AccountantMaxDepositRedeem
+ *
+ * GLOBAL ASSUMPTIONS
+ * @global_assumption upgradeToAndCall is excluded — it can reinitialize the contract
+ * @global_assumption block.timestamp is monotonically non-decreasing and below the protocol end date (~2104)
+ * @global_assumption The stored lastJTRawNAV and lastSTRawNAV match the inputs (no price change since last sync)
+ *
+ * PROPERTIES
+ * @property KER09 maxJTWithdrawalGivenCoverage returns a correct upper bound: redeeming less than the maximum must not push utilization above 100%
+ * @property KER10 maxSTDepositGivenCoverage returns a correct upper bound: depositing up to the maximum must not push utilization above 100%
+ */
+
 import "../lib-summaries/OpenZeppelin/OZ_Math.spec";
 
 using RoycoAccountant as roycoAccountant;
@@ -31,7 +45,12 @@ hook TIMESTAMP uint256 time {
 definition excludeUpgradeAndCall(method f) returns bool =
     f.selector != sig:upgradeToAndCall(address,bytes).selector;
 
-/* @title KER10 */
+/**
+ * @title maxSTDepositGivenCoverage is a correct upper bound for ST deposit
+ * @description Depositing any amount up to maxSTDepositGivenCoverage must leave utilization at or below 100% (WAD); the function must not return an over-estimate that would allow a violating deposit.
+ * @link_property KER10
+ * @status WIP
+ */
 rule maxStDepositCorrect {
     env e;
     RoycoAccountant.NAV_UNIT stRawNAV;
@@ -53,7 +72,12 @@ rule maxStDepositCorrect {
     assert state.utilizationWAD <= WAD(), "utilization is below max";
 }
 
-/* @title KER09 */
+/**
+ * @title maxJTWithdrawalGivenCoverage is a correct upper bound for JT redeem
+ * @description Redeeming any amount strictly less than the maximum returned by maxJTWithdrawalGivenCoverage must leave utilization at or below 100% (WAD); the function must not return an over-estimate that would allow a violating redeem.
+ * @link_property KER09
+ * @status WIP
+ */
 rule maxJtRedeemCorrect {
     env e;
     RoycoAccountant.NAV_UNIT stRawNAV;

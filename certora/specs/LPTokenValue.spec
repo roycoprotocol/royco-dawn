@@ -1,4 +1,19 @@
 
+/*
+ * MODULE
+ * @module LPTokenValue
+ *
+ * GLOBAL ASSUMPTIONS
+ * @global_assumption upgradeToAndCall and mintProtocolFeeShares are excluded — they change NAV or supply in ways outside the scope of these properties
+ * @global_assumption The oracle price is modeled as a constant per rule execution and the pre-state price is already synced
+ * @global_assumption totalSupply equals the sum of all balances (tracked via ghost)
+ * @global_assumption jtYieldShare is bounded below WAD (modeled as an abstract function satisfying this axiom)
+ *
+ * PROPERTIES
+ * @property KER07 One ST share value (stEffectiveNAV / stTotalSupply) must not decrease across any operation
+ * @property KER08 One JT share value (jtEffectiveNAV / jtTotalSupply) must not decrease across any operation (except when self-liquidation bonus applies)
+ */
+
 import "../summaries/using-Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.spec";
 //import "../summaries/summaries-RoycoAccountant.spec";
 //import "../external/external-nondet.spec";
@@ -108,6 +123,12 @@ ghost jtYieldShareCVL(RoycoAccountant.NAV_UNIT, RoycoAccountant.NAV_UNIT, uint25
         jtYieldShareCVL(stRawNAV, jtRawNAV, beta, coverage, jtEffectiveNAV) < WAD());
 }
 
+/**
+ * @title JT share value does not decrease across any operation
+ * @description The ratio jtEffectiveNAV / jtTotalSupply must not decrease after any operation (excluding upgradeToAndCall and mintProtocolFeeShares). The self-liquidation bonus is excluded when utilization is below 100%.
+ * @link_property KER08
+ * @status WIP
+ */
 rule jtTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -> excludeUpgradeAndCall(f) && excludeMintFee(f) }
 {
     // assume price is already synced
@@ -146,6 +167,12 @@ rule jtTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -
     assert (jtEffectiveNAVBefore) * (jtTotalAfter + 1) <= (jtEffectiveNAVAfter + 2) * (jtTotalBefore + 1), "JT NAV per share increases";
 }
 
+/**
+ * @title ST share value does not decrease across any operation
+ * @description The ratio stEffectiveNAV / stTotalSupply must not decrease after any operation (excluding upgradeToAndCall and mintProtocolFeeShares).
+ * @link_property KER07
+ * @status WIP
+ */
 rule stTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -> excludeUpgradeAndCall(f) && excludeMintFee(f) }
 {
     // assume price is already synced

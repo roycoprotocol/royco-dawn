@@ -1,4 +1,20 @@
 
+/*
+ * MODULE
+ * @module MaxDepositRedeem
+ *
+ * GLOBAL ASSUMPTIONS
+ * @global_assumption canCall always returns true (authorization tested separately)
+ * @global_assumption The oracle price is modeled as a constant
+ * @global_assumption mulDiv is summarized with monotonicity axioms (directional summary)
+ * @global_assumption jtYieldShare is bounded below WAD
+ * @global_assumption Reasonable NAV bounds (stOwnedYieldBearingAssets and jtOwnedYieldBearingAssets < 2^200) are assumed to avoid overflow
+ *
+ * PROPERTIES
+ * @property KER09 redeem(maxRedeem()) must not revert (unless blacklisted, paused, etc.)
+ * @property KER10 deposit(maxDeposit()) must not revert (unless blacklisted, paused, etc.)
+ */
+
 import "../summaries/using-Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.spec";
 //import "../summaries/summaries-RoycoAccountant.spec";
 //import "../external/external-nondet.spec";
@@ -73,6 +89,12 @@ ghost jtYieldShareCVL(RoycoAccountant.NAV_UNIT, RoycoAccountant.NAV_UNIT, uint25
         jtYieldShareCVL(stRawNAV, jtRawNAV, beta, coverage, jtEffectiveNAV) < WAD());
 }
 
+/**
+ * @title deposit(maxDeposit()) for ST does not revert
+ * @description If maxDeposit() returns a positive amount, depositing exactly that amount must succeed; the max deposit function must return a tight and accurate upper bound.
+ * @link_property KER10
+ * @status WIP
+ */
 rule stDepositMaxDoesNotRevert(env e) {
     uint256 someAmount;
     address receiver;
@@ -101,6 +123,12 @@ rule stDepositMaxDoesNotRevert(env e) {
 
 
 
+/**
+ * @title deposit(maxDeposit()) for JT does not revert
+ * @description If maxDeposit() returns a positive amount for JT, depositing exactly that amount must succeed; the max deposit function must return a tight and accurate upper bound.
+ * @link_property KER10
+ * @status WIP
+ */
 rule jtDepositMaxDoesNotRevert(env e) {
     uint256 someAmount;
     address receiver;
@@ -128,6 +156,12 @@ rule jtDepositMaxDoesNotRevert(env e) {
 }
 
 
+/**
+ * @title redeem(maxRedeem()) for ST does not revert
+ * @description If maxRedeem() returns a positive amount for ST, redeeming exactly that amount (with sufficient allowance) must succeed; the max redeem function must return a tight and accurate upper bound.
+ * @link_property KER09
+ * @status WIP
+ */
 rule stRedeemMaxDoesNotRevert(env e) {
     uint256 someAmount;
     address receiver;
@@ -150,6 +184,12 @@ rule stRedeemMaxDoesNotRevert(env e) {
     assert !lastReverted, "No revert when depositing max amount";
 }
 
+/**
+ * @title redeem(maxRedeem()) for JT does not revert
+ * @description If maxRedeem() returns a positive amount for JT, redeeming exactly that amount (with sufficient allowance) must succeed; the max redeem function must return a tight and accurate upper bound.
+ * @link_property KER09
+ * @status WIP
+ */
 rule jtRedeemMaxDoesNotRevert(env e) {
     uint256 someAmount;
     address receiver;

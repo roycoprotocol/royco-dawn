@@ -1,3 +1,26 @@
+/*
+ * MODULE
+ * @module SyncOp
+ *
+ * GLOBAL ASSUMPTIONS
+ * @global_assumption upgradeToAndCall is excluded from all rules — it can reinitialize the contract
+ * @global_assumption block.timestamp is monotonically non-decreasing and below the protocol end date (~2104)
+ * @global_assumption stNAVDustTolerance is 0 in PRE01 to simplify the fee/loss relationship
+ *
+ * PROPERTIES
+ * @property PRE01 yieldDistributed (fees accrued) implies stImpermanentLoss = jtImpermanentLoss = 0 and marketstate = PERPETUAL
+ * @property PRE02 marketstate = FIXED_TERM implies fixedTermEndTimestamp > 0
+ * @property PRE03 marketstate = FIXED_TERM implies stProtocolFeeAccrued = 0 and jtProtocolFeeAccrued = 0
+ * @property PRE04 if stImpermanentLoss was 0 before the call, then stImpermanentLoss > 0 after implies jtEffectiveNAV = 0
+ * @property PRE05 if stImpermanentLoss > 0, then jtEffectiveNAV does not increase
+ * @property POST01 postOpSyncTrancheAccounting distributes no fees
+ * @property POST02 raw NAV changes are reflected directly in effective NAV; cross-tranche effects match expected rules per operation
+ * @property POST03 jtEffectiveNAV increases only when the operation is JT_DEPOSIT
+ * @property POST04 on stRedeem or jtRedeem, stImpermanentLoss decreases proportionately to stEffectiveNAV
+ * @property POST05 on jtRedeem, jtImpermanentLoss decreases proportionately to jtEffectiveNAV
+ * @property KER06 ST NAV per share only decreases when stImpermanentLoss increases (i.e., when jtEffectiveNAV is zero)
+ */
+
 import "../lib-summaries/OpenZeppelin/OZ_Math.spec";
 
 using RoycoAccountant as roycoAccountant;
@@ -30,7 +53,13 @@ hook TIMESTAMP uint256 time {
 definition excludeUpgradeAndCall(method f) returns bool =
     f.selector != sig:upgradeToAndCall(address,bytes).selector;
 
-/* @title PRE01 */
+/**
+ * @title Fees distributed only in PERPETUAL state with no impermanent loss
+ * @description If either protocol fee is non-zero (yield was distributed), then both stImpermanentLoss and jtImpermanentLoss must be zero and the market must be in PERPETUAL state.
+ * @link_property PRE01
+ * @assumption stNAVDustTolerance = 0 to simplify the relationship between yield distribution and loss tracking
+ * @status WIP
+ */
 rule preSyncNoYieldMeansNoFee()
 {
     env e;
@@ -46,7 +75,12 @@ rule preSyncNoYieldMeansNoFee()
         state.stImpermanentLoss == 0 && state.jtImpermanentLoss == 0 && state.marketState == RoycoAccountant.MarketState.PERPETUAL;
 }
 
-/* @title PRE02 */
+/**
+ * @title FIXED_TERM state in preOpSync implies fixedTermEndTimestamp is set
+ * @description When preOpSync returns a FIXED_TERM market state, the end timestamp must be non-zero — a fixed-term period without a deadline is invalid.
+ * @link_property PRE02
+ * @status WIP
+ */
 rule preSyncFixedTermHasTimestamp()
 {
     env e;
@@ -60,7 +94,12 @@ rule preSyncFixedTermHasTimestamp()
         state.fixedTermEndTimestamp > 0;
 }
 
-/* @title PRE03 */
+/**
+ * @title FIXED_TERM state in preOpSync implies no protocol fees accrued
+ * @description When preOpSync returns a FIXED_TERM market state, at least one of stProtocolFeeAccrued and jtProtocolFeeAccrued must be zero; fees are only distributed when the market is in PERPETUAL mode.
+ * @link_property PRE03
+ * @status WIP
+ */
 rule preSyncFixedTermNoFee()
 {
     env e;
@@ -75,7 +114,12 @@ rule preSyncFixedTermNoFee()
 }
 
 
-/* @title PRE04 */
+/**
+ * @title Newly introduced ST impermanent loss implies jtEffectiveNAV = 0
+ * @description If stImpermanentLoss was zero before the call but becomes positive after preOpSync, then jtEffectiveNAV must be zero — JT must be fully depleted before ST can take losses.
+ * @link_property PRE04
+ * @status WIP
+ */
 rule preSyncNewStLossImpliesJTEffectiveZero()
 {
     env e;
@@ -90,7 +134,12 @@ rule preSyncNewStLossImpliesJTEffectiveZero()
     assert state.stImpermanentLoss > stLossBeforeCall => state.jtEffectiveNAV == 0;
 }
 
-/* @title PRE05 */
+/**
+ * @title Existing ST impermanent loss prevents jtEffectiveNAV from increasing
+ * @description If stImpermanentLoss > 0 before preOpSync, then jtEffectiveNAV must not increase after the call — new yield cannot benefit JT while ST is in a loss position.
+ * @link_property PRE05
+ * @status WIP
+ */
 rule preSyncStLossImpliesJTEffectiveCannotIncrease()
 {
     env e;
@@ -105,7 +154,12 @@ rule preSyncStLossImpliesJTEffectiveCannotIncrease()
     assert state.stImpermanentLoss > 0 => state.jtEffectiveNAV <= jtEffNAVBefore;
 }
 
-/* @title POST01 */
+/**
+ * @title postOpSyncTrancheAccounting never distributes protocol fees
+ * @description The post-operation sync only updates NAV accounting; protocol fees are exclusively distributed through preOpSync.
+ * @link_property POST01
+ * @status WIP
+ */
 rule postSyncNoFees() {
     env e;
     RoycoAccountant.Operation op;
@@ -120,7 +174,12 @@ rule postSyncNoFees() {
     assert state.jtProtocolFeeAccrued == 0;
 }
 
-/* @title POST02 */
+/**
+ * @title Raw NAV changes are reflected directly in effective NAV per operation type
+ * @description The total effective NAV change always equals the total raw NAV change. Cross-tranche effects follow per-operation rules: ST_DEPOSIT and JT_DEPOSIT do not affect the other tranche's effective NAV (except ST_REDEEM which transfers the self-liquidation bonus to JT).
+ * @link_property POST02
+ * @status WIP
+ */
 rule postSyncRawChangeDirectlyReflected() {
     env e;
     RoycoAccountant.Operation op;
@@ -168,7 +227,12 @@ rule postSyncRawChangeDirectlyReflected() {
 }
 
 
-/* @title POST03 */
+/**
+ * @title jtEffectiveNAV only increases on JT_DEPOSIT
+ * @description The only operation that may increase jtEffectiveNAV is JT_DEPOSIT; all other operations (ST_DEPOSIT, ST_REDEEM, JT_REDEEM) must not increase jtEffectiveNAV.
+ * @link_property POST03
+ * @status WIP
+ */
 rule postSyncOnlyJTDepositIncreasesJTEffective() {
     env e;
     RoycoAccountant.Operation op;
@@ -184,7 +248,12 @@ rule postSyncOnlyJTDepositIncreasesJTEffective() {
     assert state.jtEffectiveNAV > jtEffNAVBefore => op == RoycoAccountant.Operation.JT_DEPOSIT;
 }
 
-/* @title POST04 */
+/**
+ * @title stImpermanentLoss decreases proportionately to stEffectiveNAV on redeem
+ * @description On ST_REDEEM or JT_REDEEM, stImpermanentLoss decreases in proportion to the reduction in stEffectiveNAV, ensuring the loss-per-NAV ratio is preserved (up to rounding).
+ * @link_property POST04
+ * @status WIP
+ */
 rule postSyncSTImpermanentLossProportionally() {
     env e;
 
@@ -211,7 +280,12 @@ rule postSyncSTImpermanentLossProportionally() {
     assert (impermanentLossAfter - 1) * effNAVBefore <= impermanentLossBefore * effNAVAfter, "impermanentLoss only suffers rounding";
 }
 
-/* @title POST05 */
+/**
+ * @title jtImpermanentLoss decreases proportionately to jtEffectiveNAV on redeem
+ * @description On JT_REDEEM, jtImpermanentLoss decreases in proportion to the reduction in jtEffectiveNAV, ensuring the loss-per-NAV ratio is preserved (up to rounding).
+ * @link_property POST05
+ * @status WIP
+ */
 rule postSyncJTImpermanentLossProportionally() {
     env e;
 
@@ -246,7 +320,12 @@ rule postSyncJTImpermanentLossProportionally() {
     assert (impermanentLossAfter + 1) * effNAVBefore >= impermanentLossBefore * effNAVAfter, "impermanentLoss only suffers rounding";
 }
 
-/* @title KER06 */
+/**
+ * @title ST effective NAV per share only decreases when jtEffectiveNAV is zero
+ * @description The ST NAV can only decline if JT has been fully depleted (jtEffectiveNAV = 0), meaning losses have exhausted the JT buffer and are now hitting ST.
+ * @link_property KER06
+ * @status WIP
+ */
 rule StNAVIncreasesUnlessJTIsZero() {
 
     env e;

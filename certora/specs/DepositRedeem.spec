@@ -1,4 +1,18 @@
 
+/*
+ * MODULE
+ * @module DepositRedeem
+ *
+ * GLOBAL ASSUMPTIONS
+ * @global_assumption The oracle price is modeled as a constant per rule execution
+ * @global_assumption safeTransfer and safeTransferFrom are modeled as NONDET (token transfer correctness is out of scope)
+ *
+ * PROPERTIES
+ * @property KER03 redeem immediately followed by deposit should not be profitable (at most rounding losses)
+ * @property KER04 deposit immediately followed by redeem should not be profitable (if already invested)
+ * @property KER05 multiple deposits or redeems in sequence should get the same exchange rate; splitting should not be profitable
+ */
+
 import "../summaries/using-Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.spec";
 //import "../summaries/summaries-RoycoAccountant.spec";
 //import "../external/external-nondet.spec";
@@ -46,6 +60,12 @@ methods {
 
 definition WAD() returns mathint = 10^18;
 
+/**
+ * @title JT deposit then immediate redeem is not profitable
+ * @description Depositing into the JT tranche and immediately redeeming the received shares must yield at most the deposited amount.
+ * @link_property KER04
+ * @status WIP
+ */
 rule depositRedeemJunior(env e) {
     // Depositing and Redeeming immediately should not be profitable.
     address owner;
@@ -59,6 +79,12 @@ rule depositRedeemJunior(env e) {
     assert claims.jtAssets + claims.stAssets <= amount, "Deposit followed by redeem should not be profitable";
 }
 
+/**
+ * @title JT redeem then immediate redeposit is not profitable
+ * @description Redeeming JT shares and immediately redepositing the received assets must yield at most the original share amount.
+ * @link_property KER03
+ * @status WIP
+ */
 rule redeemDepositJunior(env e) {
     // Depositing and Redeeming immediately should not be profitable.
     uint256 amount;
@@ -73,6 +99,12 @@ rule redeemDepositJunior(env e) {
     assert received <= amount, "Redeem followed by deposit should not be profitable";
 }
 
+/**
+ * @title ST deposit then immediate redeem is not profitable
+ * @description Depositing into the ST tranche and immediately redeeming the received shares must yield at most the deposited amount.
+ * @link_property KER04
+ * @status WIP
+ */
 rule depositRedeemSenior(env e) {
     // Depositing and Redeeming immediately should not be profitable.
     uint256 amount;
@@ -86,6 +118,12 @@ rule depositRedeemSenior(env e) {
     assert claims.jtAssets + claims.stAssets <= amount, "Deposit followed by redeem should not be profitable";
 }
 
+/**
+ * @title ST redeem then immediate redeposit is not profitable
+ * @description Redeeming ST shares and immediately redepositing the received assets must yield at most the original share amount.
+ * @link_property KER03
+ * @status WIP
+ */
 rule redeemDepositSenior(env e) {
     // Depositing and Redeeming immediately should not be profitable.
     uint256 amount;
@@ -100,6 +138,12 @@ rule redeemDepositSenior(env e) {
     assert received <= amount, "Redeem followed by deposit should not be profitable";
 }
 
+/**
+ * @title JT split deposit is not more profitable than a single deposit
+ * @description Depositing amount1 and amount2 separately must yield no more shares than depositing amount1+amount2 in a single call.
+ * @link_property KER05
+ * @status WIP
+ */
 rule depositSplitJunior(env e) {
     storage init = lastStorage;
 
@@ -115,6 +159,12 @@ rule depositSplitJunior(env e) {
     assert shares1 + shares2 <= shares3, "splitting should not be profitable";
 }
 
+/**
+ * @title JT split redeem is not more profitable than a single redeem
+ * @description Redeeming amount1 and amount2 separately must yield no more assets than redeeming amount1+amount2 in a single call.
+ * @link_property KER05
+ * @status WIP
+ */
 rule redeemSplitJunior(env e) {
     storage init = lastStorage;
 
@@ -136,6 +186,12 @@ rule redeemSplitJunior(env e) {
 }
 
 
+/**
+ * @title ST split deposit is not more profitable than a single deposit
+ * @description Depositing amount1 and amount2 separately into ST must yield no more shares than depositing amount1+amount2 in a single call.
+ * @link_property KER05
+ * @status WIP
+ */
 rule depositSplitSenior(env e) {
     storage init = lastStorage;
 
@@ -151,6 +207,12 @@ rule depositSplitSenior(env e) {
     assert shares1 + shares2 <= shares3, "splitting should not be profitable";
 }
 
+/**
+ * @title ST split redeem is not more profitable than a single redeem
+ * @description Redeeming amount1 and amount2 separately from ST must yield no more assets than redeeming amount1+amount2 in a single call.
+ * @link_property KER05
+ * @status WIP
+ */
 rule redeemSplitSenior(env e) {
     storage init = lastStorage;
 
@@ -172,6 +234,12 @@ rule redeemSplitSenior(env e) {
 }
 
 
+/**
+ * @title Consecutive JT deposits of the same amount yield the same shares
+ * @description Two consecutive JT deposits of the same amount must receive the same number of shares, confirming that a deposit does not change the exchange rate.
+ * @link_property KER05
+ * @status WIP
+ */
 rule depositSameJunior(env e) {
     storage init = lastStorage;
 
@@ -184,6 +252,12 @@ rule depositSameJunior(env e) {
     assert shares1 == shares2, "deposit should preserve price";
 }
 
+/**
+ * @title Consecutive JT redeems of the same amount yield the same assets
+ * @description Two consecutive JT redeems of the same share amount must receive identical assets, confirming that a redeem does not change the exchange rate.
+ * @link_property KER05
+ * @status WIP
+ */
 rule redeemSameJunior(env e) {
     storage init = lastStorage;
 
@@ -201,6 +275,12 @@ rule redeemSameJunior(env e) {
 }
 
 
+/**
+ * @title Consecutive ST deposits of the same amount yield the same shares
+ * @description Two consecutive ST deposits of the same amount must receive the same number of shares, confirming that a deposit does not change the exchange rate.
+ * @link_property KER05
+ * @status WIP
+ */
 rule depositSameSenior(env e) {
     storage init = lastStorage;
 
@@ -213,6 +293,12 @@ rule depositSameSenior(env e) {
     assert shares1 == shares2, "deposit should preserve price";
 }
 
+/**
+ * @title Consecutive ST redeems of the same amount yield the same assets
+ * @description Two consecutive ST redeems of the same share amount must receive identical assets, confirming that a redeem does not change the exchange rate.
+ * @link_property KER05
+ * @status WIP
+ */
 rule redeemSameSenior(env e) {
     storage init = lastStorage;
 

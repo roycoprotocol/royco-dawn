@@ -1,3 +1,23 @@
+/*
+ * MODULE
+ * @module AccountantInvariants
+ *
+ * GLOBAL ASSUMPTIONS
+ * @global_assumption upgradeToAndCall is excluded from all invariants — it can reinitialize the contract
+ * @global_assumption block.timestamp is monotonically non-decreasing and below the protocol end date (~2104)
+ *
+ * PROPERTIES
+ * @property INV01 jtEffectiveNAV + stEffectiveNAV = jtRawNAV + stRawNAV at all times
+ * @property INV02 jtImpermanentLoss > dust implies marketstate = FIXED_TERM
+ * @property INV03 jtImpermanentLoss = 0 implies marketstate = PERPETUAL
+ * @property INV05 stImpermanentLoss > 0 implies marketstate = PERPETUAL (distressed state)
+ * @property INV06 fixedTermDurationSeconds = 0 implies marketstate = PERPETUAL (no fixed-term allowed)
+ * @property PRE02 marketstate = FIXED_TERM implies fixedTermEndTimestamp > 0
+ * @property CNF01 liquidationUtilizationWAD > WAD (liquidation threshold above 100%)
+ * @property CNF02 coverageWAD * betaWAD < WAD^2 (product of coverage and beta below 1.0)
+ * @property CNF03 MIN_COVERAGE_WAD <= coverageWAD <= MAX_COVERAGE_WAD
+ */
+
 import "../lib-summaries/OpenZeppelin/OZ_Math.spec";
 
 using RoycoAccountant as roycoAccountant;
@@ -30,10 +50,13 @@ hook TIMESTAMP uint256 time {
 definition excludeUpgradeAndCall(method f) returns bool =
     f.selector != sig:upgradeToAndCall(address,bytes).selector;
 
-/* @title The sum JT+ST raw NAV equals the sum JT+ST effective NAV.
- * @status Verified
+/**
+ * @title JT+ST effective NAV equals JT+ST raw NAV
+ * @description The total effective NAV equals the total raw NAV at all times: impermanent losses are transferred between tranches, not created or destroyed.
+ * @link_property INV01
+ * @status VERIFIED
  */
-invariant sumEffectiveEqualsRaw() 
+invariant sumEffectiveEqualsRaw()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV +
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV ==
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV +
@@ -41,48 +64,72 @@ invariant sumEffectiveEqualsRaw()
     filtered { f -> excludeUpgradeAndCall(f) }
 
 
-/* @title If there is jtImpermanentLoss above dust the market state is FIXED_TERM.
- * @notice Currently violated by setting dust or initialize.
+/**
+ * @title JT impermanent loss above dust implies FIXED_TERM market state
+ * @description If jtImpermanentLoss exceeds the dust tolerance, the market must be in FIXED_TERM state. JT losses only arise when a fixed-term market settles below par.
+ * @link_property INV02
+ * @assumption initialize and setDustTolerance can create temporarily inconsistent states
+ * @status VIOLATED
  */
-invariant jtLossImpliesFixedTerm() 
+invariant jtLossImpliesFixedTerm()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTImpermanentLoss > 
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.stNAVDustTolerance
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.FIXED_TERM
     filtered { f -> excludeUpgradeAndCall(f)}
 
-/* @title If there is no jtImpermanentLoss the market state is PERPETUAL.
- * @notice Currently violated by redeeming (almost) all jt tokens.
+/**
+ * @title Zero JT impermanent loss implies PERPETUAL market state
+ * @description When jtImpermanentLoss = 0, the market must be in PERPETUAL state; there is no ongoing fixed-term settlement with unrecovered losses.
+ * @link_property INV03
+ * @assumption Violated when nearly all JT tokens are redeemed, leaving only dust
+ * @status VIOLATED
  */
-invariant noJTLossImpliesPerpetual() 
+invariant noJTLossImpliesPerpetual()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTImpermanentLoss == 0
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.PERPETUAL
     filtered { f -> excludeUpgradeAndCall(f) }
 
-/* @title If there is stImpermanentLoss the market state is PERPETUAL.
+/**
+ * @title ST impermanent loss implies PERPETUAL market state
+ * @description When stImpermanentLoss > 0, the market is in a distressed PERPETUAL state where JT has been fully depleted and ST bears residual losses.
+ * @link_property INV05
+ * @status WIP
  */
-invariant stLossImpliesPerpetual() 
+invariant stLossImpliesPerpetual()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss > 0
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.PERPETUAL
     filtered { f -> excludeUpgradeAndCall(f) }
 
-/* @title If there is stImpermanentLoss there cannot be jtImpermanentLoss
+/**
+ * @title ST impermanent loss and JT impermanent loss are mutually exclusive
+ * @description ST and JT losses cannot coexist: JT loss occurs during FIXED_TERM settlement, while ST loss occurs in the PERPETUAL distressed state after JT is depleted.
+ * @link_property INV05
+ * @status WIP
  */
-invariant stLossImpliesNoJTLoss() 
+invariant stLossImpliesNoJTLoss()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss > 0
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTImpermanentLoss == 0
     filtered { f -> excludeUpgradeAndCall(f) }
 
-/* @title If there is stImpermanentLoss the jtEffectiveNAV is zero
- * @notice This is violated by jtDeposit: it will increase jtEffectiveNAV without repaying the ST losses.  This is how the contract should work, so this invariant is not a good invariant for the contract.
+/**
+ * @title ST impermanent loss implies jtEffectiveNAV is zero
+ * @description This would mean JT has no value while ST is in deficit. Violated by design: jtDeposit increases jtEffectiveNAV even when stImpermanentLoss > 0, as new JT deposits do not first repay ST losses.
+ * @link_property INV05
+ * @ignore Violated by jtDeposit by design — new JT liquidity does not retroactively cover ST losses
+ * @status VIOLATED
  */
-invariant stLossImpliesJTEffectivelyZero() 
+invariant stLossImpliesJTEffectivelyZero()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss > 0
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV == 0
     filtered { f -> excludeUpgradeAndCall(f)}
 
-/* @title If the termDuration is 0, the marketstate is always PERPTUAL.
+/**
+ * @title Zero fixedTermDurationSeconds implies PERPETUAL market state
+ * @description When the fixed-term duration is configured as 0, no fixed-term transitions are allowed and the market must always remain in PERPETUAL mode.
+ * @link_property INV06
+ * @status WIP
  */
-invariant termDurationZeroAlwaysPerpetual() 
+invariant termDurationZeroAlwaysPerpetual()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.fixedTermDurationSeconds == 0
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.PERPETUAL
     filtered { f -> excludeUpgradeAndCall(f)}
@@ -97,8 +144,12 @@ invariant utilizationHighImpliesPerpetual()
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.PERPETUAL;
 */
 
-/* @title If the marketstate is FIXED_TERM, the fixedTermEndTimestamp must be set.
- * @notice violated by initialize, but this should not be possible to be executed once initialization is complete.
+/**
+ * @title FIXED_TERM market state implies fixedTermEndTimestamp is set
+ * @description A fixed-term period without a deadline is invalid; when in FIXED_TERM state the end timestamp must be non-zero.
+ * @link_property PRE02
+ * @assumption initialize can create a transient state before full setup is complete
+ * @status VIOLATED
  */
 invariant fixedTermIsBounded()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.FIXED_TERM
@@ -113,23 +164,45 @@ invariant noFeesWhenFixedTerm()
     filtered { f -> excludeUpgradeAndCall(f)}
 */
 
+/**
+ * @title liquidationUtilizationWAD is always greater than WAD (100%)
+ * @description The liquidation threshold must exceed 100% utilization to provide a meaningful safe zone between full coverage and forced liquidation.
+ * @link_property CNF01
+ * @status WIP
+ */
 invariant liquidationGreaterThanOne()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.liquidationUtilizationWAD > WAD()
     filtered { f -> excludeUpgradeAndCall(f) }
 
+/**
+ * @title coverageWAD * betaWAD < WAD^2
+ * @description The product of coverage and beta must be below 1 to ensure the utilization denominator remains positive and the coverage formula yields valid results.
+ * @link_property CNF02
+ * @status WIP
+ */
 invariant coverageBetaLessThanOne()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD *
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD < WAD()*WAD()
     filtered { f -> excludeUpgradeAndCall(f) }
 
-/* @title Coverage is always at least the min coverage.
- * @notice The code contract doesn't satisfy the property and we need to exclude it by checking if _initialized is max_uint64.
+/**
+ * @title coverageWAD is at least MIN_COVERAGE_WAD (1%)
+ * @description The coverage parameter has a minimum of 1% to prevent degenerate configurations that would make the utilization formula meaningless.
+ * @link_property CNF03
+ * @assumption Uninitialized contracts (where _initialized != max_uint64) are excluded as coverage may not yet be set
+ * @status WIP
  */
 invariant coverageGreaterEqualMin()
     roycoAccountant.ext_openzeppelin_storage_Initializable._initialized != max_uint64 =>
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD >= MIN_COVERAGE_WAD()
     filtered { f -> excludeUpgradeAndCall(f) }
 
+/**
+ * @title coverageWAD is at most MAX_COVERAGE_WAD (≈100%)
+ * @description The coverage parameter has a maximum just below 100% to ensure the protocol always retains some buffer above the liquidation threshold.
+ * @link_property CNF03
+ * @status WIP
+ */
 invariant coverageLessEqualMax()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD <= MAX_COVERAGE_WAD()
     filtered { f -> excludeUpgradeAndCall(f) }

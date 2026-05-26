@@ -1,4 +1,20 @@
 
+/*
+ * MODULE
+ * @module Utilization
+ *
+ * GLOBAL ASSUMPTIONS
+ * @global_assumption The oracle price (getTrancheUnitToNAVUnitConversionRateWAD) is modeled as a constant per rule execution
+ * @global_assumption The pre-state price is already synced to stored NAV values where explicitly required
+ * @global_assumption canCall always returns true (authorization is tested separately in TrancheInvariants)
+ *
+ * PROPERTIES
+ * @property KER01 marketstate = FIXED_TERM implies stRedeem and jtDeposit must revert
+ * @property KER02 stImpermanentLoss > 0 implies stDeposit must revert
+ * @property UTI02 stRedeem and jtDeposit always decrease or preserve utilization (coverage requirement remains satisfied)
+ * @property UTI03 stDeposit and jtRedeem must not violate the coverage requirement (utilization must remain satisfied after)
+ */
+
 import "../summaries/using-Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.spec";
 //import "../summaries/summaries-RoycoAccountant.spec";
 //import "../external/external-nondet.spec";
@@ -52,6 +68,12 @@ definition WAD() returns mathint = 10^18;
 definition MIN_COVERAGE_WAD() returns mathint = 10^16;   // 1 %
 definition MAX_COVERAGE_WAD() returns mathint = 10^18-1; // 99.9999999999999999 %
 
+/**
+ * @title ST deposit does not violate the coverage requirement
+ * @description After an ST deposit, the coverage requirement (utilization ≤ 100%) must be satisfied; ST deposits increase the pool that needs to be covered but must not push utilization over the limit.
+ * @link_property UTI03
+ * @status WIP
+ */
 rule stDepositEnsuresUtilization(env e) {
     address receiver;
     uint256 amount;
@@ -61,6 +83,12 @@ rule stDepositEnsuresUtilization(env e) {
     assert roycoAccountant.isCoverageRequirementSatisfied(),  "stDeposit must not violate utilization";
 }
 
+/**
+ * @title JT redeem does not violate the coverage requirement
+ * @description After a JT redeem, the coverage requirement must be satisfied; the implementation must revert if redeeming JT would push utilization over the limit.
+ * @link_property UTI03
+ * @status WIP
+ */
 rule jtRedeemEnsuresUtilization(env e) {
     address owner;
     address receiver;
@@ -71,6 +99,12 @@ rule jtRedeemEnsuresUtilization(env e) {
     assert roycoAccountant.isCoverageRequirementSatisfied(),  "jtRedeem must not violate utilization";
 }
 
+/**
+ * @title JT deposit decreases or preserves utilization
+ * @description A JT deposit adds JT-side coverage and must not worsen (increase) utilization; if coverage was satisfied before, it remains satisfied after.
+ * @link_property UTI02
+ * @status WIP
+ */
 rule jtDepositPreservesUtilization(env e) {
     address receiver;
     uint256 amount;
@@ -112,6 +146,12 @@ rule jtDepositPreservesUtilization(env e) {
     assert roycoAccountant.isCoverageRequirementSatisfied(),  "jtRedeem must not violate utilization";
 }
 
+/**
+ * @title ST redeem decreases or preserves utilization
+ * @description An ST redeem removes ST-side exposure and must not worsen utilization; if coverage was satisfied before, it remains satisfied after.
+ * @link_property UTI02
+ * @status WIP
+ */
 rule stRedeemPreservesUtilization(env e) {
     address receiver;
     address owner;
@@ -156,6 +196,12 @@ rule stRedeemPreservesUtilization(env e) {
     assert roycoAccountant.isCoverageRequirementSatisfied(),  "jtRedeem must not violate utilization";
 }
 
+/**
+ * @title ST redeem reverts in FIXED_TERM market state
+ * @description In a fixed-term market, ST holders cannot redeem; the call must revert if the market state is FIXED_TERM.
+ * @link_property KER01
+ * @status WIP
+ */
 rule stRedeemRevertsInFixedTerm(env e) {
     uint256 amount;
     address receiver;
@@ -165,6 +211,12 @@ rule stRedeemRevertsInFixedTerm(env e) {
     assert roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState != RoycoAccountant.MarketState.FIXED_TERM, "stRedeem reverts in fixe term";
 }
 
+/**
+ * @title JT deposit reverts in FIXED_TERM market state
+ * @description In a fixed-term market, new JT deposits are not allowed; the call must revert if the market state is FIXED_TERM.
+ * @link_property KER01
+ * @status WIP
+ */
 rule jtDepositRevertsInFixedTerm(env e) {
     uint256 amount;
     address receiver;
@@ -173,6 +225,12 @@ rule jtDepositRevertsInFixedTerm(env e) {
     assert roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState != RoycoAccountant.MarketState.FIXED_TERM, "jtDeposit reverts in fixe term";
 }
 
+/**
+ * @title ST deposit reverts when stImpermanentLoss > 0
+ * @description When the ST tranche is in a distressed state (stImpermanentLoss > 0), new ST deposits must revert to prevent dilution of the loss.
+ * @link_property KER02
+ * @status WIP
+ */
 rule stDepositRevertsWithImpermanentLoss(env e) {
     uint256 amount;
     address receiver;

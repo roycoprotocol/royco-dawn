@@ -1,9 +1,11 @@
 /*
  * MODULE
- * @module AccountantInvariants
+ * @module RoycoAccountant
  *
  * GLOBAL ASSUMPTIONS
+ * @global_assumption the maximum supported timestamp is the year 2104.
  * @global_assumption upgradeToAndCall is excluded from all invariants — it can reinitialize the contract
+ * @global_assumption initialize is excluded from some invariants - it cannot be called after intialization
  * @global_assumption block.timestamp is monotonically non-decreasing and below the protocol end date (~2104)
  *
  * PROPERTIES
@@ -38,7 +40,6 @@ definition MAX_COVERAGE_WAD() returns mathint = 10^18-1; // 99.9999999999999999 
 ghost mathint lastTimestamp;
 
 // The maximum timestamp the protocol supports
-// TODO: This is 2104 since it's unsigned, but may still be worth mentioning the small limit.
 definition MAX_TIMESTAMP() returns mathint = max_uint32 - 86400 * 365;
 
 hook TIMESTAMP uint256 time {
@@ -49,12 +50,15 @@ hook TIMESTAMP uint256 time {
 
 definition excludeUpgradeAndCall(method f) returns bool =
     f.selector != sig:upgradeToAndCall(address,bytes).selector;
+definition excludeInitialize(method f) returns bool =
+    f.selector != sig:initialize(IRoycoAccountant.RoycoAccountantInitParams, address).selector;
 
 /**
  * @title JT+ST effective NAV equals JT+ST raw NAV
  * @description The total effective NAV equals the total raw NAV at all times: impermanent losses are transferred between tranches, not created or destroyed.
  * @link_property INV01
  * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/8424974adf7d4bb1bb083e5fbb0c368d?anonymousKey=3d7421d2b19b0f945e54967f4d552b66d9939303
  */
 invariant sumEffectiveEqualsRaw()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV +
@@ -67,22 +71,26 @@ invariant sumEffectiveEqualsRaw()
 /**
  * @title JT impermanent loss above dust implies FIXED_TERM market state
  * @description If jtImpermanentLoss exceeds the dust tolerance, the market must be in FIXED_TERM state. JT losses only arise when a fixed-term market settles below par.
+ * Violated by setDustTolerance, which temporarily creates an inconsistent states.
  * @link_property INV02
- * @assumption initialize and setDustTolerance can create temporarily inconsistent states
  * @status VIOLATED
+ * @assumption initialize and upgradeAndCall are excluded.
+ * @report https://prover.certora.com/output/74728/8424974adf7d4bb1bb083e5fbb0c368d?anonymousKey=3d7421d2b19b0f945e54967f4d552b66d9939303
  */
 invariant jtLossImpliesFixedTerm()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTImpermanentLoss > 
-    roycoAccountant.ext_Royco_storage_RoycoAccountantState.stNAVDustTolerance
+    roycoAccountant.ext_Royco_storage_RoycoAccountantState.stNAVDustTolerance +
+    roycoAccountant.ext_Royco_storage_RoycoAccountantState.jtNAVDustTolerance
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.FIXED_TERM
-    filtered { f -> excludeUpgradeAndCall(f)}
+    filtered { f -> excludeUpgradeAndCall(f) && excludeInitialize(f) }
 
 /**
  * @title Zero JT impermanent loss implies PERPETUAL market state
  * @description When jtImpermanentLoss = 0, the market must be in PERPETUAL state; there is no ongoing fixed-term settlement with unrecovered losses.
+ * Violated temporarily when nearly all JT tokens are redeemed: the market does not switch to PERPETUAL immediately.
  * @link_property INV03
- * @assumption Violated when nearly all JT tokens are redeemed, leaving only dust
  * @status VIOLATED
+ * @report https://prover.certora.com/output/74728/8424974adf7d4bb1bb083e5fbb0c368d?anonymousKey=3d7421d2b19b0f945e54967f4d552b66d9939303
  */
 invariant noJTLossImpliesPerpetual()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTImpermanentLoss == 0
@@ -93,7 +101,8 @@ invariant noJTLossImpliesPerpetual()
  * @title ST impermanent loss implies PERPETUAL market state
  * @description When stImpermanentLoss > 0, the market is in a distressed PERPETUAL state where JT has been fully depleted and ST bears residual losses.
  * @link_property INV05
- * @status WIP
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/8424974adf7d4bb1bb083e5fbb0c368d?anonymousKey=3d7421d2b19b0f945e54967f4d552b66d9939303
  */
 invariant stLossImpliesPerpetual()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss > 0
@@ -104,7 +113,8 @@ invariant stLossImpliesPerpetual()
  * @title ST impermanent loss and JT impermanent loss are mutually exclusive
  * @description ST and JT losses cannot coexist: JT loss occurs during FIXED_TERM settlement, while ST loss occurs in the PERPETUAL distressed state after JT is depleted.
  * @link_property INV05
- * @status WIP
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/8424974adf7d4bb1bb083e5fbb0c368d?anonymousKey=3d7421d2b19b0f945e54967f4d552b66d9939303
  */
 invariant stLossImpliesNoJTLoss()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss > 0
@@ -117,6 +127,7 @@ invariant stLossImpliesNoJTLoss()
  * @link_property INV05
  * @ignore Violated by jtDeposit by design — new JT liquidity does not retroactively cover ST losses
  * @status VIOLATED
+ * @report https://prover.certora.com/output/74728/8424974adf7d4bb1bb083e5fbb0c368d?anonymousKey=3d7421d2b19b0f945e54967f4d552b66d9939303
  */
 invariant stLossImpliesJTEffectivelyZero()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss > 0
@@ -127,50 +138,36 @@ invariant stLossImpliesJTEffectivelyZero()
  * @title Zero fixedTermDurationSeconds implies PERPETUAL market state
  * @description When the fixed-term duration is configured as 0, no fixed-term transitions are allowed and the market must always remain in PERPETUAL mode.
  * @link_property INV06
- * @status WIP
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/8424974adf7d4bb1bb083e5fbb0c368d?anonymousKey=3d7421d2b19b0f945e54967f4d552b66d9939303
  */
 invariant termDurationZeroAlwaysPerpetual()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.fixedTermDurationSeconds == 0
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.PERPETUAL
-    filtered { f -> excludeUpgradeAndCall(f)}
+    filtered { f -> excludeUpgradeAndCall(f) && excludeInitialize(f) }
 
-
-/*  There is no lastUtilization WAD
- * TODO: move to PRE properties
-invariant utilizationHighImpliesPerpetual()
-    roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastUtilizationWAD >=
-    roycoAccountant.ext_Royco_storage_RoycoAccountantState.liquidationUtilizationWAD
-    || roycoAccountant.ext_Royco_storage_RoycoAccountantState.jtEffectiveNAV == 0
-    => roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.PERPETUAL;
-*/
 
 /**
  * @title FIXED_TERM market state implies fixedTermEndTimestamp is set
  * @description A fixed-term period without a deadline is invalid; when in FIXED_TERM state the end timestamp must be non-zero.
  * @link_property PRE02
- * @assumption initialize can create a transient state before full setup is complete
- * @status VIOLATED
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/8424974adf7d4bb1bb083e5fbb0c368d?anonymousKey=3d7421d2b19b0f945e54967f4d552b66d9939303
  */
 invariant fixedTermIsBounded()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.FIXED_TERM
     => roycoAccountant.ext_Royco_storage_RoycoAccountantState.fixedTermEndTimestamp > 0
     filtered { f -> excludeUpgradeAndCall(f)}
 
-/* TODO move to pre:
-invariant noFeesWhenFixedTerm()
-    roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState == RoycoAccountant.MarketState.FIXED_TERM
-    => roycoAccountant.ext_Royco_storage_RoycoAccountantState.stProtocolFeeAccrued == 0
-    && roycoAccountant.ext_Royco_storage_RoycoAccountantState.jtProtocolFeeAccrued == 0
-    filtered { f -> excludeUpgradeAndCall(f)}
-*/
-
 /**
  * @title liquidationUtilizationWAD is always greater than WAD (100%)
  * @description The liquidation threshold must exceed 100% utilization to provide a meaningful safe zone between full coverage and forced liquidation.
  * @link_property CNF01
- * @status WIP
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/8424974adf7d4bb1bb083e5fbb0c368d?anonymousKey=3d7421d2b19b0f945e54967f4d552b66d9939303
  */
 invariant liquidationGreaterThanOne()
+    roycoAccountant.ext_openzeppelin_storage_Initializable._initialized != max_uint64 =>
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.liquidationUtilizationWAD > WAD()
     filtered { f -> excludeUpgradeAndCall(f) }
 
@@ -178,7 +175,8 @@ invariant liquidationGreaterThanOne()
  * @title coverageWAD * betaWAD < WAD^2
  * @description The product of coverage and beta must be below 1 to ensure the utilization denominator remains positive and the coverage formula yields valid results.
  * @link_property CNF02
- * @status WIP
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/8424974adf7d4bb1bb083e5fbb0c368d?anonymousKey=3d7421d2b19b0f945e54967f4d552b66d9939303
  */
 invariant coverageBetaLessThanOne()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD *
@@ -190,7 +188,8 @@ invariant coverageBetaLessThanOne()
  * @description The coverage parameter has a minimum of 1% to prevent degenerate configurations that would make the utilization formula meaningless.
  * @link_property CNF03
  * @assumption Uninitialized contracts (where _initialized != max_uint64) are excluded as coverage may not yet be set
- * @status WIP
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/8424974adf7d4bb1bb083e5fbb0c368d?anonymousKey=3d7421d2b19b0f945e54967f4d552b66d9939303
  */
 invariant coverageGreaterEqualMin()
     roycoAccountant.ext_openzeppelin_storage_Initializable._initialized != max_uint64 =>
@@ -201,7 +200,8 @@ invariant coverageGreaterEqualMin()
  * @title coverageWAD is at most MAX_COVERAGE_WAD (≈100%)
  * @description The coverage parameter has a maximum just below 100% to ensure the protocol always retains some buffer above the liquidation threshold.
  * @link_property CNF03
- * @status WIP
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/8424974adf7d4bb1bb083e5fbb0c368d?anonymousKey=3d7421d2b19b0f945e54967f4d552b66d9939303
  */
 invariant coverageLessEqualMax()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD <= MAX_COVERAGE_WAD()

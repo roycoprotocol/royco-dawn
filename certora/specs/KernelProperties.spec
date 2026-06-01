@@ -1,7 +1,7 @@
 
 /*
  * MODULE
- * @module KernelProperties
+ * @module RoycoKernel
  *
  * GLOBAL ASSUMPTIONS
  * @global_assumption postOpSyncTrancheAccounting is summarized as postOpUsageCheck to intercept and verify the call arguments

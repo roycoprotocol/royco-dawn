@@ -9,7 +9,7 @@
  * @global_assumption safeTransfer and safeTransferFrom are modeled as NONDET
  *
  * PROPERTIES
- * @property POST02 The kernel calls postOpSyncTrancheAccounting with arguments consistent with the operation type: deposits increase NAV, redeems decrease NAV, no cross-tranche NAV changes on deposit, no self-liquidation bonus on deposit or JT_REDEEM
+ * @property KER11 The kernel calls postOpSyncTrancheAccounting with arguments consistent with the operation type: deposits increase NAV, redeems decrease NAV, no cross-tranche NAV changes on deposit, no self-liquidation bonus on deposit or JT_REDEEM
  */
 
 import "../summaries/using-Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.spec";
@@ -78,7 +78,7 @@ function postOpUsageCheck(RoycoAccountant.Operation op, RoycoAccountant.NAV_UNIT
 /**
  * @title Kernel calls postOpSyncTrancheAccounting with correct arguments per operation
  * @description For every kernel operation, the arguments passed to postOpSyncTrancheAccounting must be consistent with the operation type: deposits increase NAV (not decrease), redeems decrease NAV (not increase), deposits carry no self-liquidation bonus, JT operations do not cross-affect ST NAV.
- * @link_property POST02
+ * @link_property KER11
  * @status WIP
  */
 rule checkPostOpUsage(method f, env e, calldataarg args) {

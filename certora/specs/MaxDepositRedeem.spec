@@ -1,7 +1,7 @@
 
 /*
  * MODULE
- * @module MaxDepositRedeem
+ * @module RoycoKernel
  *
  * GLOBAL ASSUMPTIONS
  * @global_assumption canCall always returns true (authorization tested separately)

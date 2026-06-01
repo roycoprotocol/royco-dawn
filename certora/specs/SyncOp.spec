@@ -384,7 +384,7 @@ rule preSyncProportionalPriceIncreasePreservesJTEffectiveCase1()
     //require oldStRawNAV > 0, "NAV must exist";
     //require oldJtRawNAV > 0, "NAV must exist";
     // There must be no ST impermanent loss
-    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss == 0;
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss == 0, "no ST impermanent loss";
     require oldStRawNAV + oldJtRawNAV == oldStEffectiveNAV + oldJtEffectiveNAV, "main NAV invariant";
 
     // Same rational factor: newSt / oldSt = newJt / oldJt  (cross-multiplication form)
@@ -392,8 +392,8 @@ rule preSyncProportionalPriceIncreasePreservesJTEffectiveCase1()
             to_mathint(newJtRawNAV) * to_mathint(oldStRawNAV), "same rational price factor";
 
     // Price is non-decreasing (simulating a price increase, not a decrease)
-    require to_mathint(newStRawNAV) >= to_mathint(oldStRawNAV);
-    require to_mathint(newJtRawNAV) >= to_mathint(oldJtRawNAV);
+    require to_mathint(newStRawNAV) >= to_mathint(oldStRawNAV), "price is increasing";
+    require to_mathint(newJtRawNAV) >= to_mathint(oldJtRawNAV), "price is increasing";
 
     // Overflow guards for intermediate products
     //require oldStRawNAV < 2^255, "assume no signed overflow";
@@ -443,7 +443,7 @@ rule preSyncProportionalPriceIncreasePreservesJTEffectiveCase2()
     //require oldStRawNAV > 0, "NAV must exist";
     //require oldJtRawNAV > 0, "NAV must exist";
     // There must be no ST impermanent loss
-    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss == 0;
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss == 0, "no ST impermanent loss";
     require oldStRawNAV + oldJtRawNAV == oldStEffectiveNAV + oldJtEffectiveNAV, "main NAV invariant";
 
     // Same rational factor: newSt / oldSt = newJt / oldJt  (cross-multiplication form)
@@ -451,8 +451,8 @@ rule preSyncProportionalPriceIncreasePreservesJTEffectiveCase2()
             to_mathint(newJtRawNAV) * to_mathint(oldStRawNAV), "same rational price factor";
 
     // Price is non-decreasing (simulating a price increase, not a decrease)
-    require to_mathint(newStRawNAV) >= to_mathint(oldStRawNAV);
-    require to_mathint(newJtRawNAV) >= to_mathint(oldJtRawNAV);
+    require to_mathint(newStRawNAV) >= to_mathint(oldStRawNAV), "price is increasing";
+    require to_mathint(newJtRawNAV) >= to_mathint(oldJtRawNAV), "price is increasing";
 
     // Overflow guards for intermediate products
     //require oldStRawNAV < 2^255, "assume no signed overflow";

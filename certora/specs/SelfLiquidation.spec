@@ -1,7 +1,7 @@
 
 /*
  * MODULE
- * @module SelfLiquidation
+ * @module RoycoKernel
  *
  * GLOBAL ASSUMPTIONS
  * @global_assumption previewSyncTrancheAccounting is summarized (see summaries-RoycoAccountant.spec)
@@ -29,6 +29,9 @@ rule previewSyncTrancheAccountingNeverReverts(env e) {
     RoycoKernel.TrancheType trancheType;
 
     require e.msg.value == 0, "Not payable";
+    require e.block.timestamp >= roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastAccrualTimestamp, "time is increasing";
+    require !kernel.ext_openzeppelin_storage_Pausable._paused, "kernel unpaused";
+    require !roycoAccountant.ext_openzeppelin_storage_Pausable._paused, "accountant unpaused";
 
     previewSyncTrancheAccounting@withrevert(e, trancheType);
 
@@ -45,6 +48,10 @@ rule selfLiquidationDecreasesUtilization(env e) {
     uint256 shares;
     address receiver;
     bool bypass;
+
+    // require the raw==effective invariant
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV 
+        == roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV, "INV01";
 
     // Capture utilization before stRedeem
     RoycoAccountant.SyncedAccountingState stateBefore;

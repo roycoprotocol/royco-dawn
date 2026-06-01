@@ -1,7 +1,7 @@
 
 /*
  * MODULE
- * @module Utilization
+ * @module RoycoKernel
  *
  * GLOBAL ASSUMPTIONS
  * @global_assumption The oracle price (getTrancheUnitToNAVUnitConversionRateWAD) is modeled as a constant per rule execution
@@ -72,7 +72,8 @@ definition MAX_COVERAGE_WAD() returns mathint = 10^18-1; // 99.9999999999999999 
  * @title ST deposit does not violate the coverage requirement
  * @description After an ST deposit, the coverage requirement (utilization ≤ 100%) must be satisfied; ST deposits increase the pool that needs to be covered but must not push utilization over the limit.
  * @link_property UTI03
- * @status WIP
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/8d90ae11511f423e9603e88e07415cd1/?anonymousKey=5c1f15b3dba2aec978a7913153bf7c1dfd3855e2
  */
 rule stDepositEnsuresUtilization(env e) {
     address receiver;
@@ -87,7 +88,8 @@ rule stDepositEnsuresUtilization(env e) {
  * @title JT redeem does not violate the coverage requirement
  * @description After a JT redeem, the coverage requirement must be satisfied; the implementation must revert if redeeming JT would push utilization over the limit.
  * @link_property UTI03
- * @status WIP
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/8d90ae11511f423e9603e88e07415cd1/?anonymousKey=5c1f15b3dba2aec978a7913153bf7c1dfd3855e2
  */
 rule jtRedeemEnsuresUtilization(env e) {
     address owner;
@@ -103,7 +105,7 @@ rule jtRedeemEnsuresUtilization(env e) {
  * @title JT deposit decreases or preserves utilization
  * @description A JT deposit adds JT-side coverage and must not worsen (increase) utilization; if coverage was satisfied before, it remains satisfied after.
  * @link_property UTI02
- * @status WIP
+ * @status VIOLATED
  */
 rule jtDepositPreservesUtilization(env e) {
     address receiver;
@@ -111,6 +113,9 @@ rule jtDepositPreservesUtilization(env e) {
 
     uint256 cov = roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD;
     uint256 beta = roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD;
+
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV 
+        == roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV, "INV01";
 
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD *
         roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD < WAD()*WAD(), "cov*beta < 1";
@@ -129,19 +134,19 @@ rule jtDepositPreservesUtilization(env e) {
     uint256 jtRawNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV;
     uint256 stRawNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV;
 
-    mathint toCoverBefore = (stRawNAVBefore + (jtRawNAVBefore * beta / WAD())) * cov;
+    mathint toCoverBefore = (stRawNAVBefore + (jtRawNAVBefore * beta + WAD() - 1) / WAD()) * cov;
 
     juniorTranche.deposit(e, amount, receiver);
 
     uint256 jtEffectiveNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
     uint256 jtRawNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV;
     uint256 stRawNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV;
-    mathint toCoverAfter = (stRawNAVAfter + (jtRawNAVAfter * beta / WAD())) * cov;
+    mathint toCoverAfter = (stRawNAVAfter + (jtRawNAVAfter * beta + WAD() - 1) / WAD()) * cov;
 
     assert stRawNAVAfter == stRawNAVBefore;
     assert jtEffectiveNAVAfter >= jtEffectiveNAVBefore;
     assert jtRawNAVAfter - jtRawNAVBefore == jtEffectiveNAVAfter - jtEffectiveNAVBefore;
-    assert toCoverAfter - toCoverBefore <= jtEffectiveNAVAfter - jtEffectiveNAVBefore;
+    assert toCoverAfter - toCoverBefore <= WAD() * (jtEffectiveNAVAfter - jtEffectiveNAVBefore);
     
     assert roycoAccountant.isCoverageRequirementSatisfied(),  "jtRedeem must not violate utilization";
 }
@@ -150,7 +155,8 @@ rule jtDepositPreservesUtilization(env e) {
  * @title ST redeem decreases or preserves utilization
  * @description An ST redeem removes ST-side exposure and must not worsen utilization; if coverage was satisfied before, it remains satisfied after.
  * @link_property UTI02
- * @status WIP
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/f4767624ac28415ca6079a79fe9501ea/?anonymousKey=11efda4184e0a844fc69b85699d548e5784aaa4f
  */
 rule stRedeemPreservesUtilization(env e) {
     address receiver;
@@ -179,14 +185,14 @@ rule stRedeemPreservesUtilization(env e) {
     uint256 jtRawNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV;
     uint256 stRawNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV;
 
-    mathint toCoverBefore = (stRawNAVBefore + (jtRawNAVBefore * beta / WAD())) * cov;
+    mathint toCoverBefore = (stRawNAVBefore + (jtRawNAVBefore * beta + WAD() - 1) / WAD()) * cov;
 
     seniorTranche.redeem(e, amount, receiver, owner);
 
     uint256 jtEffectiveNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
     uint256 jtRawNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV;
     uint256 stRawNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV;
-    mathint toCoverAfter = (stRawNAVAfter + (jtRawNAVAfter * beta / WAD())) * cov;
+    mathint toCoverAfter = (stRawNAVAfter + (jtRawNAVAfter * beta + WAD() - 1) / WAD()) * cov;
 
     assert stRawNAVAfter <= stRawNAVBefore;
     assert jtRawNAVAfter <= jtRawNAVBefore;
@@ -200,7 +206,8 @@ rule stRedeemPreservesUtilization(env e) {
  * @title ST redeem reverts in FIXED_TERM market state
  * @description In a fixed-term market, ST holders cannot redeem; the call must revert if the market state is FIXED_TERM.
  * @link_property KER01
- * @status WIP
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/8d90ae11511f423e9603e88e07415cd1/?anonymousKey=5c1f15b3dba2aec978a7913153bf7c1dfd3855e2
  */
 rule stRedeemRevertsInFixedTerm(env e) {
     uint256 amount;
@@ -215,7 +222,8 @@ rule stRedeemRevertsInFixedTerm(env e) {
  * @title JT deposit reverts in FIXED_TERM market state
  * @description In a fixed-term market, new JT deposits are not allowed; the call must revert if the market state is FIXED_TERM.
  * @link_property KER01
- * @status WIP
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/8d90ae11511f423e9603e88e07415cd1/?anonymousKey=5c1f15b3dba2aec978a7913153bf7c1dfd3855e2
  */
 rule jtDepositRevertsInFixedTerm(env e) {
     uint256 amount;
@@ -229,7 +237,8 @@ rule jtDepositRevertsInFixedTerm(env e) {
  * @title ST deposit reverts when stImpermanentLoss > 0
  * @description When the ST tranche is in a distressed state (stImpermanentLoss > 0), new ST deposits must revert to prevent dilution of the loss.
  * @link_property KER02
- * @status WIP
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/8d90ae11511f423e9603e88e07415cd1/?anonymousKey=5c1f15b3dba2aec978a7913153bf7c1dfd3855e2
  */
 rule stDepositRevertsWithImpermanentLoss(env e) {
     uint256 amount;

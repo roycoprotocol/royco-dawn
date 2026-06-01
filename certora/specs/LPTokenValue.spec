@@ -1,7 +1,7 @@
 
 /*
  * MODULE
- * @module LPTokenValue
+ * @module RoycoKernel
  *
  * GLOBAL ASSUMPTIONS
  * @global_assumption upgradeToAndCall and mintProtocolFeeShares are excluded — they change NAV or supply in ways outside the scope of these properties
@@ -96,14 +96,14 @@ hook Sstore seniorTranche.ext_openzeppelin_storage_ERC20._balances[KEY address a
     stBalances[account] = newBalance;
 }
 hook Sload uint256 balance seniorTranche.ext_openzeppelin_storage_ERC20._balances[KEY address account] {
-    require balance == stBalances[account];
+    require balance == stBalances[account], "ghost mirror";
 }
 
 hook Sstore juniorTranche.ext_openzeppelin_storage_ERC20._balances[KEY address account] uint256 newBalance (uint256 oldBalance) {
     jtBalances[account] = newBalance;
 }
 hook Sload uint256 balance juniorTranche.ext_openzeppelin_storage_ERC20._balances[KEY address account] {
-    require balance == jtBalances[account];
+    require balance == jtBalances[account], "ghost mirror";
 }
 
 // ghost mulDivDirectionalSummary(uint256, uint256, uint256, Math.Rounding) returns uint256
@@ -127,7 +127,8 @@ ghost jtYieldShareCVL(RoycoAccountant.NAV_UNIT, RoycoAccountant.NAV_UNIT, uint25
  * @title JT share value does not decrease across any operation
  * @description The ratio jtEffectiveNAV / jtTotalSupply must not decrease after any operation (excluding upgradeToAndCall and mintProtocolFeeShares). The self-liquidation bonus is excluded when utilization is below 100%.
  * @link_property KER08
- * @status WIP
+ * @status VIOLATED
+ * @report https://prover.certora.com/output/74728/7566c62243434039878c6bd5d4ff47e2/?anonymousKey=ce49a3dafdf490f07ddcc50a55523b7b59b43ee1
  */
 rule jtTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -> excludeUpgradeAndCall(f) && excludeMintFee(f) }
 {
@@ -139,8 +140,103 @@ rule jtTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / priceDenom, "price is synced";
 
     // totalSupply is sum of balances
-    require (usum address user. stBalances[user]) == seniorTranche.totalSupply();
-    require (usum address user. jtBalances[user]) == juniorTranche.totalSupply();
+    require (usum address user. stBalances[user]) == seniorTranche.totalSupply(), "totalSupply invariant";
+    require (usum address user. jtBalances[user]) == juniorTranche.totalSupply(), "totalSupply invariant";
+
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV 
+        == roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV, "INV01";
+
+    // get the current token value
+    RoycoAccountant.NAV_UNIT jtEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
+    RoycoAccountant.NAV_UNIT stEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV;
+    uint256 jtTotalBefore = juniorTranche.totalSupply();
+    uint256 stTotalBefore = seniorTranche.totalSupply();
+
+    if (isSTRedeem(f)) {
+        // the property can be violated if there is liquidation bonus.  Here we restrict to states that don't apply the bonus
+        require roycoAccountant.isCoverageRequirementSatisfied(), "utilization is less than 100%";
+        require roycoAccountant.ext_Royco_storage_RoycoAccountantState.liquidationUtilizationWAD > WAD(), "invariant: liquidationUtilization > 100%";
+    }
+
+    f(e, args);
+
+    // get the token value after
+    RoycoAccountant.NAV_UNIT jtEffectiveNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
+    RoycoAccountant.NAV_UNIT stEffectiveNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV;
+    uint256 jtTotalAfter = juniorTranche.totalSupply();
+    uint256 stTotalAfter = seniorTranche.totalSupply();
+
+    // jtTotal is incremented by one to account for virtual share.
+    // stEffectiveNAVAfter is incremented by one; the property doesn't hold precisely due to rounding errors.
+    assert jtEffectiveNAVBefore * (jtTotalAfter + 1) <= jtEffectiveNAVAfter * (jtTotalBefore + 1), "JT NAV per share increases";
+}
+
+/**
+ * @title ST share value does not decrease across any operation
+ * @description The ratio stEffectiveNAV / stTotalSupply must not decrease after any operation (excluding upgradeToAndCall and mintProtocolFeeShares).
+ * @link_property KER07
+ * @status VIOLATED
+ * @report https://prover.certora.com/output/74728/7566c62243434039878c6bd5d4ff47e2/?anonymousKey=ce49a3dafdf490f07ddcc50a55523b7b59b43ee1
+ */
+rule stTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -> excludeUpgradeAndCall(f) && excludeMintFee(f) }
+{
+    // assume price is already synced
+    uint256 price = kernel.getTrancheUnitToNAVUnitConversionRateWAD(e);
+    uint256 priceDenom = kernel.TRANCHE_UNIT_SCALE_FACTOR();
+    require priceDenom != 0, "TRANCHE_UNIT_SCALE_FACTOR initialized to non-zero value";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV == price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / priceDenom, "price is synced";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / priceDenom, "price is synced";
+
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV 
+        == roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV, "INV01";
+
+    // totalSupply is sum of balances
+    require (usum address user. stBalances[user]) == seniorTranche.totalSupply(), "totalSupply invariant";
+    require (usum address user. jtBalances[user]) == juniorTranche.totalSupply(), "totalSupply invariant";
+
+    // get the current token value
+    RoycoAccountant.NAV_UNIT jtEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
+    RoycoAccountant.NAV_UNIT stEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV;
+    uint256 jtTotalBefore = juniorTranche.totalSupply();
+    uint256 stTotalBefore = seniorTranche.totalSupply();
+
+    f(e, args);
+
+    // get the token value after
+    RoycoAccountant.NAV_UNIT jtEffectiveNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
+    RoycoAccountant.NAV_UNIT stEffectiveNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV;
+    uint256 jtTotalAfter = juniorTranche.totalSupply();
+    uint256 stTotalAfter = seniorTranche.totalSupply();
+
+    // stTotal is incremented by one to account for virtual share.
+    // stEffectiveNAVAfter is incremented by two; the property doesn't hold precisely due to rounding errors.
+    assert stEffectiveNAVBefore * (stTotalAfter + 1) <= stEffectiveNAVAfter * (stTotalBefore + 1), "ST NAV per share increases";
+}
+
+
+
+/**
+ * @title JT share value does not decrease across any operation
+ * @description The ratio jtEffectiveNAV / jtTotalSupply must not decrease after any operation (excluding upgradeToAndCall and mintProtocolFeeShares). The self-liquidation bonus is excluded when utilization is below 100%.
+ * @link_property KER08
+ * @status TIMEOUT
+ * @report https://prover.certora.com/output/74728/9258b8fbab9e438ab0eb5d03b07cc20b/?anonymousKey=49bba5acf84f129180d3c9f0f3034abc58ebf614
+ */
+rule jtTokenValueDoesNotWorsenTooMuch(method f, env e, calldataarg args) filtered { f -> excludeUpgradeAndCall(f) && excludeMintFee(f) }
+{
+    // assume price is already synced
+    uint256 price = kernel.getTrancheUnitToNAVUnitConversionRateWAD(e);
+    uint256 priceDenom = kernel.TRANCHE_UNIT_SCALE_FACTOR();
+    require priceDenom != 0, "TRANCHE_UNIT_SCALE_FACTOR initialized to non-zero value";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV == price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / priceDenom, "price is synced";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / priceDenom, "price is synced";
+
+    // totalSupply is sum of balances
+    require (usum address user. stBalances[user]) == seniorTranche.totalSupply(), "totalSupply invariant";
+    require (usum address user. jtBalances[user]) == juniorTranche.totalSupply(), "totalSupply invariant";
+
+     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV 
+        == roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV, "INV01";
 
     // get the current token value
     RoycoAccountant.NAV_UNIT jtEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
@@ -171,9 +267,10 @@ rule jtTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -
  * @title ST share value does not decrease across any operation
  * @description The ratio stEffectiveNAV / stTotalSupply must not decrease after any operation (excluding upgradeToAndCall and mintProtocolFeeShares).
  * @link_property KER07
- * @status WIP
+ * @status TIMEOUT
+ * @report https://prover.certora.com/output/74728/cca556b753d640d386e02a89f9bbf951/?anonymousKey=9d75d067a28cb95b1de4b32fd0d461ea2ade4d44
  */
-rule stTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -> excludeUpgradeAndCall(f) && excludeMintFee(f) }
+rule stTokenValueDoesNotWorsenTooMuch(method f, env e, calldataarg args) filtered { f -> excludeUpgradeAndCall(f) && excludeMintFee(f) }
 {
     // assume price is already synced
     uint256 price = kernel.getTrancheUnitToNAVUnitConversionRateWAD(e);
@@ -182,9 +279,12 @@ rule stTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV == price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / priceDenom, "price is synced";
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV == price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / priceDenom, "price is synced";
 
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV 
+        == roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV, "INV01";
+
     // totalSupply is sum of balances
-    require (usum address user. stBalances[user]) == seniorTranche.totalSupply();
-    require (usum address user. jtBalances[user]) == juniorTranche.totalSupply();
+    require (usum address user. stBalances[user]) == seniorTranche.totalSupply(), "totalSupply invariant";
+    require (usum address user. jtBalances[user]) == juniorTranche.totalSupply(), "totalSupply invariant";
 
     // get the current token value
     RoycoAccountant.NAV_UNIT jtEffectiveNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;

@@ -19,6 +19,16 @@ import "../external/external-nondet.spec";
 import "../lib-summaries/OpenZeppelin/OZ_SafeERC20.spec";
 import "../lib-summaries/OpenZeppelin/OZ_Math.spec";
 
+methods {
+    function Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.getTrancheUnitToNAVUnitConversionRateWAD() internal returns (uint256) => conversionRateCVL();
+    function IdenticalAssetsOracleQuoter._getCachedTrancheUnitToNAVUnitConversionRateWAD() internal returns (uint256) => conversionRateCVL();
+    function Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.TRANCHE_UNIT_SCALE_FACTOR() external returns (uint256) envfree;
+}
+
+ghost conversionRateCVL() returns uint256;
+
+definition WAD() returns mathint = 10^18;
+
 /**
  * @title previewSyncTrancheAccounting never reverts
  * @description The preview function must always succeed (not revert) so that maxRedeem() can read the current state without risk of reversion.
@@ -28,10 +38,28 @@ import "../lib-summaries/OpenZeppelin/OZ_Math.spec";
 rule previewSyncTrancheAccountingNeverReverts(env e) {
     RoycoKernel.TrancheType trancheType;
 
+    // require fixed price during this rule
+    uint256 price = kernel.getTrancheUnitToNAVUnitConversionRateWAD(e);
+    uint256 priceDenom = kernel.TRANCHE_UNIT_SCALE_FACTOR();
+    require priceDenom != 0, "TRANCHE_UNIT_SCALE_FACTOR initialized to non-zero value";
+
     require e.msg.value == 0, "Not payable";
     require e.block.timestamp >= roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastAccrualTimestamp, "time is increasing";
     require !kernel.ext_openzeppelin_storage_Pausable._paused, "kernel unpaused";
     require !roycoAccountant.ext_openzeppelin_storage_Pausable._paused, "accountant unpaused";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV < 2^200, "no NAV overflow";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV < 2^200, "no NAV overflow";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV < 2^200, "no NAV overflow";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV < 2^200, "no NAV overflow";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss < 2^200, "no NAV overflow";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTImpermanentLoss < 2^200, "no NAV overflow";
+
+    require price * kernel.ext_Royco_storage_RoycoKernelState.stOwnedYieldBearingAssets / priceDenom < 2^200, "no NAV overflow";
+    require price * kernel.ext_Royco_storage_RoycoKernelState.jtOwnedYieldBearingAssets / priceDenom < 2^200, "no NAV overflow";
+
+    // require the raw==effective invariant
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV 
+        == roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV, "INV01";
 
     previewSyncTrancheAccounting@withrevert(e, trancheType);
 
@@ -42,7 +70,8 @@ rule previewSyncTrancheAccountingNeverReverts(env e) {
  * @title ST redeem (self-liquidation) decreases or preserves utilization
  * @description Any stRedeem call must not increase utilization; the self-liquidation mechanism ensures that redeeming when over-utilized is always beneficial to the pool.
  * @link_property UTI02
- * @status WIP
+ * @status TIMEOUT
+ * @report https://prover.certora.com/output/74728/d80c4046daa44edd8e2c38c545a19856/?anonymousKey=a2915aebd31080778bf247799a11154742a79e2d
  */
 rule selfLiquidationDecreasesUtilization(env e) {
     uint256 shares;

@@ -165,7 +165,7 @@ rule preSyncStLossImpliesJTEffectiveCannotIncrease()
  * @title postOpSyncTrancheAccounting never distributes protocol fees
  * @description The post-operation sync only updates NAV accounting; protocol fees are exclusively distributed through preOpSync.
  * @link_property POST01
- * @status VERIFEID
+ * @status VERIFIED
  * @report https://prover.certora.com/output/74728/2ccf304b236e4ee39b5b160a688f8551?anonymousKey=942881ad9cfc21904dc8c0a5fd02199a3c956149
  */
 rule postSyncNoFees() {

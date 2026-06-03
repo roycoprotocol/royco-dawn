@@ -79,7 +79,8 @@ function postOpUsageCheck(RoycoAccountant.Operation op, RoycoAccountant.NAV_UNIT
  * @title Kernel calls postOpSyncTrancheAccounting with correct arguments per operation
  * @description For every kernel operation, the arguments passed to postOpSyncTrancheAccounting must be consistent with the operation type: deposits increase NAV (not decrease), redeems decrease NAV (not increase), deposits carry no self-liquidation bonus, JT operations do not cross-affect ST NAV.
  * @link_property KER11
- * @status WIP
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/ba445d951e1e4c90a15e843d2a823b5a/?anonymousKey=d750e0241ddf10731eda5b14997d06c2c8665e79
  */
 rule checkPostOpUsage(method f, env e, calldataarg args) {
     f(e,args);

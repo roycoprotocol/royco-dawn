@@ -1,6 +1,6 @@
 /*
  * MODULE
- * @module AccountantMaxDepositRedeem
+ * @module RoycoKernel
  *
  * GLOBAL ASSUMPTIONS
  * @global_assumption upgradeToAndCall is excluded — it can reinitialize the contract
@@ -49,7 +49,8 @@ definition excludeUpgradeAndCall(method f) returns bool =
  * @title maxSTDepositGivenCoverage is a correct upper bound for ST deposit
  * @description Depositing any amount up to maxSTDepositGivenCoverage must leave utilization at or below 100% (WAD); the function must not return an over-estimate that would allow a violating deposit.
  * @link_property KER10
- * @status WIP
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/538fb25b20fe404890b499347f3b59bf/?anonymousKey=6a48a85fca529fa76a00162b9f368e392532b29c
  */
 rule maxStDepositCorrect {
     env e;
@@ -65,7 +66,7 @@ rule maxStDepositCorrect {
     maxSTDeposit = roycoAccountant.maxSTDepositGivenCoverage(e, stRawNAV, jtRawNAV);
     require maxSTDeposit > 0, "not yet fully utilized";
     require stDeposit <= maxSTDeposit, "deposit less than max";
-    require stRawNAV + stDeposit < 2^250;
+    require stRawNAV + stDeposit < 2^250, "no overflow";
     roycoAccountant.preOpSyncTrancheAccounting(e, stRawNAV, jtRawNAV);
     RoycoAccountant.NAV_UNIT newSTRawNAV = assert_uint256(stRawNAV + stDeposit);
     state = roycoAccountant.postOpSyncTrancheAccounting(e, RoycoAccountant.Operation.ST_DEPOSIT, newSTRawNAV, jtRawNAV, 0);
@@ -93,7 +94,17 @@ rule maxJtRedeemCorrect {
     RoycoAccountant.SyncedAccountingState statePre;
     RoycoAccountant.SyncedAccountingState statePost;
     uint256 totalTrancheSharesAfterMintingFees;
+    uint256 cov = roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD;
+    uint256 beta = roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD;
  
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV 
+        == roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTEffectiveNAV + roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV, "INV01";
+
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD *
+        roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD < WAD()*WAD(), "cov*beta < 1";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD >= MIN_COVERAGE_WAD(), "cov >= MIN";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD <= MAX_COVERAGE_WAD(), "cov <= MAX";
+
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV == jtRawNAV, "assumption: no price change";
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV == stRawNAV, "assumption: no price change";
 
@@ -102,11 +113,20 @@ rule maxJtRedeemCorrect {
     claimOnJtNAV = assert_uint256(statePre.jtRawNAV - saturatingSub(statePre.stEffectiveNAV, statePre.stRawNAV));
 
     (totalClaimable, stClaimable, jtClaimable) = roycoAccountant.maxJTWithdrawalGivenCoverage(e, stRawNAV, jtRawNAV, claimOnStNAV, claimOnJtNAV);
-    require jtRedeem < totalClaimable, "redeem less than max";
-    require jtRedeem < totalClaimable, "redeem less than max";
+    if (claimOnStNAV != 0) {
+        require jtRedeem <= stClaimable * statePre.jtEffectiveNAV / claimOnStNAV, "redeem less than max";
+    }
+    if (claimOnJtNAV != 0) {
+        require jtRedeem <= jtClaimable * statePre.jtEffectiveNAV / claimOnJtNAV, "redeem less than max";
+    }
+    require statePre.jtEffectiveNAV != 0, "redeem will receive tokens";
+    assert jtRedeem <= totalClaimable;
     RoycoAccountant.NAV_UNIT newSTRawNAV = assert_uint256(stRawNAV - (jtRedeem * claimOnStNAV) / (claimOnStNAV + claimOnJtNAV));
     RoycoAccountant.NAV_UNIT newJTRawNAV = assert_uint256(jtRawNAV - (jtRedeem * claimOnJtNAV) / (claimOnStNAV + claimOnJtNAV));
     statePost = roycoAccountant.postOpSyncTrancheAccounting(e, RoycoAccountant.Operation.JT_REDEEM, newSTRawNAV, newJTRawNAV, 0);
+    mathint toCoverAfter = (statePost.stRawNAV + (statePost.jtRawNAV * beta + WAD() - 1) / WAD()) * cov;
+
+    assert statePost.jtEffectiveNAV * WAD() >= toCoverAfter;
     assert statePost.utilizationWAD <= WAD();
 }
 

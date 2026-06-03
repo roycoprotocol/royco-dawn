@@ -106,6 +106,7 @@ rule jtRedeemEnsuresUtilization(env e) {
  * @description A JT deposit adds JT-side coverage and must not worsen (increase) utilization; if coverage was satisfied before, it remains satisfied after.
  * @link_property UTI02
  * @status VIOLATED
+ * @report https://prover.certora.com/output/74728/39c3a815aaa34d19928bb1f8f0699781/?anonymousKey=1bb46ad45f47adc4f63ad134a801ed75c5567910
  */
 rule jtDepositPreservesUtilization(env e) {
     address receiver;

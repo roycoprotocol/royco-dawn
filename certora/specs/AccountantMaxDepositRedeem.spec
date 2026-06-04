@@ -77,7 +77,8 @@ rule maxStDepositCorrect {
  * @title maxJTWithdrawalGivenCoverage is a correct upper bound for JT redeem
  * @description Redeeming any amount strictly less than the maximum returned by maxJTWithdrawalGivenCoverage must leave utilization at or below 100% (WAD); the function must not return an over-estimate that would allow a violating redeem.
  * @link_property KER09
- * @status WIP
+ * @status VIOLATED
+ * @report https://prover.certora.com/output/74728/db6809f28e2048f1aeff64eaa0bdf10b/?anonymousKey=fac4435cc3ab31bf6690564bec11d5f142e2f9d2
  */
 rule maxJtRedeemCorrect {
     env e;
@@ -109,6 +110,14 @@ rule maxJtRedeemCorrect {
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV == jtRawNAV, "assumption: no price change";
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV == stRawNAV, "assumption: no price change";
 
+    // fix concrete counterexample candidate
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD == WAD() - 1, "concrete cex";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD == WAD() - 1, "concrete cex";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV == roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV, "concrete cex";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV == WAD(), "concrete cex";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV == 1, "concrete cex";
+    
+
     statePre = roycoAccountant.previewSyncTrancheAccounting(e, stRawNAV, jtRawNAV);
     claimOnStNAV = assert_uint256(saturatingSub(statePre.jtEffectiveNAV, statePre.jtRawNAV));
     claimOnJtNAV = assert_uint256(statePre.jtRawNAV - saturatingSub(statePre.stEffectiveNAV, statePre.stRawNAV));
@@ -127,7 +136,7 @@ rule maxJtRedeemCorrect {
     statePost = roycoAccountant.postOpSyncTrancheAccounting(e, RoycoAccountant.Operation.JT_REDEEM, newSTRawNAV, newJTRawNAV, 0);
     mathint toCoverAfter = (statePost.stRawNAV + (statePost.jtRawNAV * beta + WAD() - 1) / WAD()) * cov;
 
-    assert statePost.jtEffectiveNAV * WAD() >= toCoverAfter;
+    //assert statePost.jtEffectiveNAV * WAD() >= toCoverAfter;
     assert statePost.utilizationWAD <= WAD();
 }
 

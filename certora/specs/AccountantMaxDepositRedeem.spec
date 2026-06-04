@@ -104,6 +104,7 @@ rule maxJtRedeemCorrect {
         roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD < WAD()*WAD(), "cov*beta < 1";
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD >= MIN_COVERAGE_WAD(), "cov >= MIN";
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD <= MAX_COVERAGE_WAD(), "cov <= MAX";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD <= WAD(), "beta <= 1";
 
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV == jtRawNAV, "assumption: no price change";
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV == stRawNAV, "assumption: no price change";

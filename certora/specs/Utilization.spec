@@ -105,8 +105,8 @@ rule jtRedeemEnsuresUtilization(env e) {
  * @title JT deposit decreases or preserves utilization
  * @description A JT deposit adds JT-side coverage and must not worsen (increase) utilization; if coverage was satisfied before, it remains satisfied after.
  * @link_property UTI02
- * @status VIOLATED
- * @report https://prover.certora.com/output/74728/39c3a815aaa34d19928bb1f8f0699781/?anonymousKey=1bb46ad45f47adc4f63ad134a801ed75c5567910
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/967501e5ba4441b9a72286df6ea3e1ae/?anonymousKey=de0ee19315b155564fe29c3c11ce98fceca31017
  */
 rule jtDepositPreservesUtilization(env e) {
     address receiver;
@@ -122,6 +122,7 @@ rule jtDepositPreservesUtilization(env e) {
         roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD < WAD()*WAD(), "cov*beta < 1";
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD >= MIN_COVERAGE_WAD(), "cov >= MIN";
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD <= MAX_COVERAGE_WAD(), "cov <= MAX";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD <= WAD(), "beta <= 1";
 
     require roycoAccountant.isCoverageRequirementSatisfied(), "coverage enough in pre-state";
     // assume price is already synced
@@ -135,18 +136,21 @@ rule jtDepositPreservesUtilization(env e) {
     uint256 jtRawNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV;
     uint256 stRawNAVBefore = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV;
 
-    mathint toCoverBefore = (stRawNAVBefore + (jtRawNAVBefore * beta + WAD() - 1) / WAD()) * cov;
+    mathint weightedSumBefore = (stRawNAVBefore + (jtRawNAVBefore * beta + WAD() - 1) / WAD());
+    mathint toCoverBefore = weightedSumBefore * cov;
 
     juniorTranche.deposit(e, amount, receiver);
 
     uint256 jtEffectiveNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTEffectiveNAV;
     uint256 jtRawNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV;
     uint256 stRawNAVAfter = roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV;
-    mathint toCoverAfter = (stRawNAVAfter + (jtRawNAVAfter * beta + WAD() - 1) / WAD()) * cov;
+    mathint weightedSumAfter = (stRawNAVAfter + (jtRawNAVAfter * beta + WAD() - 1) / WAD());
+    mathint toCoverAfter = weightedSumAfter * cov;
 
     assert stRawNAVAfter == stRawNAVBefore;
     assert jtEffectiveNAVAfter >= jtEffectiveNAVBefore;
     assert jtRawNAVAfter - jtRawNAVBefore == jtEffectiveNAVAfter - jtEffectiveNAVBefore;
+    assert weightedSumAfter - weightedSumBefore <= (jtEffectiveNAVAfter - jtEffectiveNAVBefore);
     assert toCoverAfter - toCoverBefore <= WAD() * (jtEffectiveNAVAfter - jtEffectiveNAVBefore);
     
     assert roycoAccountant.isCoverageRequirementSatisfied(),  "jtRedeem must not violate utilization";
@@ -172,6 +176,7 @@ rule stRedeemPreservesUtilization(env e) {
         roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD < WAD()*WAD(), "cov*beta < 1";
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD >= MIN_COVERAGE_WAD(), "cov >= MIN";
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD <= MAX_COVERAGE_WAD(), "cov <= MAX";
+    require roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD <= WAD(), "beta <= 1";
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.liquidationUtilizationWAD > WAD(), "liquidationUtilization > 1";
 
     require roycoAccountant.isCoverageRequirementSatisfied(), "coverage enough in pre-state";

@@ -18,6 +18,7 @@
  * @property CNF01 liquidationUtilizationWAD > WAD (liquidation threshold above 100%)
  * @property CNF02 coverageWAD * betaWAD < WAD^2 (product of coverage and beta below 1.0)
  * @property CNF03 MIN_COVERAGE_WAD <= coverageWAD <= MAX_COVERAGE_WAD
+ * @property CNF04 betaWAD <= WAD (beta sensitivity capped at 100%)
  */
 
 import "../lib-summaries/OpenZeppelin/OZ_Math.spec";
@@ -205,4 +206,15 @@ invariant coverageGreaterEqualMin()
  */
 invariant coverageLessEqualMax()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD <= MAX_COVERAGE_WAD()
+    filtered { f -> excludeUpgradeAndCall(f) }
+
+/**
+ * @title betaWAD is at most WAD (100%)
+ * @description The beta sensitivity parameter is capped at 100% by _validateCoverageConfig, ensuring JT exposure never amplifies beyond its raw NAV.
+ * @link_property CNF04
+ * @status VERIFIED
+ * @report https://prover.certora.com/output/74728/be414a149ce34af2828d68cb21f00baf/?anonymousKey=031099bb549ea30eb830ebe196a58fd501e59bf7
+ */
+invariant betaLessEqualOne()
+    roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD <= WAD()
     filtered { f -> excludeUpgradeAndCall(f) }

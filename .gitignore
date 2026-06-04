@@ -21,6 +21,9 @@ broadcast
 # Deployment script output
 output/
 
+# Claude output
+.claude
+
 # Certora directories
 **/.certora_internal
 **/.CertoraProverLiteReports

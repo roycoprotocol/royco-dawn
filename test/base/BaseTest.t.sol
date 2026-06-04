@@ -6,6 +6,7 @@ import { Vm } from "../../lib/forge-std/src/Vm.sol";
 import { ERC20Mock } from "../../lib/openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol";
 import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { DeployScript } from "../../script/Deploy.s.sol";
+import { ExtraRoles } from "../../script/config/ExtraRoles.sol";
 import { RoycoAccountant } from "../../src/accountant/RoycoAccountant.sol";
 import { RolesConfiguration, RoycoFactory } from "../../src/factory/RoycoFactory.sol";
 import { IRoycoAccountant } from "../../src/interfaces/IRoycoAccountant.sol";
@@ -19,7 +20,7 @@ import { RoycoJuniorTranche } from "../../src/tranches/RoycoJuniorTranche.sol";
 import { RoycoSeniorTranche } from "../../src/tranches/RoycoSeniorTranche.sol";
 import { Assertions } from "./Assertions.t.sol";
 
-abstract contract BaseTest is Test, RolesConfiguration, Assertions {
+abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
     uint256 internal constant BPS = 0.0001e18;
 
     struct TrancheState {
@@ -40,6 +41,9 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions {
     // Role-specific wallets
     Vm.Wallet internal PAUSER;
     address internal PAUSER_ADDRESS;
+
+    Vm.Wallet internal UNPAUSER;
+    address internal UNPAUSER_ADDRESS;
 
     Vm.Wallet internal UPGRADER;
     address internal UPGRADER_ADDRESS;
@@ -223,6 +227,9 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions {
         PAUSER = _initWallet("PAUSER", 1000 ether);
         PAUSER_ADDRESS = PAUSER.addr;
 
+        UNPAUSER = _initWallet("UNPAUSER", 1000 ether);
+        UNPAUSER_ADDRESS = UNPAUSER.addr;
+
         UPGRADER = _initWallet("UPGRADER", 1000 ether);
         UPGRADER_ADDRESS = UPGRADER.addr;
 
@@ -336,6 +343,33 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions {
 
         FACTORY = _deploymentResult.factory;
         vm.label(address(FACTORY), "Factory");
+
+        _wireExtraRoles();
+    }
+
+    /// @dev Wires roles that live in `ExtraRoles` and are intentionally NOT passed through
+    ///      `factory.initialize` (canonical `RolesConfiguration.getRoleConfig` doesn't know
+    ///      them, so including them in the init array would revert). Pranks FNDN (the
+    ///      admin-role holder): `OWNER_ADDRESS` for a fresh in-memory deploy, `ROOT_MULTISIG`
+    ///      when the test forks a chain where the factory is already on-chain.
+    function _wireExtraRoles() internal {
+        // Live-chain factory admin (matches MarketDeploymentConfig.ROOT_MULTISIG).
+        address fndn;
+        (bool ownerIsAdmin,) = FACTORY.hasRole(0, OWNER_ADDRESS);
+        if (ownerIsAdmin) {
+            fndn = OWNER_ADDRESS;
+        } else {
+            fndn = 0x7c405bbD131e42af506d14e752f2e59B19D49997; // ROOT_MULTISIG
+        }
+
+        // Standard 24h delay matches the canonical UNPAUSER config (and what `ApplySecurityMigration`
+        // applies in production). The `_scheduleAndExecuteUnpause` test helper relies on a non-zero
+        // delay — OZ AccessManager.schedule reverts when the caller's `setback == 0`.
+        (bool unpauserHasRole,) = FACTORY.hasRole(ADMIN_UNPAUSER_ROLE, UNPAUSER_ADDRESS);
+        if (!unpauserHasRole) {
+            vm.prank(fndn);
+            FACTORY.grantRole(ADMIN_UNPAUSER_ROLE, UNPAUSER_ADDRESS, 1 days);
+        }
     }
 
     function _initWallet(string memory _name, uint256 _amount) internal returns (Vm.Wallet memory) {
@@ -496,6 +530,7 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions {
         return DEPLOY_SCRIPT.generateRolesAssignments(
             DeployScript.RoleAssignmentAddresses({
                 pauserAddress: PAUSER_ADDRESS,
+                unpauserAddress: UNPAUSER_ADDRESS,
                 upgraderAddress: UPGRADER_ADDRESS,
                 syncRoleAddress: SYNC_ROLE_ADDRESS,
                 adminKernelAddress: KERNEL_ADMIN_ADDRESS,
@@ -517,6 +552,9 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions {
     function _grantAllRoles() internal prankModifier(OWNER_ADDRESS) {
         // Grant ADMIN_PAUSER_ROLE
         FACTORY.grantRole(ADMIN_PAUSER_ROLE, PAUSER_ADDRESS, 0);
+
+        // Grant ADMIN_UNPAUSER_ROLE
+        FACTORY.grantRole(ADMIN_UNPAUSER_ROLE, UNPAUSER_ADDRESS, 0);
 
         // Grant ADMIN_UPGRADER_ROLE
         FACTORY.grantRole(ADMIN_UPGRADER_ROLE, UPGRADER_ADDRESS, 0);

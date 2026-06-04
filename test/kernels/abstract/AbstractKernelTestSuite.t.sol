@@ -2872,6 +2872,64 @@ abstract contract AbstractKernelTestSuite is BaseTest, IKernelTestHooks {
         _assertNAVConservation();
     }
 
+    /// @notice After JT effective NAV is drained to zero (e.g. via ST self-liquidation), a fresh JT LP
+    ///         depositing capital must dominate the supply and recover their deposit on redemption.
+    /// @dev    Pre-existing JT shares in this state are zero-NAV; treating them as having a pro-rata
+    ///         claim on new deposits rugs the recapitalizer. The new LP's redemption claim should be
+    ///         approximately equal to their deposit, not diluted by the legacy worthless supply.
+    function test_jtRecapitalize_wipedTranche_newLPNotDilutedByZeroValueHolders() external {
+        // Alice provides JT capital and becomes the soon-to-be zero-value holder
+        uint256 aliceDeposit = config.initialFunding / 4;
+        if (aliceDeposit < _minDepositAmount() * 10) return;
+        _depositJT(ALICE_ADDRESS, aliceDeposit);
+
+        // Bob deposits ST so we can trigger self-liquidation
+        TRANCHE_UNIT maxSTDeposit = ST.maxDeposit(BOB_ADDRESS);
+        uint256 stAmount = toUint256(maxSTDeposit) / 2;
+        if (stAmount > config.initialFunding) stAmount = config.initialFunding / 2;
+        if (stAmount < _minDepositAmount()) return;
+        uint256 bobStShares = _depositST(BOB_ADDRESS, stAmount);
+
+        // Severe JT loss followed by ST self-liquidation drains JT effective NAV
+        simulateJTLoss(0.95e18);
+        vm.prank(SYNC_ROLE_ADDRESS);
+        KERNEL.syncTrancheAccounting();
+
+        (SyncedAccountingState memory stateAfterLoss,,) = KERNEL.previewSyncTrancheAccounting(TrancheType.SENIOR);
+        if (stateAfterLoss.utilizationWAD < stateAfterLoss.liquidationUtilizationWAD) return; // skip if liquidation can't be triggered
+
+        vm.prank(BOB_ADDRESS);
+        ST.redeem(bobStShares, BOB_ADDRESS, BOB_ADDRESS);
+
+        // Confirm preconditions for the recap scenario: JT supply > 0 and JT effective NAV = 0
+        uint256 jtSupplyAfterWipe = JT.totalSupply();
+        NAV_UNIT jtNAVAfterWipe = JT.totalAssets().nav;
+        if (jtSupplyAfterWipe == 0 || toUint256(jtNAVAfterWipe) != 0) return; // wipeout not reached; skip
+
+        // Carol recapitalizes with a much smaller deposit than Alice's pre-wipeout deposit
+        address CAROL_ADDRESS = JT_BOB_ADDRESS;
+        uint256 carolDeposit = _minDepositAmount();
+        require(aliceDeposit > carolDeposit * 10, "test setup: Alice's deposit must dominate Carol's for dilution to be visible");
+
+        uint256 carolJtShares = _depositJT(CAROL_ADDRESS, carolDeposit);
+        assertGt(carolJtShares, 0, "Carol must receive shares for her recap deposit");
+
+        // Carol immediately redeems all her shares; she should get back ~her full deposit
+        // With the buggy `return _assets` branch: Carol's shares are dwarfed by Alice's zero-value supply
+        //   and she'd recover only ~ carolDeposit * carolDeposit / aliceDeposit of TU (heavy loss).
+        // With the recapitalization-aware `return _totalSupply * _assets` branch: Carol's shares dominate
+        //   the post-deposit supply and she recovers ~ her full deposit.
+        vm.prank(CAROL_ADDRESS);
+        AssetClaims memory claims = JT.redeem(carolJtShares, CAROL_ADDRESS, CAROL_ADDRESS);
+
+        assertApproxEqRel(
+            toUint256(claims.jtAssets),
+            carolDeposit,
+            0.01e18, // 1% tolerance
+            "Recap LP must not be diluted by zero-value pre-existing holders"
+        );
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // SECTION: SELF-LIQUIDATION BONUS - UTILIZATION INVARIANT TESTS
     // These tests verify the critical invariant: U' <= U (post-redemption utilization

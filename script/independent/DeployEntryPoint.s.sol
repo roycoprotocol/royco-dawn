@@ -3,16 +3,14 @@ pragma solidity ^0.8.28;
 
 import { UUPSUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { IAccessManager } from "../../lib/openzeppelin-contracts/contracts/access/manager/IAccessManager.sol";
-import { IERC20 } from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-
+import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { CREATE3 } from "../../lib/solady/src/utils/CREATE3.sol";
 import { RolesConfiguration } from "../../src/factory/RolesConfiguration.sol";
 import { IRoycoAuth } from "../../src/interfaces/IRoycoAuth.sol";
 import { IRoycoEntryPoint } from "../../src/interfaces/IRoycoEntryPoint.sol";
-import { IRoycoVaultTranche } from "../../src/interfaces/IRoycoVaultTranche.sol";
-import { TRANCHE_UNIT, toTrancheUnits } from "../../src/libraries/Units.sol";
 import { RoycoEntryPoint } from "../../src/periphery/RoycoEntryPoint.sol";
-
 import { EntryPointDeploymentConfig } from "../config/EntryPointDeploymentConfig.sol";
+import { ExtraRoles } from "../config/ExtraRoles.sol";
 import { AccessManagerConfigUtils } from "../utils/AccessManagerConfigUtils.sol";
 import { Create2DeployUtils } from "../utils/Create2DeployUtils.sol";
 import { console2 } from "lib/forge-std/src/console2.sol";
@@ -20,21 +18,26 @@ import { console2 } from "lib/forge-std/src/console2.sol";
 /**
  * @title DeployEntryPointScript
  * @notice Deployment script for the RoycoEntryPoint contract
- * @dev Deploys both the implementation and ERC1967 proxy using deterministic CREATE2 deployment.
- *      Supports two modes:
- *      - Production: deploys only, role configuration done separately via Safe (future)
- *      - Test: deploys AND configures roles using separate deployer and admin keys
+ * @dev Deploys both the implementation and ERC1967 proxy using deterministic CREATE2 deployment,
+ *      then initializes the proxy with the per-chain tranche configuration. Factory role
+ *      configuration is generated separately via `buildFactoryConfigTransactions` and applied
+ *      through a Safe transaction batch.
  */
-contract DeployEntryPointScript is EntryPointDeploymentConfig, AccessManagerConfigUtils, Create2DeployUtils, RolesConfiguration {
+contract DeployEntryPointScript is EntryPointDeploymentConfig, AccessManagerConfigUtils, Create2DeployUtils, RolesConfiguration, ExtraRoles {
     // ═══════════════════════════════════════════════════════════════════════════
     // DEPLOYMENT CONSTANTS
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Deployment salt for the RoycoEntryPoint
-    bytes32 internal constant ENTRY_POINT_SALT_BASE = keccak256("ROYCO_ENTRY_POINT");
+    bytes32 internal constant ENTRY_POINT_SALT_BASE = keccak256("ROYCO_ENTRY_POINT_PRODUCTION");
 
     /// @dev Suffix for the Safe transaction JSON file name
     string internal constant SAFE_TX_OUTPUT_FILE_NAME_SUFFIX = "_entry_point_role_config";
+
+    /// @dev OZ AccessManager's PUBLIC_ROLE — auto-membership for every address.
+    ///      Used to leave the entry point's LP selectors open at the AM layer; the underlying
+    ///      tranches still gate `deposit`/`redeem` on `ST_LP_ROLE`/`JT_LP_ROLE`.
+    uint64 internal constant PUBLIC_ROLE = type(uint64).max;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // DEPLOYMENT FLAGS
@@ -59,8 +62,16 @@ contract DeployEntryPointScript is EntryPointDeploymentConfig, AccessManagerConf
 
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         EntryPointConfig memory config = getEntryPointConfig();
+        require(config.roycoFactory != address(0), "Chain not supported");
 
         address entryPoint = deployEntryPoint(config, deployerPrivateKey);
+
+        // Write the Safe JSON containing the factory role-config batch
+        writeFactoryConfigSafeJson(config.roycoFactory, entryPoint);
+
+        // Simulate applying the batch + verify FNDN and WCE access. Cheatcodes are local-only
+        // (no on-chain effect), so this is safe to run alongside the deploy broadcast.
+        simulateFactoryConfig(config.roycoFactory, entryPoint);
 
         if (ENABLE_LOGGING) {
             console2.log("");
@@ -71,54 +82,6 @@ contract DeployEntryPointScript is EntryPointDeploymentConfig, AccessManagerConf
             console2.log("Tranches configured:", config.tranches.length);
             console2.log("========================================");
             console2.log("");
-            console2.log("NOTE: Factory role configuration must be done separately.");
-            console2.log("Use runTest() for test environments.");
-        }
-    }
-
-    /**
-     * @notice Test deployment entry point - deploys AND configures roles
-     * @dev Uses two separate keys:
-     *      - DEPLOYER_PRIVATE_KEY for CREATE2 deployment
-     *      - ADMIN_PRIVATE_KEY for configuring roles on the factory (must have admin role)
-     *
-     * Environment variables:
-     *   DEPLOYER_PRIVATE_KEY - Key for the deployer account (CREATE2 deployment)
-     *   ADMIN_PRIVATE_KEY    - Key with admin access to the factory (role configuration)
-     */
-    function runTest() external {
-        ENABLE_LOGGING = true;
-
-        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        uint256 adminPrivateKey = vm.envUint("ADMIN_PRIVATE_KEY");
-        EntryPointConfig memory config = getEntryPointConfig();
-
-        // Step 1: Deploy using the deployer key
-        address entryPoint = deployEntryPoint(config, deployerPrivateKey);
-
-        // Step 2: Configure factory roles using the admin key
-        vm.startBroadcast(adminPrivateKey);
-        configureFactoryRoles(config.roycoFactory, entryPoint);
-
-        // Step 3: Grant LP role to the admin so they can call the entry point
-        address adminAddr = vm.addr(adminPrivateKey);
-        IAccessManager(config.roycoFactory).grantRole(ST_LP_ROLE, adminAddr, 0);
-        vm.stopBroadcast();
-
-        // Step 4: Smoke test - request a deposit through the entry point
-        // _smokeTestDeposit(entryPoint, config, adminPrivateKey);
-
-        if (ENABLE_LOGGING) {
-            console2.log("");
-            console2.log("========================================");
-            console2.log("Entry Point Deployed & Configured (Test Mode)");
-            console2.log("  Entry Point:", entryPoint);
-            console2.log("  Factory:", config.roycoFactory);
-            console2.log("  Chain:", config.chainId);
-            console2.log("  Tranches:", config.tranches.length);
-            console2.log("  Roles: configured directly");
-            console2.log("  Smoke test: passed");
-            console2.log("========================================");
         }
     }
 
@@ -138,131 +101,18 @@ contract DeployEntryPointScript is EntryPointDeploymentConfig, AccessManagerConf
         vm.startBroadcast(_deployerPrivateKey);
 
         // Deploy the implementation
-        (address implAddr, bool alreadyDeployed) = deployWithSanityChecks(ENTRY_POINT_SALT_BASE, type(RoycoEntryPoint).creationCode, false);
+        (address implAddr, bool alreadyDeployed) = deployWithSanityChecks(ENTRY_POINT_SALT_BASE, type(RoycoEntryPoint).creationCode, true);
         if (ENABLE_LOGGING) {
             if (alreadyDeployed) console2.log("EntryPoint Implementation already deployed at:", implAddr);
             else console2.log("EntryPoint Implementation deployed at:", implAddr);
         }
 
-        // Deploy the proxy
         bytes memory initData = abi.encodeCall(RoycoEntryPoint.initialize, (_config.roycoFactory, tranches, trancheConfigs));
-        (entryPoint, alreadyDeployed) = deployWithSanityChecks(ENTRY_POINT_SALT_BASE, getERC1967ProxyCreationCode(implAddr, initData), false);
-        if (ENABLE_LOGGING) {
-            if (alreadyDeployed) console2.log("EntryPoint Proxy already deployed at:", entryPoint);
-            else console2.log("EntryPoint Proxy deployed at:", entryPoint);
-        }
+        bytes memory proxyCreationCode = abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(implAddr, initData));
+        entryPoint = CREATE3.deployDeterministic(proxyCreationCode, ENTRY_POINT_SALT_BASE);
+        if (ENABLE_LOGGING) console2.log("EntryPoint Proxy deployed at:", entryPoint);
 
         vm.stopBroadcast();
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // FACTORY ROLE CONFIGURATION
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /**
-     * @notice Configures factory roles for the entry point directly on-chain
-     * @dev Must be called within a broadcast from an account with admin access to the factory.
-     *      Sets up function-to-role mappings and grants LP roles to the entry point.
-     *
-     * Role mappings:
-     *   - LP functions (request/execute/cancel deposits & redemptions) -> ST_LP_ROLE
-     *   - Admin functions (modifyTrancheConfigs, collectProtocolFees)  -> ADMIN_KERNEL_ROLE
-     *   - Pause/unpause                                                -> ADMIN_PAUSER_ROLE
-     *   - upgradeToAndCall                                             -> ADMIN_UPGRADER_ROLE
-     *
-     * The entry point itself is granted ST_LP_ROLE and JT_LP_ROLE so it can
-     * call tranche deposit/redeem functions when executing user requests.
-     *
-     * @param _factory The Royco factory (AccessManager) address
-     * @param _entryPoint The deployed entry point proxy address
-     */
-    function configureFactoryRoles(address _factory, address _entryPoint) public {
-        if (ENABLE_LOGGING) console2.log("Configuring factory roles for entry point...");
-
-        // ── LP function selectors ────────────────────────────────────────────
-        bytes4[] memory lpSelectors = _buildLPSelectors();
-        IAccessManager(_factory).setTargetFunctionRole(_entryPoint, lpSelectors, ST_LP_ROLE);
-        if (ENABLE_LOGGING) console2.log("  [OK] LP functions -> ST_LP_ROLE");
-
-        // ── Admin function selectors ─────────────────────────────────────────
-        bytes4[] memory adminSelectors = new bytes4[](2);
-        adminSelectors[0] = IRoycoEntryPoint.modifyTrancheConfigs.selector;
-        adminSelectors[1] = IRoycoEntryPoint.collectProtocolFees.selector;
-        IAccessManager(_factory).setTargetFunctionRole(_entryPoint, adminSelectors, ADMIN_KERNEL_ROLE);
-        if (ENABLE_LOGGING) console2.log("  [OK] Admin functions -> ADMIN_KERNEL_ROLE");
-
-        // ── Pauser selectors ─────────────────────────────────────────────────
-        bytes4[] memory pauserSelectors = new bytes4[](2);
-        pauserSelectors[0] = IRoycoAuth.pause.selector;
-        pauserSelectors[1] = IRoycoAuth.unpause.selector;
-        IAccessManager(_factory).setTargetFunctionRole(_entryPoint, pauserSelectors, ADMIN_PAUSER_ROLE);
-        if (ENABLE_LOGGING) console2.log("  [OK] Pause/unpause -> ADMIN_PAUSER_ROLE");
-
-        // ── Upgrader selectors ───────────────────────────────────────────────
-        bytes4[] memory upgraderSelectors = new bytes4[](1);
-        upgraderSelectors[0] = UUPSUpgradeable.upgradeToAndCall.selector;
-        IAccessManager(_factory).setTargetFunctionRole(_entryPoint, upgraderSelectors, ADMIN_UPGRADER_ROLE);
-        if (ENABLE_LOGGING) console2.log("  [OK] upgradeToAndCall -> ADMIN_UPGRADER_ROLE");
-
-        // ── Grant LP roles to the entry point itself ─────────────────────────
-        IAccessManager(_factory).grantRole(ST_LP_ROLE, _entryPoint, 0);
-        IAccessManager(_factory).grantRole(JT_LP_ROLE, _entryPoint, 0);
-        IAccessManager(_factory).grantRole(BURNER_ROLE, _entryPoint, 0);
-        if (ENABLE_LOGGING) console2.log("  [OK] Granted ST_LP_ROLE + JT_LP_ROLE + BURNER_ROLE to entry point");
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // SMOKE TEST
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /**
-     * @notice Smoke tests the entry point by requesting and executing a deposit on the first tranche
-     * @dev Uses a trace amount (1 wei of the tranche asset) to verify the full flow works
-     * @param _entryPoint The deployed entry point proxy address
-     * @param _config The entry point deployment configuration
-     * @param _adminPrivateKey The admin private key (must hold some of the tranche asset)
-     */
-    function _smokeTestDeposit(address _entryPoint, EntryPointConfig memory _config, uint256 _adminPrivateKey) internal {
-        require(_config.tranches.length > 0, "No tranches to test");
-
-        // Use the last tranche (JT) since ST deposits require JT capital for coverage
-        address tranche = _config.tranches[_config.tranches.length - 1].tranche;
-        address asset = IRoycoVaultTranche(tranche).asset();
-        address adminAddr = vm.addr(_adminPrivateKey);
-        TRANCHE_UNIT depositAmount = toTrancheUnits(1000); // 1000 wei - trace amount
-
-        if (ENABLE_LOGGING) console2.log("Smoke testing deposit...");
-        if (ENABLE_LOGGING) console2.log("  Tranche:", tranche);
-        if (ENABLE_LOGGING) console2.log("  Asset:", asset);
-
-        // Use prank (not broadcast) for the smoke test since we need vm.warp between request and execute
-        vm.startPrank(adminAddr);
-
-        // Approve the entry point to spend the asset
-        IERC20(asset).approve(_entryPoint, type(uint256).max);
-
-        // Request a deposit (with executor execution disabled)
-        (uint256 nonce, uint32 executableAt) =
-            IRoycoEntryPoint(_entryPoint)
-                .requestDeposit(
-                    tranche,
-                    depositAmount,
-                    adminAddr,
-                    type(uint64).max // opt out of third-party execution
-                );
-
-        if (ENABLE_LOGGING) console2.log("  [OK] Deposit requested, nonce:", nonce);
-        if (ENABLE_LOGGING) console2.log("  [OK] Executable at:", uint256(executableAt));
-
-        vm.stopPrank();
-
-        // Warp past the deposit delay and execute
-        vm.warp(executableAt + 1);
-
-        vm.prank(adminAddr);
-        uint256 sharesMinted = IRoycoEntryPoint(_entryPoint).executeDeposit(adminAddr, nonce, depositAmount);
-
-        if (ENABLE_LOGGING) console2.log("  [OK] Deposit executed, shares minted:", sharesMinted);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -276,29 +126,166 @@ contract DeployEntryPointScript is EntryPointDeploymentConfig, AccessManagerConf
      * @param _entryPoint The deployed entry point proxy address
      * @return transactions Array of Safe transactions to execute
      */
-    function buildFactoryConfigTransactions(address _factory, address _entryPoint) public pure returns (SafeTransaction[] memory transactions) {
+    function buildFactoryConfigTransactions(address _factory, address _entryPoint) public view returns (SafeTransaction[] memory transactions) {
         bytes4[] memory lpSelectors = _buildLPSelectors();
 
-        bytes4[] memory adminSelectors = new bytes4[](2);
+        bytes4[] memory adminSelectors = new bytes4[](1);
         adminSelectors[0] = IRoycoEntryPoint.modifyTrancheConfigs.selector;
-        adminSelectors[1] = IRoycoEntryPoint.collectProtocolFees.selector;
 
-        bytes4[] memory pauserSelectors = new bytes4[](2);
-        pauserSelectors[0] = IRoycoAuth.pause.selector;
-        pauserSelectors[1] = IRoycoAuth.unpause.selector;
+        bytes4[] memory entryPointClaimFeeSelectors = new bytes4[](1);
+        entryPointClaimFeeSelectors[0] = IRoycoEntryPoint.collectProtocolFees.selector;
+
+        bytes4[] memory pauseSelectors = new bytes4[](1);
+        pauseSelectors[0] = IRoycoAuth.pause.selector;
+
+        bytes4[] memory unpauseSelectors = new bytes4[](1);
+        unpauseSelectors[0] = IRoycoAuth.unpause.selector;
 
         bytes4[] memory upgraderSelectors = new bytes4[](1);
         upgraderSelectors[0] = UUPSUpgradeable.upgradeToAndCall.selector;
 
-        // 4 setTargetFunctionRole + 3 grantRole = 7 total
-        transactions = new SafeTransaction[](7);
-        transactions[0] = buildSetTargetFunctionRole(_factory, _entryPoint, lpSelectors, ST_LP_ROLE);
-        transactions[1] = buildSetTargetFunctionRole(_factory, _entryPoint, adminSelectors, ADMIN_KERNEL_ROLE);
-        transactions[2] = buildSetTargetFunctionRole(_factory, _entryPoint, pauserSelectors, ADMIN_PAUSER_ROLE);
-        transactions[3] = buildSetTargetFunctionRole(_factory, _entryPoint, upgraderSelectors, ADMIN_UPGRADER_ROLE);
-        transactions[4] = buildGrantRole(_factory, ST_LP_ROLE, _entryPoint, 0);
-        transactions[5] = buildGrantRole(_factory, JT_LP_ROLE, _entryPoint, 0);
-        transactions[6] = buildGrantRole(_factory, BURNER_ROLE, _entryPoint, 0);
+        // 6 setTargetFunctionRole + 6 grantRole = 12 total
+        //   - LP -> PUBLIC_ROLE
+        //   - modifyTrancheConfigs   -> ADMIN_ENTRY_POINT_ROLE (Standard 24h)
+        //   - collectProtocolFees    -> ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE (Immediate)
+        //   - pause / unpause / upgrade -> respective roles
+        //   - grant ADMIN_ENTRY_POINT_ROLE to ROOT_MULTISIG (Standard) and WCE_MULTISIG (Immediate)
+        //   - grant ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE to ROOT_MULTISIG (Immediate)
+        //   - grant ST_LP_ROLE / JT_LP_ROLE / BURNER_ROLE to the entry point itself
+        RoleConfig memory entryPointAdminConfig = getRoleConfig(ADMIN_ENTRY_POINT_ROLE);
+        RoleConfig memory entryPointClaimFeeConfig = getRoleConfig(ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE);
+        transactions = new SafeTransaction[](12);
+        transactions[0] = buildSetTargetFunctionRole(_factory, _entryPoint, lpSelectors, PUBLIC_ROLE);
+        transactions[1] = buildSetTargetFunctionRole(_factory, _entryPoint, adminSelectors, ADMIN_ENTRY_POINT_ROLE);
+        transactions[2] = buildSetTargetFunctionRole(_factory, _entryPoint, entryPointClaimFeeSelectors, ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE);
+        transactions[3] = buildSetTargetFunctionRole(_factory, _entryPoint, pauseSelectors, ADMIN_PAUSER_ROLE);
+        transactions[4] = buildSetTargetFunctionRole(_factory, _entryPoint, unpauseSelectors, ADMIN_UNPAUSER_ROLE);
+        transactions[5] = buildSetTargetFunctionRole(_factory, _entryPoint, upgraderSelectors, ADMIN_UPGRADER_ROLE);
+        // Grant ADMIN_ENTRY_POINT_ROLE to ROOT_MULTISIG with the configured Standard delay
+        transactions[6] = buildGrantRole(_factory, ADMIN_ENTRY_POINT_ROLE, ROOT_MULTISIG, entryPointAdminConfig.executionDelay);
+        // Grant ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE to ROOT_MULTISIG (Immediate)
+        transactions[7] = buildGrantRole(_factory, ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE, ROOT_MULTISIG, entryPointClaimFeeConfig.executionDelay);
+        // Grant ADMIN_ENTRY_POINT_ROLE to WCE_MULTISIG with immediate delay
+        transactions[8] = buildGrantRole(_factory, ADMIN_ENTRY_POINT_ROLE, WCE_MULTISIG, 0);
+        // The entry point itself needs LP roles to call tranche.deposit/redeem and BURNER_ROLE for yield forfeiture
+        transactions[9] = buildGrantRole(_factory, ST_LP_ROLE, _entryPoint, 0);
+        transactions[10] = buildGrantRole(_factory, JT_LP_ROLE, _entryPoint, 0);
+        transactions[11] = buildGrantRole(_factory, BURNER_ROLE, _entryPoint, 0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SAFE JSON COMPOSITION + SIMULATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * @notice Composes the factory role-config Safe batch and writes it to disk.
+     * @param _factory The Royco factory (AccessManager) address
+     * @param _entryPoint The deployed entry point proxy address
+     */
+    function writeFactoryConfigSafeJson(address _factory, address _entryPoint) public {
+        SafeTransaction[] memory txs = buildFactoryConfigTransactions(_factory, _entryPoint);
+        string memory fileName = string.concat(vm.toString(block.chainid), SAFE_TX_OUTPUT_FILE_NAME_SUFFIX);
+        writeSafeTransactionJson(
+            txs, fileName, "Royco Entry Point Factory Configuration", "Sets up the role configuration for the Royco Entry Point on the Royco Factory"
+        );
+        if (ENABLE_LOGGING) console2.log("Wrote factory config Safe JSON:", fileName);
+    }
+
+    /**
+     * @notice Simulates applying the factory role-config batch on a fork and asserts that
+     *         FNDN (`ROOT_MULTISIG`) and WCE (`WCE_MULTISIG`) can call the entry point's
+     *         admin functions per the security model:
+     *
+     *           - WCE  -> `modifyTrancheConfigs` directly (Immediate, delay 0)
+     *           - WCE  -> `collectProtocolFees`         REVERT (no claim-fee role)
+     *           - FNDN -> `modifyTrancheConfigs` directly REVERT (Standard delay required)
+     *           - FNDN -> `modifyTrancheConfigs` via schedule + 24h + execute -> SUCCESS
+     *           - FNDN -> `collectProtocolFees`        directly -> SUCCESS (Immediate)
+     *
+     *         Uses cheatcodes (vm.prank, vm.warp) — these are local-only and do not affect
+     *         the broadcast.
+     * @param _factory The Royco factory (AccessManager) address
+     * @param _entryPoint The deployed entry point proxy address
+     */
+    function simulateFactoryConfig(address _factory, address _entryPoint) public {
+        SafeTransaction[] memory txs = buildFactoryConfigTransactions(_factory, _entryPoint);
+
+        // Apply each batch tx as ROOT_MULTISIG (admin role 0). On a fresh factory ROOT_MULTISIG
+        // has 0 delay on role 0, so direct calls work; on the live mainnet/avalanche/arbitrum
+        // factories the security migration applies a 2d delay first — that batch is a separate
+        // schedule+execute and is out of scope here.
+        for (uint256 i = 0; i < txs.length; i++) {
+            vm.prank(ROOT_MULTISIG);
+            (bool ok, bytes memory ret) = txs[i].to.call{ value: txs[i].value }(txs[i].data);
+            require(ok, _decodeRevert(ret, i));
+        }
+
+        // OZ AccessManager schedules a grace period for delay reductions; warp past it.
+        vm.warp(vm.getBlockTimestamp() + 1 days + 1);
+
+        // Build empty-config calldata for both admin functions (zero-tranche updates / zero-fee
+        // collections; just exercising authorization, not state mutation).
+        address[] memory emptyTranches = new address[](0);
+        IRoycoEntryPoint.TrancheConfig[] memory emptyConfigs = new IRoycoEntryPoint.TrancheConfig[](0);
+        bytes memory modifyData = abi.encodeCall(IRoycoEntryPoint.modifyTrancheConfigs, (emptyTranches, emptyConfigs));
+
+        uint256[] memory emptyShares = new uint256[](0);
+        bytes memory claimFeeData = abi.encodeCall(IRoycoEntryPoint.collectProtocolFees, (emptyTranches, emptyShares, ROOT_MULTISIG));
+
+        // ── 1. WCE -> modifyTrancheConfigs directly (Immediate)
+        vm.prank(WCE_MULTISIG);
+        (bool wceOk,) = _entryPoint.call(modifyData);
+        require(wceOk, "WCE should call modifyTrancheConfigs immediately");
+
+        // ── 2. WCE -> collectProtocolFees should revert (no claim-fee role)
+        vm.prank(WCE_MULTISIG);
+        (bool wceFeeOk,) = _entryPoint.call(claimFeeData);
+        require(!wceFeeOk, "WCE must NOT have claim-fee role");
+
+        // ── 3. FNDN -> modifyTrancheConfigs directly should revert (delay required)
+        vm.prank(ROOT_MULTISIG);
+        (bool fndnDirect,) = _entryPoint.call(modifyData);
+        require(!fndnDirect, "FNDN direct modifyTrancheConfigs must revert (Standard delay)");
+
+        // ── 4. FNDN -> schedule + 1d + execute modifyTrancheConfigs (Standard)
+        vm.prank(ROOT_MULTISIG);
+        IAccessManager(_factory).schedule(_entryPoint, modifyData, 0);
+        vm.warp(vm.getBlockTimestamp() + 1 days + 1);
+        vm.prank(ROOT_MULTISIG);
+        IAccessManager(_factory).execute(_entryPoint, modifyData);
+
+        // ── 5. FNDN -> collectProtocolFees directly (Immediate via claim-fee role)
+        vm.prank(ROOT_MULTISIG);
+        (bool fndnFeeOk,) = _entryPoint.call(claimFeeData);
+        require(fndnFeeOk, "FNDN should call collectProtocolFees immediately");
+
+        if (ENABLE_LOGGING) {
+            console2.log("");
+            console2.log("[OK] Factory config simulated and access verified:");
+            console2.log("     WCE  modifyTrancheConfigs (immediate)        : passed");
+            console2.log("     WCE  collectProtocolFees   (must revert)     : passed");
+            console2.log("     FNDN modifyTrancheConfigs direct (must revert): passed");
+            console2.log("     FNDN modifyTrancheConfigs via schedule+exec  : passed");
+            console2.log("     FNDN collectProtocolFees   (immediate)        : passed");
+        }
+    }
+
+    function _decodeRevert(bytes memory _ret, uint256 _i) internal pure returns (string memory) {
+        if (_ret.length >= 4) {
+            return string.concat("Factory config tx ", vm.toString(_i), " reverted; selector=0x", _bytes4ToHex(bytes4(_ret)));
+        }
+        return string.concat("Factory config tx ", vm.toString(_i), " reverted");
+    }
+
+    function _bytes4ToHex(bytes4 _b) internal pure returns (string memory) {
+        bytes memory hexAlphabet = "0123456789abcdef";
+        bytes memory out = new bytes(8);
+        for (uint256 i = 0; i < 4; i++) {
+            uint8 b = uint8(_b[i]);
+            out[2 * i] = hexAlphabet[b >> 4];
+            out[2 * i + 1] = hexAlphabet[b & 0x0f];
+        }
+        return string(out);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -340,34 +327,47 @@ contract DeployEntryPointScript is EntryPointDeploymentConfig, AccessManagerConf
     // CONFIG INITIALIZATION (override to set deployment parameters)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function _initializeEntryPointConfig() internal virtual override {
-        // ── sUSDai on Arbitrum ────────────────────────────────────────────────
-        _entryPointConfig.chainId = ARBITRUM;
-        _entryPointConfig.roycoFactory = 0xD5dF65cfA3fAb54470cecC22b776cD54Ac718A1c;
+    function _initializeEntryPointConfigs() internal virtual override {
+        // ── Mainnet ──────────────────────────────────────────────────────────
+        EntryPointConfig storage mainnet = _entryPointConfigs[MAINNET];
+        mainnet.chainId = MAINNET;
+        mainnet.roycoFactory = ROYCO_FACTORY;
+        // sNUSD
+        _addTrancheWithDefaultDelays(mainnet, 0x2070Af1C865f5d764F673Baf5654822947e71243); // ST
+        _addTrancheWithDefaultDelays(mainnet, 0x3821eBea3BBbE23F3dea74f24082BD0f0b67f6c5); // JT
+        // autoUSD
+        _addTrancheWithDefaultDelays(mainnet, 0x73C641fe41EB0270C7f473f3c3E4A40eb97fd8dE);
+        _addTrancheWithDefaultDelays(mainnet, 0x6f0D6567099621deE3850C673d73c532071A888d);
+        // Smokehouse USDC Morpho
+        _addTrancheWithDefaultDelays(mainnet, 0xa225F24654b8995036606D5Cd0634133a4BE169c);
+        _addTrancheWithDefaultDelays(mainnet, 0xC8fab124292cB792d15041292C2399910bD086d1);
+        // Maple SyrupUSDC
+        _addTrancheWithDefaultDelays(mainnet, 0x66182442522D3049A941035190C315379c959250);
+        _addTrancheWithDefaultDelays(mainnet, 0x5f340B400F892bBFDed2e5c316369Dcbf05C282A);
+        // stcUSD
+        _addTrancheWithDefaultDelays(mainnet, 0xa7Da92685ea436276B2e87aE12E5eE6DABaD5bB5);
+        _addTrancheWithDefaultDelays(mainnet, 0xe4060E83ad26618c7Ed56A02ce099beBA4f73b29);
+        // Pareto FalconX
+        _addTrancheWithDefaultDelays(mainnet, 0x694ADB3077BBecE31882B6d6A74fc4A4fA6a754b);
+        _addTrancheWithDefaultDelays(mainnet, 0x8E0ec43E51B88AA2324102e1A3D667822be51A6d);
+        // ApyUSD
+        _addTrancheWithDefaultDelays(mainnet, 0xBd373c9D3D8976a4FECC504a93c768BBE8C3227C);
+        _addTrancheWithDefaultDelays(mainnet, 0xAB2ab53E1e2E2c5D7202918EC8c873712bcc4a2D);
 
-        _entryPointConfig.tranches
-            .push(
-                TrancheInitConfig({
-                    tranche: 0x8C20837244C59cd2204D5318e334af16A3C4Ab28, // ST
-                    config: IRoycoEntryPoint.TrancheConfig({
-                        enabled: true,
-                        yieldRecipient: IRoycoEntryPoint.AccruedYieldRecipient.REMAINING_LPS,
-                        depositDelaySeconds: 5 minutes,
-                        redemptionDelaySeconds: 5 minutes
-                    })
-                })
-            );
-        _entryPointConfig.tranches
-            .push(
-                TrancheInitConfig({
-                    tranche: 0xd645abcB2836CbB84246E3634454372637E65Fb1, // JT
-                    config: IRoycoEntryPoint.TrancheConfig({
-                        enabled: true,
-                        yieldRecipient: IRoycoEntryPoint.AccruedYieldRecipient.REMAINING_LPS,
-                        depositDelaySeconds: 5 minutes,
-                        redemptionDelaySeconds: 5 minutes
-                    })
-                })
-            );
+        // ── Avalanche ────────────────────────────────────────────────────────
+        EntryPointConfig storage avalanche = _entryPointConfigs[AVALANCHE];
+        avalanche.chainId = AVALANCHE;
+        avalanche.roycoFactory = ROYCO_FACTORY;
+        // savUSD
+        _addTrancheWithDefaultDelays(avalanche, 0xDA7bf1788aecb94fE6D5D3f739358De94f43E5C9);
+        _addTrancheWithDefaultDelays(avalanche, 0x2dfde7811567562aaB39D0A292e43aa7195f6Cf6);
+
+        // ── Arbitrum ─────────────────────────────────────────────────────────
+        EntryPointConfig storage arbitrum = _entryPointConfigs[ARBITRUM];
+        arbitrum.chainId = ARBITRUM;
+        arbitrum.roycoFactory = ROYCO_FACTORY;
+        // sUSDai
+        _addTrancheWithDefaultDelays(arbitrum, 0x90465aad4e426948A4ea342AC49A1A38200B7017);
+        _addTrancheWithDefaultDelays(arbitrum, 0xeB60a64039289a4c07879147073A1Ec5AEA91553);
     }
 }

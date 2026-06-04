@@ -5,9 +5,10 @@ import { IRoycoEntryPoint } from "../../src/interfaces/IRoycoEntryPoint.sol";
 
 /**
  * @title EntryPointDeploymentConfig
- * @notice Configuration for RoycoEntryPoint deployments
- * @dev Configure each deployment by adding entries in `_initializeEntryPointConfigs()`.
- *      Each config specifies the initial tranches and their parameters.
+ * @notice Multi-chain configuration for RoycoEntryPoint deployments
+ * @dev Configures every deployment by populating `_entryPointConfigs[chainId]` in
+ *      `_initializeEntryPointConfigs()`. At runtime, `getEntryPointConfig()` resolves the
+ *      config for the current `block.chainid`, so the same script works on any chain.
  */
 abstract contract EntryPointDeploymentConfig {
     // ═══════════════════════════════════════════════════════════════════════════
@@ -31,6 +32,14 @@ abstract contract EntryPointDeploymentConfig {
     // ═══════════════════════════════════════════════════════════════════════════
 
     address internal constant ROOT_MULTISIG = 0x7c405bbD131e42af506d14e752f2e59B19D49997;
+    address internal constant WCE_MULTISIG = 0x84d37A25e46029CE161111420E07cEb78880119e;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DEFAULT DELAYS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    uint24 internal constant DEFAULT_DEPOSIT_DELAY = 5 minutes;
+    uint24 internal constant DEFAULT_REDEMPTION_DELAY = 5 minutes;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // TYPES
@@ -42,7 +51,7 @@ abstract contract EntryPointDeploymentConfig {
         IRoycoEntryPoint.TrancheConfig config;
     }
 
-    /// @notice Full deployment configuration for an entry point
+    /// @notice Full deployment configuration for an entry point on a single chain
     struct EntryPointConfig {
         uint256 chainId;
         /// @dev The Royco factory to use as the access manager
@@ -55,32 +64,42 @@ abstract contract EntryPointDeploymentConfig {
     // STORAGE
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @dev Stores the active deployment config (populated in constructor)
-    EntryPointConfig internal _entryPointConfig;
+    /// @dev Per-chain deployment configs (populated in constructor)
+    mapping(uint256 chainId => EntryPointConfig) internal _entryPointConfigs;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ERRORS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    error EntryPointConfigNotFound();
-    error EntryPointChainIdMismatch(uint256 expectedChainId, uint256 actualChainId);
+    error EntryPointConfigNotFound(uint256 chainId);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTRUCTOR
     // ═══════════════════════════════════════════════════════════════════════════
 
     constructor() {
-        _initializeEntryPointConfig();
+        _initializeEntryPointConfigs();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // GETTER
     // ═══════════════════════════════════════════════════════════════════════════
 
+    /// @notice Returns the entry point config for the current chain
     function getEntryPointConfig() public view returns (EntryPointConfig memory) {
-        require(_entryPointConfig.roycoFactory != address(0), EntryPointConfigNotFound());
-        require(_entryPointConfig.chainId == block.chainid, EntryPointChainIdMismatch(_entryPointConfig.chainId, block.chainid));
-        return _entryPointConfig;
+        return _getEntryPointConfig(block.chainid);
+    }
+
+    /// @notice Returns the entry point config for the specified chain
+    function _getEntryPointConfig(uint256 _chainId) internal view returns (EntryPointConfig memory cfg) {
+        EntryPointConfig storage stored = _entryPointConfigs[_chainId];
+        require(stored.roycoFactory != address(0), EntryPointConfigNotFound(_chainId));
+        cfg.chainId = stored.chainId;
+        cfg.roycoFactory = stored.roycoFactory;
+        cfg.tranches = new TrancheInitConfig[](stored.tranches.length);
+        for (uint256 i = 0; i < stored.tranches.length; i++) {
+            cfg.tranches[i] = stored.tranches[i];
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -88,21 +107,30 @@ abstract contract EntryPointDeploymentConfig {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /**
-     * @notice Configure the entry point deployment here
-     * @dev Set `_entryPointConfig` with the target chain, factory, and tranche configs.
-     *
-     * Example:
-     *   _entryPointConfig.chainId = MAINNET;
-     *   _entryPointConfig.roycoFactory = ROYCO_FACTORY;
-     *   _entryPointConfig.tranches.push(TrancheInitConfig({
-     *       tranche: 0x...,
-     *       config: IRoycoEntryPoint.TrancheConfig({
-     *           enabled: true,
-     *           yieldRecipient: IRoycoEntryPoint.AccruedYieldRecipient.REMAINING_LPS,
-     *           depositDelaySeconds: 1 days,
-     *           redemptionDelaySeconds: 1 days
-     *       })
-     *   }));
+     * @notice Populate `_entryPointConfigs[chainId]` for every chain you intend to deploy on.
+     * @dev Use `_addTrancheWithDefaultDelays` to push (ST, JT) entries with the standard
+     *      `5 minutes` deposit/redemption delays. Override this in deploy scripts.
      */
-    function _initializeEntryPointConfig() internal virtual;
+    function _initializeEntryPointConfigs() internal virtual;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @dev Pushes a tranche with the default 5-minute deposit/redemption delays and
+    ///      `REMAINING_LPS` as the yield recipient.
+    function _addTrancheWithDefaultDelays(EntryPointConfig storage _cfg, address _tranche) internal {
+        _cfg.tranches
+            .push(
+                TrancheInitConfig({
+                    tranche: _tranche,
+                    config: IRoycoEntryPoint.TrancheConfig({
+                        enabled: true,
+                        yieldRecipient: IRoycoEntryPoint.AccruedYieldRecipient.PROTOCOL,
+                        depositDelaySeconds: DEFAULT_DEPOSIT_DELAY,
+                        redemptionDelaySeconds: DEFAULT_REDEMPTION_DELAY
+                    })
+                })
+            );
+    }
 }

@@ -29,6 +29,9 @@ contract DeploymentScriptRerunTest is Test, RolesConfiguration {
     Vm.Wallet internal PAUSER;
     address internal PAUSER_ADDRESS;
 
+    Vm.Wallet internal UNPAUSER;
+    address internal UNPAUSER_ADDRESS;
+
     Vm.Wallet internal UPGRADER;
     address internal UPGRADER_ADDRESS;
 
@@ -122,6 +125,9 @@ contract DeploymentScriptRerunTest is Test, RolesConfiguration {
         PAUSER = _initWallet("PAUSER", 1000 ether);
         PAUSER_ADDRESS = PAUSER.addr;
 
+        UNPAUSER = _initWallet("UNPAUSER", 1000 ether);
+        UNPAUSER_ADDRESS = UNPAUSER.addr;
+
         UPGRADER = _initWallet("UPGRADER", 1000 ether);
         UPGRADER_ADDRESS = UPGRADER.addr;
 
@@ -164,6 +170,7 @@ contract DeploymentScriptRerunTest is Test, RolesConfiguration {
         return DEPLOY_SCRIPT.generateRolesAssignments(
             DeployScript.RoleAssignmentAddresses({
                 pauserAddress: PAUSER_ADDRESS,
+                unpauserAddress: UNPAUSER_ADDRESS,
                 upgraderAddress: UPGRADER_ADDRESS,
                 syncRoleAddress: SYNC_ROLE_ADDRESS,
                 adminKernelAddress: KERNEL_ADMIN_ADDRESS,

@@ -176,7 +176,7 @@ abstract contract AccessManagerConfigUtils is Script {
         string memory root = "root";
         vm.serializeString(root, "version", "1.0");
         vm.serializeString(root, "chainId", vm.toString(block.chainid));
-        vm.serializeUint(root, "createdAt", block.timestamp);
+        vm.serializeUint(root, "createdAt", vm.getBlockTimestamp());
 
         // Meta object
         string memory meta = "meta";

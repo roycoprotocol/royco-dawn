@@ -48,6 +48,8 @@ abstract contract MarketDeploymentConfig {
     string public constant APYUSD = "apyUSD";
     string public constant LIUSD_4W = "liUSD-4w";
     string public constant SUSDAT = "sUSDat";
+    string public constant EEARN = "eEARN";
+    string public constant MAKINA_MGLOBAL = "DMG";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CHAIN-SPECIFIC CONFIG (defined once per chain)
@@ -57,6 +59,7 @@ abstract contract MarketDeploymentConfig {
         address factoryAdmin;
         address protocolFeeRecipient;
         address pauserAddress;
+        address unpauserAddress;
         address upgraderAddress;
         address syncRoleAddress;
         address adminKernelAddress;
@@ -139,6 +142,7 @@ abstract contract MarketDeploymentConfig {
             factoryAdmin: ROOT_MULTISIG,
             protocolFeeRecipient: PROTOCOL_FEE_RECIPIENT,
             pauserAddress: ROOT_MULTISIG,
+            unpauserAddress: ROOT_MULTISIG,
             upgraderAddress: ROOT_MULTISIG,
             syncRoleAddress: ROOT_MULTISIG,
             adminKernelAddress: ROOT_MULTISIG,
@@ -182,33 +186,32 @@ abstract contract MarketDeploymentConfig {
             juniorTrancheSymbol: _juniorTrancheSymbol(STCUSD),
             seniorAsset: 0x88887bE419578051FF9F4eb6C858A951921D8888,
             juniorAsset: 0x88887bE419578051FF9F4eb6C858A951921D8888,
-            stDustTolerance: 5,
-            jtDustTolerance: 5,
+            stDustTolerance: 1e16,
+            jtDustTolerance: 1e16,
             kernelType: DeployScript.KernelType.Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel,
             kernelSpecificParams: abi.encode(
                 DeployScript.IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
-                        // Disable the Oracle Leg by setting the initial conversion rate to 1e18
-                        initialConversionRateWAD: 1e18,
-                        baseAssetToNavAssetOracle: address(1),
-                        stalenessThresholdSeconds: 86_400
+                        // Enable the Oracle Leg by setting the initial conversion rate to the sentinel conversion rate
+                        initialConversionRateWAD: 0,
+                        // https://app.redstone.finance/push-feeds/cUSD_FUNDAMENTAL/ethereumMultiFeed
+                        baseAssetToNavAssetOracle: 0x9A5a3c3Ed0361505cC1D4e824B3854De5724434A,
+                        // 48 hours
+                        stalenessThresholdSeconds: 48 hours
                     })
             ),
             enforceVaultSharesTransferWhitelist: false,
-            stSelfLiquidationBonusWAD: 0.05e18,
+            stSelfLiquidationBonusWAD: 0,
             stProtocolFeeWAD: 0.1e18,
-            jtProtocolFeeWAD: 0.2e18,
-            jtYieldShareProtocolFeeWAD: 0.2e18,
-            coverageWAD: 0.1e18,
+            jtProtocolFeeWAD: 0,
+            jtYieldShareProtocolFeeWAD: 0.45e18,
+            coverageWAD: 0.03e18,
             betaWAD: 1e18,
-            liquidationUtilizationWAD: 1.1111e18,
-            fixedTermDurationSeconds: 0, // Market is not expected to have volatility, so no fixed term
+            liquidationUtilizationWAD: 1.0032441e18,
+            fixedTermDurationSeconds: 0,
             ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
             ydmSpecificParams: abi.encode(
                 DeployScript.AdaptiveCurveYDM_V2_Params({
-                    jtYieldShareAtZeroUtilWAD: 0.05e18,
-                    jtYieldShareAtTargetUtilWAD: 0.05e18,
-                    jtYieldShareAtFullUtilWAD: 0.4e18,
-                    maxAdaptationSpeedWAD: uint64(80e18 / uint256(365 days))
+                    jtYieldShareAtZeroUtilWAD: 0.06e18, jtYieldShareAtTargetUtilWAD: 0.06e18, jtYieldShareAtFullUtilWAD: 0.18e18, maxAdaptationSpeedWAD: 0
                 })
             ),
             transferAgentAddress: address(0)
@@ -273,27 +276,25 @@ abstract contract MarketDeploymentConfig {
                 DeployScript.IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
                         // Enable the Oracle Leg by setting the initial conversion rate to the sentinel conversion rate
                         initialConversionRateWAD: 0,
-                        baseAssetToNavAssetOracle: 0x2037a5Eb67aa9B2FBF50042B724D8c4dB80F23b4,
+                        // https://data.chain.link/feeds/ethereum/mainnet/apxusd-usd-exchange-rate
+                        baseAssetToNavAssetOracle: 0x651b101f72F82630cf59c68E6EE4305aFBd3B1F5,
                         // Mirror sNUSD: updates pushed every 12 hours, staleness threshold set to 48 hours for safety
                         stalenessThresholdSeconds: 48 hours
                     })
             ),
             enforceVaultSharesTransferWhitelist: false,
-            stSelfLiquidationBonusWAD: 0.005e18,
+            stSelfLiquidationBonusWAD: 0,
             stProtocolFeeWAD: 0.1e18,
             jtProtocolFeeWAD: 0,
             jtYieldShareProtocolFeeWAD: 0.45e18,
-            coverageWAD: 0.1e18,
+            coverageWAD: 0.15e18,
             betaWAD: 1e18,
-            liquidationUtilizationWAD: 1.0009009e18,
-            fixedTermDurationSeconds: 0, // Market is not expected to have volatility, so no fixed term
+            liquidationUtilizationWAD: 1.85e18,
+            fixedTermDurationSeconds: 30 days,
             ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
             ydmSpecificParams: abi.encode(
                 DeployScript.AdaptiveCurveYDM_V2_Params({
-                    jtYieldShareAtZeroUtilWAD: 0.11e18,
-                    jtYieldShareAtTargetUtilWAD: 0.11e18,
-                    jtYieldShareAtFullUtilWAD: 0.31e18,
-                    maxAdaptationSpeedWAD: uint64(50e18 / uint256(365 days))
+                    jtYieldShareAtZeroUtilWAD: 0.15e18, jtYieldShareAtTargetUtilWAD: 0.15e18, jtYieldShareAtFullUtilWAD: 0.4e18, maxAdaptationSpeedWAD: 0
                 })
             ),
             transferAgentAddress: address(0)
@@ -520,21 +521,18 @@ abstract contract MarketDeploymentConfig {
             kernelType: DeployScript.KernelType.IdleCdoAA_ST_IdleCdoAA_JT,
             kernelSpecificParams: abi.encode(DeployScript.IdleAACdoSTCdoJTKernelParams({ idleCDO: 0x433D5B175148dA32Ffe1e1A37a939E1b7e79be4d })),
             enforceVaultSharesTransferWhitelist: false,
-            stSelfLiquidationBonusWAD: 0.05e18,
+            stSelfLiquidationBonusWAD: 0.01e18,
             stProtocolFeeWAD: 0.1e18,
-            jtProtocolFeeWAD: 0.1e18,
-            jtYieldShareProtocolFeeWAD: 0.1e18,
-            coverageWAD: 0.2e18,
+            jtProtocolFeeWAD: 0,
+            jtYieldShareProtocolFeeWAD: 0.45e18,
+            coverageWAD: 0.03e18,
             betaWAD: 1e18,
-            liquidationUtilizationWAD: 6.6667e18,
-            fixedTermDurationSeconds: 2 weeks,
+            liquidationUtilizationWAD: 2.94e18,
+            fixedTermDurationSeconds: 7 days,
             ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
             ydmSpecificParams: abi.encode(
                 DeployScript.AdaptiveCurveYDM_V2_Params({
-                    jtYieldShareAtZeroUtilWAD: 0.225e18,
-                    jtYieldShareAtTargetUtilWAD: 0.225e18,
-                    jtYieldShareAtFullUtilWAD: 1e18,
-                    maxAdaptationSpeedWAD: uint64(30e18 / uint256(365 days))
+                    jtYieldShareAtZeroUtilWAD: 0.06e18, jtYieldShareAtTargetUtilWAD: 0.06e18, jtYieldShareAtFullUtilWAD: 0.18e18, maxAdaptationSpeedWAD: 0
                 })
             ),
             transferAgentAddress: address(0)
@@ -869,6 +867,48 @@ abstract contract MarketDeploymentConfig {
             transferAgentAddress: address(0)
         });
 
+        _marketConfigs[EEARN] = MarketConfig({
+            marketName: EEARN,
+            chainId: MAINNET,
+            seniorTrancheName: _seniorTrancheName(EEARN),
+            seniorTrancheSymbol: _seniorTrancheSymbol(EEARN),
+            juniorTrancheName: _juniorTrancheName(EEARN),
+            juniorTrancheSymbol: _juniorTrancheSymbol(EEARN),
+            // Ember Earn vault (USDC-denominated ERC4626)
+            seniorAsset: 0x9be9294722f8AAd37b11a9792Be2C782182caFA2,
+            juniorAsset: 0x9be9294722f8AAd37b11a9792Be2C782182caFA2,
+            // USDC base asset has 6 decimals; NAV is 18-decimal, so dust = 5 * 10^(18-6)
+            stDustTolerance: 5 * (10 ** (18 - 6)),
+            jtDustTolerance: 5 * (10 ** (18 - 6)),
+            kernelType: DeployScript.KernelType.Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel,
+            kernelSpecificParams: abi.encode(
+                DeployScript.IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
+                        // Disable the Oracle Leg by setting the initial conversion rate to 1e18 (USDC pegged at $1)
+                        initialConversionRateWAD: 1e18,
+                        // Filler oracle address since the Oracle Leg is disabled
+                        baseAssetToNavAssetOracle: address(1),
+                        // Filler staleness threshold since the Oracle Leg is disabled
+                        stalenessThresholdSeconds: 86_400
+                    })
+            ),
+            enforceVaultSharesTransferWhitelist: false,
+            stSelfLiquidationBonusWAD: 0,
+            stProtocolFeeWAD: 0.1e18,
+            jtProtocolFeeWAD: 0,
+            jtYieldShareProtocolFeeWAD: 0.45e18,
+            coverageWAD: 0.1e18,
+            betaWAD: 1e18,
+            liquidationUtilizationWAD: 1.0090909e18,
+            fixedTermDurationSeconds: 5 days,
+            ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
+            ydmSpecificParams: abi.encode(
+                DeployScript.AdaptiveCurveYDM_V2_Params({
+                    jtYieldShareAtZeroUtilWAD: 0.1e18, jtYieldShareAtTargetUtilWAD: 0.1e18, jtYieldShareAtFullUtilWAD: 0.3e18, maxAdaptationSpeedWAD: 0
+                })
+            ),
+            transferAgentAddress: address(0)
+        });
+
         _marketConfigs[LIUSD_4W] = MarketConfig({
             marketName: LIUSD_4W,
             chainId: MAINNET,
@@ -908,6 +948,42 @@ abstract contract MarketDeploymentConfig {
                     jtYieldShareAtTargetUtilWAD: 0.11e18,
                     jtYieldShareAtFullUtilWAD: 0.31e18,
                     maxAdaptationSpeedWAD: uint64(50e18 / uint256(365 days))
+                })
+            ),
+            transferAgentAddress: address(0)
+        });
+
+        _marketConfigs[MAKINA_MGLOBAL] = MarketConfig({
+            marketName: MAKINA_MGLOBAL,
+            chainId: MAINNET,
+            seniorTrancheName: _seniorTrancheName(MAKINA_MGLOBAL),
+            seniorTrancheSymbol: _seniorTrancheSymbol(MAKINA_MGLOBAL),
+            juniorTrancheName: _juniorTrancheName(MAKINA_MGLOBAL),
+            juniorTrancheSymbol: _juniorTrancheSymbol(MAKINA_MGLOBAL),
+            seniorAsset: 0x761C3B16a5Afdd7A1869C4B979cFF3383d5Fe98B,
+            juniorAsset: 0x761C3B16a5Afdd7A1869C4B979cFF3383d5Fe98B,
+            // The machine's convertToAssets() quotes in USDC (6 decimals) so dust = 5 * 10^(18-6)
+            stDustTolerance: 5 * 10 ** 12,
+            jtDustTolerance: 5 * 10 ** 12,
+            kernelType: DeployScript.KernelType.Identical_Makina_ST_JT_MachineToAdminOracle_Kernel,
+            enforceVaultSharesTransferWhitelist: false,
+            kernelSpecificParams: abi.encode(
+                DeployScript.IdenticalMakinaSTMakinaJTKernelParams({
+                    makinaMachine: 0xC4fFab8540AC27E40D4e2930517aA711e9C00c5b, initialConversionRateWAD: 1e18
+                })
+            ),
+            stSelfLiquidationBonusWAD: 0.01e18,
+            stProtocolFeeWAD: 0,
+            jtProtocolFeeWAD: 0,
+            jtYieldShareProtocolFeeWAD: 0,
+            coverageWAD: 0.1e18,
+            betaWAD: 1e18,
+            liquidationUtilizationWAD: 2e18,
+            fixedTermDurationSeconds: 0,
+            ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
+            ydmSpecificParams: abi.encode(
+                DeployScript.AdaptiveCurveYDM_V2_Params({
+                    jtYieldShareAtZeroUtilWAD: 0.2e18, jtYieldShareAtTargetUtilWAD: 0.2e18, jtYieldShareAtFullUtilWAD: 0.4e18, maxAdaptationSpeedWAD: 0
                 })
             ),
             transferAgentAddress: address(0)

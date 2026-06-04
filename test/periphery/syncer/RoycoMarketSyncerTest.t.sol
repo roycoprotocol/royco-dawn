@@ -7,6 +7,7 @@ import { PausableUpgradeable } from "../../../lib/openzeppelin-contracts-upgrade
 import { IAccessManaged } from "../../../lib/openzeppelin-contracts/contracts/access/manager/IAccessManaged.sol";
 import { IAccessManager } from "../../../lib/openzeppelin-contracts/contracts/access/manager/IAccessManager.sol";
 import { ERC1967Proxy } from "../../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ExtraRoles } from "../../../script/config/ExtraRoles.sol";
 import { DeploySyncerScript } from "../../../script/independent/DeploySyncer.s.sol";
 import { RoycoBase } from "../../../src/base/RoycoBase.sol";
 import { RolesConfiguration } from "../../../src/factory/RolesConfiguration.sol";
@@ -100,7 +101,7 @@ contract MockTranche {
  *      - ADMIN_PAUSER_ROLE: pause, unpause
  *      - ADMIN_UPGRADER_ROLE: upgradeToAndCall
  */
-contract RoycoMarketSyncerTest is Test, RolesConfiguration {
+contract RoycoMarketSyncerTest is Test, RolesConfiguration, ExtraRoles {
     // ═══════════════════════════════════════════════════════════════════════════
     // TEST STATE
     // ═══════════════════════════════════════════════════════════════════════════
@@ -266,6 +267,12 @@ contract RoycoMarketSyncerTest is Test, RolesConfiguration {
         // Grant ADMIN_PAUSER_ROLE to PAUSER (not included in buildSyncerConfigTransactions)
         vm.prank(FACTORY_ADMIN_ADDRESS);
         factory.grantRole(ADMIN_PAUSER_ROLE, PAUSER_ADDRESS, 0);
+
+        // Grant ADMIN_UNPAUSER_ROLE to PAUSER as well, with delay 0 (test convenience).
+        // In production this role is held by FNDN with a 1-day Standard delay; the
+        // delay-enforcement tests live in `test/access/RoleDelaysTest.t.sol`.
+        vm.prank(FACTORY_ADMIN_ADDRESS);
+        factory.grantRole(ADMIN_UNPAUSER_ROLE, PAUSER_ADDRESS, 0);
 
         // Grant ADMIN_UPGRADER_ROLE to DEPLOYER (not included in buildSyncerConfigTransactions)
         vm.prank(FACTORY_ADMIN_ADDRESS);
@@ -1430,20 +1437,22 @@ contract RoycoMarketSyncerTest is Test, RolesConfiguration {
     // These tests explicitly verify that the production role configuration from
     // buildSyncerConfigTransactions matches expected values and is correctly applied.
 
-    /// @notice Verify buildSyncerConfigTransactions returns exactly 4 transactions when no sync operators
+    /// @notice Verify buildSyncerConfigTransactions returns exactly 5 transactions when no sync operators
     function test_productionConfig_transactionCount_noOperators() external view {
         DeploySyncerScript.SafeTransaction[] memory txs = deployScript.buildSyncerConfigTransactions(address(factory), address(syncer), new address[](0));
-        assertEq(txs.length, 4, "Should have exactly 4 role configuration transactions with no operators");
+        assertEq(
+            txs.length, 5, "Should have exactly 5 role configuration transactions with no operators (sync/pause/unpause/upgrader + grant SYNC_ROLE to syncer)"
+        );
     }
 
-    /// @notice Verify buildSyncerConfigTransactions returns 4 + N transactions with N sync operators
+    /// @notice Verify buildSyncerConfigTransactions returns 5 + N transactions with N sync operators
     function test_productionConfig_transactionCount_withOperators() external view {
         address[] memory syncOperators = new address[](2);
         syncOperators[0] = address(0x1111);
         syncOperators[1] = address(0x2222);
 
         DeploySyncerScript.SafeTransaction[] memory txs = deployScript.buildSyncerConfigTransactions(address(factory), address(syncer), syncOperators);
-        assertEq(txs.length, 6, "Should have 4 role config + 2 grantRole transactions");
+        assertEq(txs.length, 7, "Should have 5 role config + 2 grantRole transactions");
     }
 
     /// @notice Verify all transactions target the factory
@@ -1475,15 +1484,20 @@ contract RoycoMarketSyncerTest is Test, RolesConfiguration {
         }
     }
 
-    /// @notice Verify ADMIN_PAUSER_ROLE is assigned to pause/unpause
+    /// @notice Verify ADMIN_PAUSER_ROLE is assigned to pause
     function test_productionConfig_pauserRoleFunctions() external view {
-        bytes4[2] memory pauserSelectors = [IRoycoAuth.pause.selector, IRoycoAuth.unpause.selector];
+        (bool canCall, uint32 delay) = factory.canCall(PAUSER_ADDRESS, address(syncer), IRoycoAuth.pause.selector);
+        assertTrue(canCall, "ADMIN_PAUSER_ROLE should be able to call pause");
+        assertEq(delay, 0, "ADMIN_PAUSER_ROLE should have no delay for pause");
+    }
 
-        for (uint256 i = 0; i < pauserSelectors.length; i++) {
-            (bool canCall, uint32 delay) = factory.canCall(PAUSER_ADDRESS, address(syncer), pauserSelectors[i]);
-            assertTrue(canCall, string.concat("ADMIN_PAUSER_ROLE should be able to call selector index ", vm.toString(i)));
-            assertEq(delay, 0, string.concat("ADMIN_PAUSER_ROLE should have no delay for selector index ", vm.toString(i)));
-        }
+    /// @notice Verify ADMIN_UNPAUSER_ROLE is assigned to unpause
+    /// @dev In `_configureProductionRoles` PAUSER_ADDRESS is also granted ADMIN_UNPAUSER_ROLE with delay 0
+    ///      for test convenience; production grants this role with the Standard 24h delay.
+    function test_productionConfig_unpauserRoleFunctions() external view {
+        (bool canCall, uint32 delay) = factory.canCall(PAUSER_ADDRESS, address(syncer), IRoycoAuth.unpause.selector);
+        assertTrue(canCall, "ADMIN_UNPAUSER_ROLE should be able to call unpause");
+        assertEq(delay, 0, "ADMIN_UNPAUSER_ROLE should have no delay for unpause (test config)");
     }
 
     /// @notice Verify ADMIN_UPGRADER_ROLE is assigned to upgradeToAndCall
@@ -1551,9 +1565,9 @@ contract RoycoMarketSyncerTest is Test, RolesConfiguration {
         assertEq(addKernelsRole, SYNC_ROLE, "addMarketKernels should use SYNC_ROLE");
         assertEq(removeKernelsRole, SYNC_ROLE, "removeMarketKernels should use SYNC_ROLE");
 
-        // Verify ADMIN_PAUSER_ROLE for pause/unpause
+        // Verify ADMIN_PAUSER_ROLE for pause and ADMIN_UNPAUSER_ROLE for unpause (split per the security model)
         assertEq(pauseRole, ADMIN_PAUSER_ROLE, "pause should use ADMIN_PAUSER_ROLE");
-        assertEq(unpauseRole, ADMIN_PAUSER_ROLE, "unpause should use ADMIN_PAUSER_ROLE");
+        assertEq(unpauseRole, ADMIN_UNPAUSER_ROLE, "unpause should use ADMIN_UNPAUSER_ROLE");
 
         // Verify ADMIN_UPGRADER_ROLE for upgrade
         assertEq(upgradeRole, ADMIN_UPGRADER_ROLE, "upgradeToAndCall should use ADMIN_UPGRADER_ROLE");

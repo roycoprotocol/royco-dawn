@@ -629,15 +629,15 @@ contract RoycoAccountantTest is BaseTest {
     }
 
     function test_stateTransition_fixedTermToPerpetual_stILCreated() public {
-        _initializeAccountantState(100e18, 20e18);
+        _initializeAccountantState(100e18, 50e18);
 
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(20e18));
+        SyncedAccountingState memory state1 = accountant.preOpSyncTrancheAccounting(_nav(80e18), _nav(50e18));
         assertEq(uint8(state1.marketState), uint8(MarketState.FIXED_TERM));
 
-        // Massive loss to 0 ST NAV
+        // Massive loss to 0 ST NAV — drains JT and creates ST IL
         vm.prank(MOCK_KERNEL);
-        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(_nav(0), _nav(20e18));
+        SyncedAccountingState memory state2 = accountant.preOpSyncTrancheAccounting(_nav(0), _nav(50e18));
 
         assertEq(uint8(state2.marketState), uint8(MarketState.PERPETUAL), "PERPETUAL when ST has IL");
         assertGt(toUint256(state2.stImpermanentLoss), 0, "ST IL exists");
@@ -1301,8 +1301,17 @@ contract RoycoAccountantTest is BaseTest {
     }
 
     function _initializeAccountantState(uint256 stNav, uint256 jtNav) internal {
-        vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_nav(stNav), _nav(jtNav));
+        vm.startPrank(MOCK_KERNEL);
+        // Initialize timestamps and market state via no-op preOp sync from zero
+        accountant.preOpSyncTrancheAccounting(_nav(0), _nav(0));
+        // JT must deposit first so coverage is satisfied when ST follows
+        if (jtNav > 0) {
+            accountant.postOpSyncTrancheAccounting(Operation.JT_DEPOSIT, _nav(0), _nav(jtNav), ZERO_NAV_UNITS);
+        }
+        if (stNav > 0) {
+            accountant.postOpSyncTrancheAccounting(Operation.ST_DEPOSIT, _nav(stNav), _nav(jtNav), ZERO_NAV_UNITS);
+        }
+        vm.stopPrank();
     }
 
     function _assertNAVConservation(SyncedAccountingState memory state) internal pure {

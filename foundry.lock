@@ -1,4 +1,7 @@
 {
+  "lib/Pendle-SY-Public": {
+    "rev": "73676d931102a369a978a713abfd0b48e3e34361"
+  },
   "lib/forge-std": {
     "tag": {
       "name": "v1.15.0",
@@ -15,6 +18,12 @@
     "tag": {
       "name": "v5.6.0",
       "rev": "c9f48f0d6c470a3edab20dcbb3cc35dcfc7f4f1f"
+    }
+  },
+  "lib/openzeppelin-contracts-v4": {
+    "branch": {
+      "name": "release-v4.9",
+      "rev": "fd81a96f01cc42ef1c9a5399364968d0e07e9e90"
     }
   },
   "lib/solady": {

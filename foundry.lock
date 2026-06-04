@@ -2,6 +2,9 @@
   "lib/Pendle-SY-Public": {
     "rev": "73676d931102a369a978a713abfd0b48e3e34361"
   },
+  "lib/balancer-v3-monorepo": {
+    "rev": "0a5890a8c5d79865498d75cdc6ecdc75cf8d297d"
+  },
   "lib/forge-std": {
     "tag": {
       "name": "v1.15.0",

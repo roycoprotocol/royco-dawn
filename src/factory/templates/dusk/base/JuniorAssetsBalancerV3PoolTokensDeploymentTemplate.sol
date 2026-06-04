@@ -257,8 +257,7 @@ abstract contract JuniorAssetsBalancerV3PoolTokensDeploymentTemplate is BaseDepl
         address accountantImpl = _deployAccountantImpl(result.kernel, _marketComponentSalt(p.marketId, "ACCOUNTANT_IMPL"));
         _deployProxy(accountantImpl, _encodeAccountantInitData(p.accountant, result.ydm), accountantProxySalt);
 
-        // Deploy kernel impl + proxy. Hoisted into a helper to limit local-variable count in
-        // this outer function — Solidity's via_ir was tripping on stack depth here.
+        // Deploy kernel impl + proxy. Hoisted into a helper to limit local-variable count
         _deployKernelImplAndProxy(p, result, balancerPool, kernelProxySalt);
 
         // Now that the kernel is live, deploy the rate providers + upgrade the hooks proxy from

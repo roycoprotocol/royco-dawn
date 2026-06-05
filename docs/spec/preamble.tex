@@ -1,0 +1,86 @@
+% ============================================================================
+% preamble.tex - packages, math operators, and convenience macros.
+% Loaded by main.tex.
+% ============================================================================
+
+% --- Page geometry ----------------------------------------------------------
+\usepackage[a4paper,margin=1in]{geometry}
+
+% --- Encoding / fonts -------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+
+% --- Math -------------------------------------------------------------------
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{mathtools}
+
+% --- Tables -----------------------------------------------------------------
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+
+% --- Graphics + colour ------------------------------------------------------
+\usepackage{xcolor}
+\usepackage{graphicx}
+
+% --- Code listings ----------------------------------------------------------
+\usepackage{listings}
+\definecolor{codebg}{rgb}{0.96,0.96,0.97}
+\definecolor{codeframe}{rgb}{0.85,0.85,0.88}
+\lstdefinestyle{plain}{
+  backgroundcolor=\color{codebg},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{codeframe},
+  framerule=0.4pt,
+  showstringspaces=false,
+  columns=fullflexible,
+  keepspaces=true,
+}
+\lstset{style=plain}
+
+% --- Natural underscores in text mode ---------------------------------------
+% Lets identifiers like ST_RAW_NAV typeset correctly inside \texttt and \code
+% without manual escaping.
+\usepackage{underscore}
+
+% --- Cross-references (hyperref must come second-to-last; cleveref last) ----
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+\usepackage[capitalize]{cleveref}
+
+% ============================================================================
+% Macros
+% ============================================================================
+
+% --- Inline code/identifier (e.g. \code{getRate()}, \code{JT_RAW_NAV}) ------
+\newcommand{\code}[1]{\texttt{#1}}
+
+% --- Loose line-breaking so long \code{...} identifiers in description /
+%     enumerate environments don't push text into the right margin. The cost
+%     is slightly wider word spacing on those lines, which is preferable to
+%     overfull-hbox margin breaches in a spec document.
+\sloppy
+
+% --- Common math identifiers used across the Dusk spec ---------------------
+\newcommand{\STraw}{\mathit{ST}_{\mathrm{raw}}}
+\newcommand{\STeff}{\mathit{ST}_{\mathrm{eff}}}
+\newcommand{\JTraw}{\mathit{JT}_{\mathrm{raw}}}
+\newcommand{\JTeff}{\mathit{JT}_{\mathrm{eff}}}
+\newcommand{\yraw}{y_{\mathrm{raw}}}
+\newcommand{\yeff}{y_{\mathrm{eff}}}
+
+% --- Theorem-like environments ----------------------------------------------
+\theoremstyle{plain}
+\newtheorem{lemma}{Lemma}[section]
+\newtheorem{proposition}[lemma]{Proposition}
+\newtheorem{theorem}[lemma]{Theorem}
+
+\theoremstyle{definition}
+\newtheorem{definition}[lemma]{Definition}
+
+\theoremstyle{remark}
+\newtheorem*{remark}{Remark}

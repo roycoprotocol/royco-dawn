@@ -1,0 +1,106 @@
+\section{System overview}
+\label{sec:overview}
+
+This section sketches the system in just enough detail for the math that
+follows. It assumes familiarity with Royco-style tranched markets at the
+level of Dawn, and with Balancer V3's pool, hook, and rate-provider
+architecture.
+
+\subsection{Tranches and the loss waterfall}
+\label{sec:overview:tranches}
+
+A Royco market splits deposits across two tranches with different risk
+profiles:
+
+\begin{description}
+  \item[Senior (ST)] Protected capital. Earns a fixed share of yield;
+    absorbs losses only after JT's buffer is exhausted.
+  \item[Junior (JT)] First-loss coverage capital. Absorbs senior losses up
+    to its effective NAV; in exchange earns yield share and coverage
+    premiums.
+\end{description}
+
+Each tranche has two NAV figures the accountant tracks per sync:
+
+\begin{description}
+  \item[Raw NAV] The mark-to-market value of the tranche's \emph{own}
+    underlying assets (\code{ST_RAW_NAV}, \code{JT_RAW_NAV}).
+  \item[Effective NAV] The value each tranche \emph{controls} after the
+    waterfall distributes PnL according to coverage rules (\code{ST_EFF},
+    \code{JT_EFF}).
+\end{description}
+
+The waterfall, encoded in
+\code{RoycoAccountant.\_previewSyncTrancheAccounting}, is a fixed-priority
+allocator. Given the two raw-NAV deltas since the last checkpoint, it routes
+them through four branches (junior loses, junior gains, senior loses, senior
+gains), each a chain of \code{min} / \code{max} / addition / subtraction.
+We refer to this allocator as the function $F$ throughout this document.
+
+Two structural facts about $F$ matter later:
+
+\begin{enumerate}
+  \item \textbf{NAV conservation:}
+    $\STraw + \JTraw \equiv \STeff + \JTeff$. The waterfall only
+    redistributes value between tranches; it never creates or destroys it.
+    The on-chain \code{NAV_CONSERVATION_VIOLATION} guard enforces this on
+    every sync.
+  \item \textbf{Piecewise-affine:} each branch is affine in its inputs,
+    with slope $\in \{0, 1\}$. This is the property invoked in the
+    existence proof (\cref{sec:existence}).
+\end{enumerate}
+
+\subsection{What makes Dusk different from Dawn}
+\label{sec:overview:dawn-vs-dusk}
+
+In a Dawn market, the JT side deposits a plain ERC20 (e.g.\ \code{sNUSD},
+\code{USDC}). The kernel custodies the token directly and reads
+\code{JT_RAW_NAV} from an exogenous oracle.
+
+In a Dusk market, the JT asset is a Balancer V3 Pool Token (BPT) --- the
+LP token of a pool pairing two assets:
+
+\begin{itemize}
+  \item the senior tranche share token;
+  \item a stable quote asset (\code{USDC}, \code{sUSDs}, \code{srRoyUSDC},
+    etc.).
+\end{itemize}
+
+The pool plays a dual role: it serves as JT's first-loss coverage collateral
+(the Dawn function) \emph{and} as a secondary-market exit venue for senior
+holders who want to swap out of their tranche shares into stables (the new
+Dusk function).
+
+The consequence is that JT's collateral value now depends on the price of
+the senior share, which is the rate $y = \STeff / N$, where $N$ is the
+total senior share supply. But $\STeff$ is the output of the waterfall $F$,
+and computing $F$ requires marking JT's BPT to market --- which requires
+$y$. This is the circularity the rest of this document addresses, starting
+in \cref{sec:setup}.
+
+\subsection{Pieces of a Dusk market}
+\label{sec:overview:pieces}
+
+A Dusk market is composed of:
+
+\begin{description}
+  \item[Gyro E-CLP pool] A Balancer V3 elliptic concentrated liquidity
+    pool over $\{\text{senior share},\ \text{quote asset}\}$. The senior
+    share token is registered as a \code{WITH_RATE} token, so Balancer
+    scales its live balance by the rate provider's published rate before
+    pool math runs.
+  \item[Dusk kernel] One contract wearing two hats:
+    \begin{itemize}
+      \item the senior token's rate provider, exposing \code{getRate()}
+        which returns the cached senior share rate;
+      \item the sync entrypoint, which runs the bisection solve
+        (\cref{sec:solver}) and writes the freshly-solved rate to the
+        cache.
+    \end{itemize}
+  \item[Hook contract] Forwards Balancer V3's before-operation callbacks
+    (swap, add liquidity, remove liquidity) into the kernel's sync
+    entrypoint, so each operation triggers a fresh solve before the pool
+    math runs.
+  \item[Accountant] Reused from Dawn; called by the kernel during the
+    bisection solve to evaluate $F$.
+\end{description}

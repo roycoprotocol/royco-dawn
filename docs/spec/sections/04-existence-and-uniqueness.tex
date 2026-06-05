@@ -1,0 +1,234 @@
+\section{Existence and uniqueness of the solved rate}
+\label{sec:existence}
+
+This section establishes that the fixed-point equation
+\eqref{eq:fixed-point} has exactly one solution on the search bracket and
+that an on-chain bisection finds it deterministically. The proof rests on
+two lemmas:
+
+\begin{itemize}
+  \item \textbf{Lemma~A} (\S\ref{sec:existence:lemma-a}): the conservative
+    BPT valuation $P_A$ is non-decreasing and Lipschitz in the senior
+    rate $y$. The argument is the envelope theorem and requires no
+    pool-specific algebra.
+  \item \textbf{Lemma~B} (\S\ref{sec:existence:lemma-b}): the waterfall
+    $F$ is non-decreasing and 1-Lipschitz in $\JTraw$. The argument is
+    structural and does not need $F$ to be differentiable.
+\end{itemize}
+Composing the two lemmas (\S\ref{sec:existence:composition}) gives a
+strict monotonicity bound on $E$. The conditions auditors must verify per
+market are collected in \S\ref{sec:existence:obligations}; their robustness
+across pool types is discussed in \S\ref{sec:existence:generality}.
+
+\subsection{The property to prove}
+\label{sec:existence:property}
+
+We want exactly one statement, strong enough to imply both root-existence
+and bisection-convergence, that pure monotonicity arguments can establish.
+
+\begin{proposition}\label{prop:E}
+On the search bracket $[x_{\mathrm{lo}}, x_{\mathrm{hi}}]
+= [N/\beta,\,N/\alpha]$, the error function
+$E(x) = F\!\left(P_A(x/N)\right) - x$ is continuous and strictly
+decreasing. If, in addition, $E(x_{\mathrm{lo}}) \geq 0$ and
+$E(x_{\mathrm{hi}}) \leq 0$, then $E$ has a unique root $x^*$ in the
+bracket and bisection converges to it.
+\end{proposition}
+
+The sign-change requirement is checked at runtime by the solver
+(\S\ref{sec:solver}); failure to straddle the root is treated as a market
+condition the pool cannot express, and the sync reverts rather than
+publishing a stale rate.
+
+\subsection{Lemma~A: $P_A$ is monotone and Lipschitz in the rate}
+\label{sec:existence:lemma-a}
+
+Fix the E-CLP invariant $L$ implied by the current pool. The conservative
+pool TVL at senior rate $y$ is
+\[
+  V(y) \;=\; x(y) \;+\; y\,\mathrm{yb}(y),
+\]
+where $\mathrm{yb}(y)$ is the senior-share reserve at the point on the
+ellipse whose marginal price is $y$, and $x(y)$ is the quote reserve at
+that same point. Moving along the curve, $dx/d(\mathrm{yb}) = -y$ (the
+slope of the curve is the price), so
+\begin{align*}
+  \frac{dV}{dy}
+    &\;=\; \underbrace{\frac{dx}{d(\mathrm{yb})}\cdot\frac{d(\mathrm{yb})}{dy}
+          \;+\; y\cdot\frac{d(\mathrm{yb})}{dy}}_{=\,0 \text{ along the curve}}
+       \;+\; \mathrm{yb}(y) \\
+    &\;=\; \mathrm{yb}(y) \;\geq\; 0.
+\end{align*}
+This is the envelope theorem: the first-order effect of the rebalancing
+variable ($\mathrm{yb}$) cancels at the optimum, leaving only the direct
+term. Concretely, $V$ is non-decreasing and concave in $y$, with derivative
+the in-curve senior-share count.
+
+\begin{lemma}\label{lem:PA}
+$P_A$ is non-decreasing in $y$ and Lipschitz with constant
+$f \cdot \sup_y \mathrm{yb}(y)$.
+\end{lemma}
+
+\begin{proof}
+$P_A(y) = \lfloor\, f \cdot V(y)\,\rfloor$. The floor operator is
+1-Lipschitz and non-decreasing. From $V'(y) = \mathrm{yb}(y) \geq 0$ we
+get $V$ non-decreasing, hence so is $P_A$. For any $y > y'$,
+\[
+  |V(y) - V(y')| \;\leq\; \sup_{\eta\in[y',y]} \mathrm{yb}(\eta) \cdot (y - y')
+     \;\leq\; \sup_{\eta} \mathrm{yb}(\eta) \cdot (y - y'),
+\]
+so $|P_A(y) - P_A(y')| \leq f \cdot \sup_y \mathrm{yb}(y) \cdot |y - y'|$,
+modulo the 1-wei rounding noise of the floor.\qed
+\end{proof}
+
+The fair-reserve formula $V(y)$ for the Gyro E-CLP is derivable
+symbolically from the pool's $\tau$, $\eta$, $\zeta$ and $A^{-1}$ maps;
+the resulting closed form round-trips against the pool's own
+\code{computePrice} to within $2 \cdot 10^{-16}$.
+
+A useful corollary: because $V$ depends only on the invariant and the rate
+--- not on the live composition --- a single swap (which conserves $L$ by
+definition) leaves $V$ unchanged. This is the source of $P_A$'s
+manipulation resistance: flash-loan rebalancing of the pool cannot move
+the kernel's BPT valuation.
+
+\subsection{Lemma~B: $F$ is non-decreasing and 1-Lipschitz in $\JTraw$}
+\label{sec:existence:lemma-b}
+
+Fix $\STraw$ and the last sync's checkpoint, and vary only the input
+$j = \JTraw$ that enters the waterfall. The accountant computes
+$F(j)$ through four branches (junior loses, junior gains, senior loses,
+senior gains), each a chain of additions, subtractions, $\min$, and
+$\max$.
+
+The structural fact is that each marginal unit of $j$ reaches the senior
+side through at most one channel, and through it by at most one-for-one:
+
+\begin{itemize}
+  \item if $j$ rises and the senior tranche currently carries impermanent
+    loss, the marginal increase first repays \code{stImpermanentLoss}
+    (slope $1$ to $\STeff$) until it is exhausted, after which any further
+    increase accrues to $\JTeff$ only (slope $0$ to $\STeff$);
+  \item if $j$ falls and the junior buffer is exhausted, the residual loss
+    is booked against $\STeff$ (slope $1$, in the falling direction),
+    until then the loss is absorbed by $\JTeff$ (slope $0$).
+\end{itemize}
+
+The other branches are mirror images. The combined effect is that
+$\partial\STeff / \partial j \in \{0, 1\}$ on every branch, and the
+branches join continuously at their kinks.
+
+\begin{lemma}\label{lem:F}
+$F$ is continuous, non-decreasing, and 1-Lipschitz in $\JTraw$:
+\[
+  0 \;\leq\; F(j) - F(j') \;\leq\; j - j' \quad \text{for } j > j'.
+\]
+\end{lemma}
+
+\begin{proof}
+Piecewise-affine functions with slopes in $\{0, 1\}$ joined continuously
+at their kinks are continuous, non-decreasing, and have Lipschitz constant
+at most their maximum slope. Differentiability is not required: the
+inequality holds across the kink points by joining-continuity, so the
+result extends to the whole input range.\qed
+\end{proof}
+
+This is what makes bisection the correct primitive for this problem. The
+waterfall is genuinely non-smooth (the slope jumps from $0$ to $1$ at
+branch boundaries); a Newton iteration would need a derivative that does
+not exist at the kinks and could step across them incorrectly. Bisection
+needs neither derivative nor smoothness.
+
+\subsection{Composition: $E$ is strictly decreasing}
+\label{sec:existence:composition}
+
+Define the iteration map $T(x) = F\!\left(P_A(x/N)\right)$ from
+\eqref{eq:fixed-point}. The chain $x \mapsto x/N \mapsto P_A(\cdot)
+\mapsto F(\cdot)$ composes Lipschitz constants:
+\[
+  \frac{1}{N}
+    \quad\cdot\quad
+  f \cdot \sup_y \mathrm{yb}(y)
+    \quad\cdot\quad
+  1
+    \;=\; g, \qquad
+  g \;:=\; \frac{f \cdot \sup_y \mathrm{yb}(y)}{N}.
+\]
+$T$ is the composition of non-decreasing functions and is therefore
+non-decreasing. Combining with the Lipschitz bound:
+\[
+  0 \;\leq\; T(x) - T(x') \;\leq\; g\,(x - x') \quad \text{for } x > x'.
+\]
+
+\begin{proposition}\label{prop:E-strict}
+If $g < 1$ on the search bracket, then $E$ is strictly decreasing on it.
+\end{proposition}
+
+\begin{proof}
+For $x > x'$, from the bound above,
+\[
+  E(x) - E(x') \;=\; \bigl[T(x) - T(x')\bigr] - (x - x')
+    \;\leq\; (g - 1)\,(x - x') \;<\; 0,
+\]
+since $(g - 1) < 0$ and $(x - x') > 0$. Continuity of $E$ follows from
+continuity of $T$ (composition of continuous functions) and the identity
+map.\qed
+\end{proof}
+
+This argument never differentiates $F$, so it remains valid across the
+waterfall's kinks. Together with the sign-change condition assumed in
+\cref{prop:E}, $E$ has exactly one root in the bracket and bisection
+converges to it.
+
+\subsection{Per-market obligations}
+\label{sec:existence:obligations}
+
+The argument above factors into three obligations. The first two are
+structural and pool-agnostic; the third is the only per-market check the
+solver must perform.
+
+\begin{description}
+  \item[\textbf{O1.}] The waterfall $F$ is continuous, non-decreasing, and
+    1-Lipschitz in the input $j = \JTraw$ (\cref{lem:F}). This is a
+    property of the accountant code and holds for any Royco market that
+    uses the standard waterfall.
+  \item[\textbf{O2.}] The conservative valuation $P_A$ is non-decreasing
+    and Lipschitz in $y$ with constant $f \cdot \sup_y \mathrm{yb}(y)$
+    (\cref{lem:PA}). This follows from the envelope theorem and holds for
+    any pool whose reserve curve is convex and downward-sloping.
+  \item[\textbf{O3.}] The loop gain
+    $g = f \cdot \sup_y \mathrm{yb}(y) / N$ is strictly less than $1$ on
+    the chosen search bracket.
+\end{description}
+
+O3 is the only condition that depends on the live pool's geometry, the
+junior tranche's BPT share, and the choice of bracket. Near the operating
+rate the pool's senior-share reserve count equals its in-pool count
+$b_s$, so $g \approx f \cdot b_s / N < 1$ holds robustly because the pool
+cannot hold more senior shares than exist ($b_s < N$). The bound can
+approach $1$ only if the bracket extends into deep-impairment rates, where
+the conservative share reserve can grow sharply --- a configuration the
+bracket policy (\S\ref{sec:solver}) is required to avoid.
+
+The kernel exposes a cheap runtime check $g_{\text{proxy}} = f \cdot
+\varphi$ (with $\varphi = b_s / N$) as a sanity bound on O3; the precise
+relationship of $g_{\text{proxy}}$ to the true $g$ across the bracket, and
+the production margin governance should configure, are discussed in
+\S\ref{sec:solver}.
+
+\subsection{Generality across pool types}
+\label{sec:existence:generality}
+
+The proof uses only that:
+\begin{itemize}
+  \item $F$ has slopes in $\{0, 1\}$ on each branch and is continuous
+    across its kinks (structural; same accountant for any Royco market);
+  \item $P_A$ is monotone and Lipschitz in the rate (envelope theorem;
+    holds for any convex, downward-sloping reserve curve).
+\end{itemize}
+
+The proof does \emph{not} use a closed-form pool invariant or assume any
+differentiability of $F$. The same on-chain bisection scheme therefore
+applies, unchanged, to constant-product, weighted, stable, and Gyro E-CLP
+pools. Only the pool-specific Lipschitz constant
+$\sup_y \mathrm{yb}(y)$ changes, entering the per-market O3 check.

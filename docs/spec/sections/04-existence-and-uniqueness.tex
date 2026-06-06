@@ -16,9 +16,10 @@ two lemmas:
     structural and does not need $F$ to be differentiable.
 \end{itemize}
 Composing the two lemmas (\S\ref{sec:existence:composition}) gives a
-strict monotonicity bound on $E$. The conditions auditors must verify per
-market are collected in \S\ref{sec:existence:obligations}; their robustness
-across pool types is discussed in \S\ref{sec:existence:generality}.
+strict monotonicity bound on $E$. The conditions auditors must verify
+per market are collected in \S\ref{sec:existence:obligations}. Their
+robustness across pool types is discussed in
+\S\ref{sec:existence:generality}.
 
 \subsection{The property to prove}
 \label{sec:existence:property}
@@ -28,7 +29,7 @@ and bisection-convergence, that pure monotonicity arguments can establish.
 
 \begin{proposition}\label{prop:E}
 On the search bracket $[x_{\mathrm{lo}}, x_{\mathrm{hi}}]
-= [N/\beta,\,N/\alpha]$, the error function
+= [N\alpha,\,N\beta]$, the error function
 $E(x) = F\!\left(P_A(x/N)\right) - x$ is continuous and strictly
 decreasing. If, in addition, $E(x_{\mathrm{lo}}) \geq 0$ and
 $E(x_{\mathrm{hi}}) \leq 0$, then $E$ has a unique root $x^*$ in the
@@ -36,25 +37,30 @@ bracket and bisection converges to it.
 \end{proposition}
 
 The sign-change requirement is checked at runtime by the solver
-(\S\ref{sec:solver}); failure to straddle the root is treated as a market
-condition the pool cannot express, and the sync reverts rather than
-publishing a stale rate.
+(\S\ref{sec:solver}). Failure to straddle the root is treated as a
+market condition the pool cannot express, and the sync reverts rather
+than publishing a stale rate.
 
 \subsection{Lemma~A: $P_A$ is monotone and Lipschitz in the rate}
 \label{sec:existence:lemma-a}
 
-Fix the E-CLP invariant $L$ implied by the current pool. The conservative
+Fix the E-CLP invariant $L$ implied by the current pool: it is computed
+once per solve, from the live balances scaled at the pre-solve cached
+rate, and held constant while the candidate rate $y$ varies. The
+envelope argument below requires this. If $L$ were recomputed at each
+candidate rate, $V$ would gain a $\partial V / \partial L$ term that
+the derivation does not account for. The conservative
 pool TVL at senior rate $y$ is
 \[
-  V(y) \;=\; x(y) \;+\; y\,\mathrm{yb}(y),
+  V(y) \;=\; b_q(y) \;+\; y\,\mathrm{yb}(y),
 \]
 where $\mathrm{yb}(y)$ is the senior-share reserve at the point on the
-ellipse whose marginal price is $y$, and $x(y)$ is the quote reserve at
-that same point. Moving along the curve, $dx/d(\mathrm{yb}) = -y$ (the
+ellipse whose marginal price is $y$, and $b_q(y)$ is the quote reserve at
+that same point. Moving along the curve, $db_q/d(\mathrm{yb}) = -y$ (the
 slope of the curve is the price), so
 \begin{align*}
   \frac{dV}{dy}
-    &\;=\; \underbrace{\frac{dx}{d(\mathrm{yb})}\cdot\frac{d(\mathrm{yb})}{dy}
+    &\;=\; \underbrace{\frac{db_q}{d(\mathrm{yb})}\cdot\frac{d(\mathrm{yb})}{dy}
           \;+\; y\cdot\frac{d(\mathrm{yb})}{dy}}_{=\,0 \text{ along the curve}}
        \;+\; \mathrm{yb}(y) \\
     &\;=\; \mathrm{yb}(y) \;\geq\; 0.
@@ -78,45 +84,48 @@ get $V$ non-decreasing, hence so is $P_A$. For any $y > y'$,
      \;\leq\; \sup_{\eta} \mathrm{yb}(\eta) \cdot (y - y'),
 \]
 so $|P_A(y) - P_A(y')| \leq f \cdot \sup_y \mathrm{yb}(y) \cdot |y - y'|$,
-modulo the 1-wei rounding noise of the floor.\qed
+modulo the 1-wei rounding noise of the floor.
 \end{proof}
 
 The fair-reserve formula $V(y)$ for the Gyro E-CLP is derivable
-symbolically from the pool's $\tau$, $\eta$, $\zeta$ and $A^{-1}$ maps;
-the resulting closed form round-trips against the pool's own
+symbolically from the pool's $\tau$, $\eta$, $\zeta$ and $A^{-1}$ maps.
+The resulting closed form round-trips against the pool's own
 \code{computePrice} to within $2 \cdot 10^{-16}$.
 
-A useful corollary: because $V$ depends only on the invariant and the rate
---- not on the live composition --- a single swap (which conserves $L$ by
-definition) leaves $V$ unchanged. This is the source of $P_A$'s
-manipulation resistance: flash-loan rebalancing of the pool cannot move
-the kernel's BPT valuation.
+A useful corollary: $V$ depends only on the invariant and the rate, not
+on the live composition. A swap conserves $L$ exactly in the fee-free
+pool math, and the LP fee it leaves behind only grows $L$ (and hence
+$V$). A swap therefore changes the valuation only by the fee value it
+deposits into the pool. This is the source of $P_A$'s manipulation
+resistance: value-free, flash-loan rebalancing of the pool cannot move
+the kernel's BPT valuation, and paying swap fees can only raise it.
 
 \subsection{Lemma~B: $F$ is non-decreasing and 1-Lipschitz in $\JTraw$}
 \label{sec:existence:lemma-b}
 
-Fix $\STraw$ and the last sync's checkpoint, and vary only the input
-$j = \JTraw$ that enters the waterfall. The accountant computes
-$F(j)$ through four branches (junior loses, junior gains, senior loses,
-senior gains), each a chain of additions, subtractions, $\min$, and
-$\max$.
-
-The structural fact is that each marginal unit of $j$ reaches the senior
-side through at most one channel, and through it by at most one-for-one:
+Fix $\STraw$ and the checkpoint, and vary only the input $j = \JTraw$.
+The accountant computes $F(j)$ in two stages
+(\cref{sec:overview:waterfall}), and every channel from $j$ to $\STeff$
+passes through factors in $[0, 1]$:
 
 \begin{itemize}
-  \item if $j$ rises and the senior tranche currently carries impermanent
-    loss, the marginal increase first repays \code{stImpermanentLoss}
-    (slope $1$ to $\STeff$) until it is exhausted, after which any further
-    increase accrues to $\JTeff$ only (slope $0$ to $\STeff$);
-  \item if $j$ falls and the junior buffer is exhausted, the residual loss
-    is booked against $\STeff$ (slope $1$, in the falling direction),
-    until then the loss is absorbed by $\JTeff$ (slope $0$).
+  \item \textbf{Attribution.} The raw delta in $j$ is split between the
+    tranches by a claim fraction $a \in [0, 1]$ fixed at the checkpoint:
+    the senior effective delta moves with slope $a$ in $j$, the junior
+    effective delta with slope $1 - a$.
+  \item \textbf{Settlement.} The effective deltas are routed through
+    four branches (junior loses, junior gains, senior loses, senior
+    gains), each a chain of additions, subtractions, $\min$, and $\max$
+    with slopes in $\{0, 1\}$, plus the yield split, which divides
+    residual senior appreciation in fractions $1 - w$ and $w$ for the
+    YDM share $w \in [0, 1]$ fixed during the sync.
 \end{itemize}
 
-The other branches are mirror images. The combined effect is that
-$\partial\STeff / \partial j \in \{0, 1\}$ on every branch, and the
-branches join continuously at their kinks.
+The combined effect is that $\partial\STeff / \partial j \in [0, 1]$ on
+every branch, and the branches join continuously at their kinks. The
+same holds for $\JTeff$, and NAV conservation pins the two slopes
+together: $\partial\STeff / \partial j + \partial\JTeff / \partial j
+= 1$.
 
 \begin{lemma}\label{lem:F}
 $F$ is continuous, non-decreasing, and 1-Lipschitz in $\JTraw$:
@@ -126,18 +135,21 @@ $F$ is continuous, non-decreasing, and 1-Lipschitz in $\JTraw$:
 \end{lemma}
 
 \begin{proof}
-Piecewise-affine functions with slopes in $\{0, 1\}$ joined continuously
-at their kinks are continuous, non-decreasing, and have Lipschitz constant
-at most their maximum slope. Differentiability is not required: the
-inequality holds across the kink points by joining-continuity, so the
-result extends to the whole input range.\qed
+Piecewise-affine functions with slopes in $[0, 1]$ joined continuously
+at their kinks are continuous, non-decreasing, and have Lipschitz
+constant at most $1$. Differentiability is not required: the inequality
+holds across the kink points by joining-continuity, so the result
+extends to the whole input range. Conservation gives the Lipschitz bound
+independently: $\STeff + \JTeff = \STraw + j$, so the two slopes sum to
+exactly $1$, and since both outputs are non-decreasing in $j$, each
+slope lies in $[0, 1]$.
 \end{proof}
 
 This is what makes bisection the correct primitive for this problem. The
-waterfall is genuinely non-smooth (the slope jumps from $0$ to $1$ at
-branch boundaries); a Newton iteration would need a derivative that does
-not exist at the kinks and could step across them incorrectly. Bisection
-needs neither derivative nor smoothness.
+waterfall is genuinely non-smooth, with the slope changing
+discontinuously at branch boundaries. A Newton iteration would need a
+derivative that does not exist at the kinks and could step across them
+incorrectly. Bisection needs neither derivative nor smoothness.
 
 \subsection{Composition: $E$ is strictly decreasing}
 \label{sec:existence:composition}
@@ -172,7 +184,7 @@ For $x > x'$, from the bound above,
 \]
 since $(g - 1) < 0$ and $(x - x') > 0$. Continuity of $E$ follows from
 continuity of $T$ (composition of continuous functions) and the identity
-map.\qed
+map.
 \end{proof}
 
 This argument never differentiates $F$, so it remains valid across the
@@ -184,8 +196,8 @@ converges to it.
 \label{sec:existence:obligations}
 
 The argument above factors into three obligations. The first two are
-structural and pool-agnostic; the third is the only per-market check the
-solver must perform.
+structural and pool-agnostic. The third is the only per-market check
+the solver must perform.
 
 \begin{description}
   \item[\textbf{O1.}] The waterfall $F$ is continuous, non-decreasing, and
@@ -206,14 +218,14 @@ junior tranche's BPT share, and the choice of bracket. Near the operating
 rate the pool's senior-share reserve count equals its in-pool count
 $b_s$, so $g \approx f \cdot b_s / N < 1$ holds robustly because the pool
 cannot hold more senior shares than exist ($b_s < N$). The bound can
-approach $1$ only if the bracket extends into deep-impairment rates, where
-the conservative share reserve can grow sharply --- a configuration the
-bracket policy (\S\ref{sec:solver}) is required to avoid.
+approach $1$ only if the bracket extends into deep-impairment rates,
+where the conservative share reserve can grow sharply: a configuration
+the bracket policy (\S\ref{sec:solver}) is required to avoid.
 
 The kernel exposes a cheap runtime check $g_{\text{proxy}} = f \cdot
-\varphi$ (with $\varphi = b_s / N$) as a sanity bound on O3; the precise
-relationship of $g_{\text{proxy}}$ to the true $g$ across the bracket, and
-the production margin governance should configure, are discussed in
+\varphi$ (with $\varphi = b_s / N$) as a sanity bound on O3. The precise
+relationship of $g_{\text{proxy}}$ to the true $g$ across the bracket,
+and the production margin governance should configure, are discussed in
 \S\ref{sec:solver}.
 
 \subsection{Generality across pool types}
@@ -221,10 +233,11 @@ the production margin governance should configure, are discussed in
 
 The proof uses only that:
 \begin{itemize}
-  \item $F$ has slopes in $\{0, 1\}$ on each branch and is continuous
-    across its kinks (structural; same accountant for any Royco market);
-  \item $P_A$ is monotone and Lipschitz in the rate (envelope theorem;
-    holds for any convex, downward-sloping reserve curve).
+  \item $F$ has slopes in $[0, 1]$ on each branch and is continuous
+    across its kinks (structural: the same accountant serves any Royco
+    market);
+  \item $P_A$ is monotone and Lipschitz in the rate (the envelope
+    theorem, valid for any convex, downward-sloping reserve curve).
 \end{itemize}
 
 The proof does \emph{not} use a closed-form pool invariant or assume any

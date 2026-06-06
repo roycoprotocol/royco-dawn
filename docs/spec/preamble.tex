@@ -6,6 +6,9 @@
 % --- Page geometry ----------------------------------------------------------
 \usepackage[a4paper,margin=1in]{geometry}
 
+% --- Paragraph style: no first-line indent, small gap between paragraphs ----
+\usepackage{parskip}
+
 % --- Encoding / fonts -------------------------------------------------------
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -21,10 +24,14 @@
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{array}
+\usepackage{float} % provides the [H] placement (exactly here, no floating)
+\usepackage{xltabular} % page-breakable tables with tabularx's X columns
 
 % --- Graphics + colour ------------------------------------------------------
 \usepackage{xcolor}
 \usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
 
 % --- Code listings ----------------------------------------------------------
 \usepackage{listings}
@@ -51,6 +58,7 @@
 % --- Cross-references (hyperref must come second-to-last; cleveref last) ----
 \usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
 \usepackage[capitalize]{cleveref}
+\crefname{figure}{Figure}{Figures}
 
 % ============================================================================
 % Macros
@@ -70,8 +78,6 @@
 \newcommand{\STeff}{\mathit{ST}_{\mathrm{eff}}}
 \newcommand{\JTraw}{\mathit{JT}_{\mathrm{raw}}}
 \newcommand{\JTeff}{\mathit{JT}_{\mathrm{eff}}}
-\newcommand{\yraw}{y_{\mathrm{raw}}}
-\newcommand{\yeff}{y_{\mathrm{eff}}}
 
 % --- Theorem-like environments ----------------------------------------------
 \theoremstyle{plain}

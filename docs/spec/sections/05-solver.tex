@@ -3,7 +3,7 @@
 
 \Cref{prop:E,prop:E-strict} establish that the fixed-point equation
 \eqref{eq:fixed-point} has a unique root in the bracket
-$[N/\beta,\,N/\alpha]$ whenever the loop gain $g$ is below $1$ and the
+$[N\alpha,\,N\beta]$ whenever the loop gain $g$ is below $1$ and the
 error function changes sign across the bracket. This section specifies how
 the kernel finds that root on-chain: bisection on $E(x)$, with bounded
 gas, deterministic iteration count, conservative rounding, and explicit
@@ -13,10 +13,10 @@ revert paths when any precondition fails.
 \label{sec:solver:bisection}
 
 The solve operates on $E$ at integer (WAD) precision. At each iteration
-the bracket is halved and the half containing the sign change is kept; the
-loop runs for a fixed number of steps determined by the bracket width and
-the configured tolerance, then returns the midpoint (rounded toward
-senior, see \S\ref{sec:solver:rounding}) as $x^*$. The published rate is
+the bracket is halved and the half containing the sign change is kept.
+The loop runs for a fixed number of steps determined by the bracket
+width and the configured tolerance, then returns the midpoint (rounded
+toward senior, see \S\ref{sec:solver:rounding}) as $x^*$. The published rate is
 $y^* = x^* / N$.
 
 Bisection is the right primitive here for three reasons:
@@ -24,7 +24,7 @@ Bisection is the right primitive here for three reasons:
   \item \textbf{No derivative needed.} The waterfall $F$ is non-smooth
     (\cref{lem:F}), so any tangent-following method (Newton, secant)
     can step across a kink incorrectly. Bisection requires only that
-    $E$ be continuous and strictly monotone --- both established in
+    $E$ be continuous and strictly monotone, both established in
     \S\ref{sec:existence}.
   \item \textbf{Deterministic gas.} The iteration count depends only on
     the bracket width and the tolerance, not on the input data, so
@@ -39,24 +39,33 @@ Bisection is the right primitive here for three reasons:
 \subsection{Default bracket}
 \label{sec:solver:bracket}
 
-The default search bracket is the rate range the pool can express. For an
-E-CLP with price bounds $[\alpha, \beta]$, the senior rate is bounded by
-the pool geometry, so
+The default search bracket is the rate range the pool can express. With
+$\alpha$ and $\beta$ the lower and upper bounds on the senior share
+price in quote (the orientation used throughout this document), the
+senior rate satisfies $y \in [\alpha, \beta]$, so
 \begin{equation}
-  x \in \left[\frac{N}{\beta},\, \frac{N}{\alpha}\right].
+  x \in \left[N\alpha,\, N\beta\right].
   \label{eq:default-bracket}
 \end{equation}
+On-chain, the E-CLP's parameters bound the price of its token0 in units
+of its token1, and Balancer orders tokens by address: if the deployed
+pool sorts the senior share as token1, the configured E-CLP bounds are
+the reciprocals of the $\alpha, \beta$ used here. Both bounds are
+per-solve quantities. Because the rate is injected through the senior
+leg's balance, the configured band constrains the rate-scaled price, so
+the senior-price bounds used here are the configured band recentered at
+the pre-solve cached rate.
 
 This is the operating range of the pool, not a universal economic bound.
-A senior loss large enough to push the correct rate below $1/\beta$ falls
-outside the band the pool can represent; the solver must reject such
+A senior loss large enough to push the correct rate below $\alpha$ falls
+outside the band the pool can represent. The solver must reject such
 states rather than clip the rate to the band edge
 (\S\ref{sec:solver:failure}).
 
 A production market may seed a tighter sub-bracket around an estimate of
 the operating rate to keep the iteration count small, but the wider
-$[N/\beta, N/\alpha]$ is the conservative default. Either way, the
-bracket is fixed at the start of each solve from values read once;
+$[N\alpha, N\beta]$ is the conservative default. Either way, the
+bracket is fixed at the start of each solve from values read once, and
 iterations do not re-read pool state.
 
 \subsection{Sign-change requirement and failure modes}
@@ -68,13 +77,13 @@ unique root exists iff $E$ has opposite signs at the endpoints:
   E(x_{\mathrm{lo}}) \geq 0 \;\geq\; E(x_{\mathrm{hi}}).
 \]
 The solver checks this condition at the start of every solve. There are
-four hard-revert paths the kernel takes when a precondition fails; in
-each case the cached rate is left untouched so a stale value cannot be
+four hard-revert paths the kernel takes when a precondition fails. In
+each case the cached rate is left untouched, so a stale value cannot be
 read after a failed solve:
 \begin{description}
   \item[\code{NO_SIGN_CHANGE}] $E$ has the same sign at both bracket
     endpoints. The correct rate sits outside the band the pool can
-    express; sync reverts.
+    express, so the sync reverts.
   \item[\code{MAX_ITER_EXCEEDED}] The configured iteration count was
     insufficient to drive the residual below tolerance. Should not occur
     under the chosen bracket and tolerance, but reverts as a safety net.
@@ -82,13 +91,13 @@ read after a failed solve:
     configured ceiling. Same posture as above.
   \item[\code{LOOP_GAIN_EXCEEDED}] The loop-gain proxy
     $g_{\text{proxy}} = f \cdot \varphi$ is at or above
-    \code{maxLoopGainWad} at solve time
+    \code{maxLoopGainWAD} at solve time
     (\S\ref{sec:solver:loop-gain}).
 \end{description}
 
 A governance-approved bounded fallback bracket may be configured for the
 \code{NO_SIGN_CHANGE} case. If configured, the solver re-attempts within
-the wider band; if the wider band also lacks a sign change, the sync
+the wider band. If the wider band also lacks a sign change, the sync
 still reverts. The solver never returns a bracket endpoint and never
 overwrites a previously-published rate after a failed solve.
 
@@ -98,13 +107,17 @@ overwrites a previously-published rate after a failed solve.
 Three policy choices fix the solver's deterministic behaviour:
 \begin{description}
   \item[Tolerance] the residual ceiling at which the solver stops
-    halving. Should be at or above the accountant's dust tolerance ---
+    halving. Should be at or above the accountant's dust tolerance:
     resolving below dust changes nothing the accountant can observe.
   \item[Iteration count] fixed at
     $\lceil \log_2(\mathrm{width} / \mathrm{tolerance}) \rceil$.
     Hardcoded per market at deploy time, so gas is data-independent and
     the loop has no conditional break. Width is taken from
-    \cref{eq:default-bracket}; tolerance from the kernel's storage.
+    \cref{eq:default-bracket} and tolerance from the kernel's storage.
+    The width and residual readings of tolerance coincide: $E$ has
+    slopes in $[-1,\ g-1]$ on the bracket, so it is 1-Lipschitz, and
+    driving the bracket width below the tolerance drives the residual
+    below it as well.
   \item[Rounding direction] the final $x^*$ is rounded toward the senior
     side. Together with floor-rounding inside $P_A$
     (\eqref{eq:PA}), this ensures any 1-wei accumulation favours the
@@ -114,7 +127,7 @@ Three policy choices fix the solver's deterministic behaviour:
 \subsection{Loop-gain guard}
 \label{sec:solver:loop-gain}
 
-\cref{prop:E-strict} requires $g < 1$ on the search bracket. The true $g
+\Cref{prop:E-strict} requires $g < 1$ on the search bracket. The true $g
 = f \cdot \sup_y \mathrm{yb}(y) / N$ requires evaluating $\mathrm{yb}$
 across the band, which is more expensive than the rest of the sync.
 The kernel substitutes a cheap proxy:
@@ -124,17 +137,17 @@ The kernel substitutes a cheap proxy:
   \varphi = b_s / N.
 \]
 At the balanced point $\mathrm{yb}(y) \approx b_s$, so $g_{\text{proxy}}
-\approx g$. Away from the balanced point --- particularly near the
-low-rate end of a wide band --- the true $g$ can exceed $g_{\text{proxy}}$
+\approx g$. Away from the balanced point (particularly near the
+low-rate end of a wide band) the true $g$ can exceed $g_{\text{proxy}}$
 because the E-CLP geometry amplifies rate changes. $g_{\text{proxy}}$ is
 therefore a \emph{lower-order risk indicator}, not an upper bound on the
 worst-case loop gain.
 
-Governance configures a ceiling \code{maxLoopGainWad}. Before solving,
-the kernel asserts $g_{\text{proxy}} <$ \code{maxLoopGainWad}; if not, the
-sync reverts with \code{LOOP_GAIN_EXCEEDED}. Because the proxy
+Governance configures a ceiling \code{maxLoopGainWAD}. Before solving,
+the kernel asserts $g_{\text{proxy}} <$ \code{maxLoopGainWAD} and
+reverts the sync with \code{LOOP_GAIN_EXCEEDED} otherwise. Because the proxy
 underestimates the worst-case gain, the production ceiling should sit
-\emph{strictly} below WAD with sufficient margin --- and may be paired
+\emph{strictly} below WAD with sufficient margin, and may be paired
 with hard caps on $f$ and $\varphi$, or with a stronger endpoint
 evaluation of $g$ at the bracket ends. The precise margin is a Royco risk
 parameter.

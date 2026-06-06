@@ -1,28 +1,29 @@
 \section{The fixed-point setup}
 \label{sec:setup}
 
-This section makes the circularity precise. It names the two functions that
-close the loop --- the loss waterfall $F$ and the conservative BPT
-valuation $P_A$ --- states the fixed-point equation the kernel's sync must
-solve on every pool operation, and defines the error function the on-chain
-solver targets.
+This section makes the circularity precise. It names the two functions
+that close the loop (the sync map $F$ and the conservative BPT
+valuation $P_A$), states the fixed-point equation the kernel's sync must
+solve on every pool operation, and defines the error function the
+on-chain solver targets.
 
-\subsection{The loss waterfall $F$}
+\subsection{The sync map $F$}
 \label{sec:setup:F}
 
-Each sync the Dusk kernel calls the shared Royco accountant function
-\code{previewSyncTrancheAccounting}, which we denote $F$. Given the last
-sync's checkpoint and the current raw NAVs of both tranches, $F$ runs the
-piecewise-affine loss waterfall and returns the effective NAVs:
+Each sync, the Dusk kernel calls the shared Royco accountant function
+\code{previewSyncTrancheAccounting}, which we denote $F$. Given the
+current raw NAVs of both tranches, $F$ runs the attribution and
+settlement steps of \cref{sec:overview:waterfall} against the stored
+checkpoint and returns the effective NAVs:
 \[
-  F\colon \bigl(\STraw,\ \JTraw,\ \text{checkpoint}\bigr) \longmapsto (\STeff,\ \JTeff).
+  F\colon \bigl(\STraw,\ \JTraw;\ \text{checkpoint}\bigr) \longmapsto (\STeff,\ \JTeff).
 \]
-Two structural properties of $F$ are stated in \cref{sec:overview:tranches}
+Two structural properties of $F$ are stated in \cref{sec:overview:waterfall}
 and proved in \cref{sec:existence}:
 \begin{enumerate}
   \item \textbf{NAV conservation:} $\STraw + \JTraw \equiv \STeff + \JTeff$.
   \item \textbf{Piecewise-affine:} each branch is affine in its inputs with
-    slope in $\{0, 1\}$, and the four branches are joined continuously at
+    slope in $[0, 1]$, and the branches are joined continuously at
     their kinks.
 \end{enumerate}
 
@@ -43,7 +44,7 @@ of $F$ during the bisection.
 \label{sec:setup:PA}
 
 The junior tranche's collateral is the BPT of the Gyro E-CLP pool, of
-which it owns a fraction $f = \mathrm{juniorBPT} / \mathrm{totalBPTSupply}$.
+which it owns a fraction $f = \mathrm{jtBPT} / \mathrm{totalBPT}$.
 The pool's two legs are the senior tranche share and a quote asset, with
 raw reserves $b_{s,\text{raw}}$ and $b_{q,\text{raw}}$.
 
@@ -58,27 +59,28 @@ before any pool math runs:
 where $q$ is the quote-asset rate ($q = 1$ for a non-rate-bearing quote).
 The E-CLP invariant $L$ is then computed from the rate-scaled balances.
 
-Given the invariant, the pool's \emph{conservative} TVL is its value at the
-fair reserves implied by the invariant and the rate --- the point on the
-curve where the marginal price equals $y$. Because this depends only on
-$L$ and $y$, not on the live composition, it is invariant to pure swap
-manipulation (a swap conserves $L$). The external E-CLP price ratio is
+Given the invariant, the pool's \emph{conservative} TVL is its value at
+the fair reserves implied by the invariant and the rate: the point on
+the curve where the marginal price equals $y$. Because this depends only
+on $L$ and $y$, not on the live composition, value-free swap
+manipulation cannot move it (a swap conserves $L$ in the fee-free pool
+math, and the LP fee it leaves behind only grows $L$). The external E-CLP price ratio is
 $[1, 1]$: the rate is injected through the senior leg's live balance, and
 double-injecting it as an external price would over-count.
 
-Write the conservative TVL as $V_{\text{fair}}(L,\,y)$. The junior tranche's
-pro-rata claim, rounded down in favour of senior, is the
-\emph{conservative BPT valuation}:
+Write the conservative TVL as $V(y)$ (the invariant $L$ is fixed within
+a solve). The junior tranche's pro-rata claim, rounded down in favour of
+senior, is the \emph{conservative BPT valuation}:
 \begin{equation}
-  P_A(y) \;=\; \Bigl\lfloor\, f \cdot V_{\text{fair}}(L,\,y) \,\Bigr\rfloor.
+  P_A(y) \;=\; \Bigl\lfloor\, f \cdot V(y) \,\Bigr\rfloor.
   \label{eq:PA}
 \end{equation}
 Two structural properties of $P_A$ matter (proved in \cref{sec:existence}):
 \begin{enumerate}
   \item Non-decreasing in $y$.
   \item Lipschitz in $y$ with constant $f \cdot \sup_y \mathrm{yb}(y)$,
-    where $\mathrm{yb}(y) = \partial V_{\text{fair}}/\partial y$ is the
-    fair senior-share reserve at marginal price $y$.
+    where $\mathrm{yb}(y) = V'(y)$ is the fair senior-share reserve at
+    marginal price $y$.
 \end{enumerate}
 
 \subsection{Why the loop closes}
@@ -101,10 +103,10 @@ tranche's collateral \emph{contains senior shares}, so pricing the junior
 collateral requires the senior price. If junior's coverage capital were
 pure quote, $P_A$ would not depend on $y$ and there would be no loop.
 
-The economic content is that the junior tranche is partly covering its own
-collateral: junior coverage props the senior rate up; a higher senior rate
-raises the value of the senior shares sitting inside the junior's BPT;
-that raises the junior's measured coverage capacity. The strength of this
+The economic content is that the junior tranche is partly covering its
+own collateral. Junior coverage props the senior rate up, a higher
+senior rate raises the value of the senior shares sitting inside the
+junior's BPT, and that raises the junior's measured coverage capacity. The strength of this
 self-reference is the loop gain $g$, defined in \cref{sec:notation}
 and bounded in \cref{sec:existence}.
 

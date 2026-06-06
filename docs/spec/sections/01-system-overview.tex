@@ -1,106 +1,189 @@
-\section{System overview}
+\section{Overview}
 \label{sec:overview}
 
-This section sketches the system in just enough detail for the math that
-follows. It assumes familiarity with Royco-style tranched markets at the
-level of Dawn, and with Balancer V3's pool, hook, and rate-provider
-architecture.
+This section offers a brief primer on Royco's structuring substrates: Dawn and Dusk. 
+Although this document specifies Dusk, the two substrates share their
+core machinery: tranches, the per tranche NAVs tracked, and the profit and loss
+waterfall.
 
-\subsection{Tranches and the loss waterfall}
+\subsection{Tranches and NAVs}
 \label{sec:overview:tranches}
 
-A Royco market splits deposits across two tranches with different risk
-profiles:
-
-\begin{description}
-  \item[Senior (ST)] Protected capital. Earns a fixed share of yield;
-    absorbs losses only after JT's buffer is exhausted.
-  \item[Junior (JT)] First-loss coverage capital. Absorbs senior losses up
-    to its effective NAV; in exchange earns yield share and coverage
-    premiums.
-\end{description}
-
-Each tranche has two NAV figures the accountant tracks per sync:
-
-\begin{description}
-  \item[Raw NAV] The mark-to-market value of the tranche's \emph{own}
-    underlying assets (\code{ST_RAW_NAV}, \code{JT_RAW_NAV}).
-  \item[Effective NAV] The value each tranche \emph{controls} after the
-    waterfall distributes PnL according to coverage rules (\code{ST_EFF},
-    \code{JT_EFF}).
-\end{description}
-
-The waterfall, encoded in
-\code{RoycoAccountant.\_previewSyncTrancheAccounting}, is a fixed-priority
-allocator. Given the two raw-NAV deltas since the last checkpoint, it routes
-them through four branches (junior loses, junior gains, senior loses, senior
-gains), each a chain of \code{min} / \code{max} / addition / subtraction.
-We refer to this allocator as the function $F$ throughout this document.
-
-Two structural facts about $F$ matter later:
-
-\begin{enumerate}
-  \item \textbf{NAV conservation:}
-    $\STraw + \JTraw \equiv \STeff + \JTeff$. The waterfall only
-    redistributes value between tranches; it never creates or destroys it.
-    The on-chain \code{NAV_CONSERVATION_VIOLATION} guard enforces this on
-    every sync.
-  \item \textbf{Piecewise-affine:} each branch is affine in its inputs,
-    with slope $\in \{0, 1\}$. This is the property invoked in the
-    existence proof (\cref{sec:existence}).
-\end{enumerate}
-
-\subsection{What makes Dusk different from Dawn}
-\label{sec:overview:dawn-vs-dusk}
-
-In a Dawn market, the JT side deposits a plain ERC20 (e.g.\ \code{sNUSD},
-\code{USDC}). The kernel custodies the token directly and reads
-\code{JT_RAW_NAV} from an exogenous oracle.
-
-In a Dusk market, the JT asset is a Balancer V3 Pool Token (BPT) --- the
-LP token of a pool pairing two assets:
+A Royco market structures an asset into two complementary investment opportunities 
+with distinct risk/return profiles called \emph{tranches}:
 
 \begin{itemize}
-  \item the senior tranche share token;
-  \item a stable quote asset (\code{USDC}, \code{sUSDs}, \code{srRoyUSDC},
-    etc.).
+  \item \textbf{Senior tranche (ST):} Protected capital. Lower returns for receiving first-loss coverage.
+  \item \textbf{Junior tranche (JT):} Levered capital. Higher returns for providing first-loss coverage.
 \end{itemize}
 
-The pool plays a dual role: it serves as JT's first-loss coverage collateral
-(the Dawn function) \emph{and} as a secondary-market exit venue for senior
-holders who want to swap out of their tranche shares into stables (the new
-Dusk function).
+Moreover, each tranche holds a perpetual obligation to the other. The
+senior tranche pays the junior a share of its yield (risk premium) 
+for absorbing losses first. The junior tranche, in turn, stands
+as a first-loss buffer: senior losses consume junior capital in full
+before the senior tranche incurs any. Accounting for these obligations
+requires distinguishing what each tranche \emph{holds} from what it is
+\emph{entitled to}. Hence, Royco tracks two NAVs (net asset value) per
+tranche:
 
-The consequence is that JT's collateral value now depends on the price of
-the senior share, which is the rate $y = \STeff / N$, where $N$ is the
-total senior share supply. But $\STeff$ is the output of the waterfall $F$,
-and computing $F$ requires marking JT's BPT to market --- which requires
-$y$. This is the circularity the rest of this document addresses, starting
-in \cref{sec:setup}.
+\begin{itemize}
+  \item \textbf{Raw NAV:} The mark-to-market value of the tranche's \emph{deposited} assets.
+  \item \textbf{Effective NAV:} The value that each tranche \emph{is entitled to} after executing their obligations to one another.
+\end{itemize}
 
-\subsection{Pieces of a Dusk market}
+\subsection{The profit and loss waterfall}
+\label{sec:overview:waterfall}
+
+Every accounting synchronization marks the tranche NAVs to market in three steps:
+
+\begin{enumerate}
+  \item \textbf{Measure:} Read the current raw NAVs and
+    compute the delta against their last checkpointed values. Each delta
+    represents the unrealized profit or loss of that tranche's holdings 
+    since the previous accounting sync.
+  \item \textbf{Attribute:} Past coverage and risk premiums can leave a
+    tranche entitled to more than its own holdings are worth. The excess
+    ($\STeff - \STraw$ when positive, and symmetrically for JT) is a
+    claim on the \emph{other} tranche's holdings. Each side's raw NAV deltas are
+    split pro rata over the claims on it. The result is a pair of
+    effective NAV deltas that sum to the total profit and loss.
+  \item \textbf{Settle:} The effective deltas are routed through the
+    \emph{PnL waterfall} in fixed priority order:
+    \begin{itemize}
+      \item \emph{Loss:} Utilize JT's coverage buffer ($\JTeff$) before ST books
+        any. Any coverage that JT advances to ST is booked as \emph{JT
+        impermanent loss} (ST's debt to JT). Losses exceeding JT's
+        buffer reduce $\STeff$ and are booked as \emph{ST impermanent
+        loss} (JT's debt to ST). Note that JT IL is a transient debt obligation that only 
+        exists during the market's configured fixed-term regime: a period of time that
+        allows the tranched asset to recover before the junior tranche realizes any losses.
+      \item \emph{Recovery:} Repay any debts before gains accrue.
+        ST's IL has the first claim on appreciation from either side,
+        and JT's IL has the second claim on senior appreciation only.
+      \item \emph{Yield:} Junior appreciation remaining after ST IL
+        repayment accrues to JT in full. Senior appreciation remaining
+        after all IL repayment is true yield, split between ST and JT
+        at the rate set by the yield distribution model (YDM).
+    \end{itemize}
+\end{enumerate}
+
+We denote the attribution and settlement steps as $F$ throughout this
+document. Holding the checkpoint fixed, $F$ maps the current raw NAVs
+to the new effective NAVs:
+\[
+  F\colon (\STraw,\ \JTraw;\ \text{checkpoint}) \longmapsto (\STeff,\ \JTeff).
+\]
+The semicolon separates variables from parameters: supplying the
+checkpoint yields a function of the raw NAVs alone, written
+$F_{\mathrm{cp}}$. The checkpoint holds the previous sync's raw NAVs,
+effective NAVs, outstanding ILs, market state, and yield-accrual
+bookkeeping (the time-weighted YDM accumulator and its timestamps). It
+is read from storage when the sync begins and cannot change while it
+runs. Every property stated for $F$ holds for each fixed checkpoint.
+
+$F$ holds two key properties:
+
+\begin{enumerate}
+  \item \textbf{NAV conservation:} the inputs sum to the outputs,
+    $\STraw + \JTraw = \STeff + \JTeff$, for every checkpoint that
+    itself conserves. All stored checkpoints are guaranteed to since they
+    are a prior output of $F$. $F$ only redistributes value between the tranches,
+    it never creates or destroys it.
+  \item \textbf{Piecewise-affine:} each branch is affine in its inputs,
+    with slope $\in [0, 1]$. Combined with NAV conservation, this makes
+    $F$ continuous, non-decreasing, and 1-Lipschitz in each input. This
+    is the property invoked in the existence proof
+    (\cref{sec:existence}).
+\end{enumerate}
+
+\subsection{Dawn to Dusk}
+\label{sec:overview:dawn-to-dusk}
+
+Dawn transforms the \emph{risk profile} of any asset. However, 
+it doesn't transform its \emph{liquidity profile}:
+senior shares have no exit path other than primary redemption.
+
+Dusk extends the junior tranche to transform both. In Dawn, junior
+capital may sit in any priceable asset, Treasuries, money market
+funds, coinvested alongside the senior tranche, provided its value is
+exogenous to the market itself. Dusk drops that
+restriction: junior capital is deployed into an AMM pool paired against the
+senior tranche's shares.
+
+\begin{itemize}
+  \item \textbf{Risk transformation:} Coverage still flows from JT to ST exactly
+    as in Dawn: the pool position is JT's first-loss collateral.
+  \item \textbf{Liquidity transformation:} The pool position gives senior
+    holders an instant secondary market, constantly quoting a price to
+    buy and sell tranche shares for stables.
+\end{itemize}
+
+For the purposes of this document, the Dusk JT's asset is a Balancer V3 Pool Token (BPT)
+with the constituents being the senior tranche share and a stable quote asset 
+(\code{USDC}, \code{sUSDS}, \code{srRoyUSDC}, etc.).
+
+\textbf{The recursion:} Marking JT to market is no longer a plain oracle
+read. To value the BPT, the pool's senior share leg must be priced at
+the senior rate $y = \STeff / N$, where $N$ is the total supply of senior shares.
+But $\STeff$ is not an observable quantity: it is the output of the
+sync map $F$, and $F$ cannot run without its $\JTraw$ input, which is
+the BPT value we set out to compute. The dependency chain closes on
+itself, as \cref{fig:recursion} shows.
+
+\begin{figure}[!ht]
+\centering
+\begin{tikzpicture}[
+  ->, >={Stealth[length=2.2mm]},
+  font=\small,
+  shorten >=4pt, shorten <=4pt,
+]
+  \node (y)  at (90:1.6)  {$y$};
+  \node (jt) at (-30:1.6) {$\JTraw$};
+  \node (st) at (210:1.6) {$\STeff$};
+  \draw (y)  to[bend left=30] node[right=8pt]  {value the BPT} (jt);
+  \draw (jt) to[bend left=30] node[below=8pt]  {apply $F$} (st);
+  \draw (st) to[bend left=30] node[left=8pt]   {value the senior share} (y);
+  \node[gray] at (0,0) {\Large$\circlearrowright$};
+\end{tikzpicture}
+\caption{The Dusk valuation cycle. Each quantity requires the next, so
+a sync must find the rate the cycle reproduces.}
+\label{fig:recursion}
+\end{figure}
+
+Economically, the junior tranche's collateral contains the very senior
+shares its coverage protects. No evaluation order can resolve the cycle:
+the two unknowns, $\JTraw$ and $\STeff$ ($y$ is simply $\STeff$ per
+share), must be determined simultaneously. Exactly one value of
+$\STeff$ satisfies both dependencies at once: price the BPT at its
+implied rate $y = \STeff/N$, apply $F$, and the same $\STeff$ returns.
+This self-reproducing value is a \emph{fixed point}. \Cref{sec:setup}
+formulates it, \cref{sec:existence} proves it exists and is unique, and
+\cref{sec:solver} finds it on-chain.
+
+\subsection{Components of a Dusk market}
 \label{sec:overview:pieces}
 
-A Dusk market is composed of:
+A Dusk market adds three components to the Dawn stack and reuses its
+accountant. Each plays one role in resolving the recursion:
 
-\begin{description}
-  \item[Gyro E-CLP pool] A Balancer V3 elliptic concentrated liquidity
-    pool over $\{\text{senior share},\ \text{quote asset}\}$. The senior
-    share token is registered as a \code{WITH_RATE} token, so Balancer
-    scales its live balance by the rate provider's published rate before
-    pool math runs.
-  \item[Dusk kernel] One contract wearing two hats:
-    \begin{itemize}
-      \item the senior token's rate provider, exposing \code{getRate()}
-        which returns the cached senior share rate;
-      \item the sync entrypoint, which runs the bisection solve
-        (\cref{sec:solver}) and writes the freshly-solved rate to the
-        cache.
-    \end{itemize}
-  \item[Hook contract] Forwards Balancer V3's before-operation callbacks
-    (swap, add liquidity, remove liquidity) into the kernel's sync
-    entrypoint, so each operation triggers a fresh solve before the pool
-    math runs.
-  \item[Accountant] Reused from Dawn; called by the kernel during the
-    bisection solve to evaluate $F$.
-\end{description}
+\begin{itemize}
+  \item \textbf{Gyro E-CLP pool:} A Balancer V3 elliptic concentrated
+    liquidity pool over the senior share and quote asset. The senior
+    share is registered as a \code{WITH_RATE} token: Balancer scales
+    its raw balance by the rate provider's \code{getRate()} before any
+    pool math, which is how the solved rate enters the pool's pricing
+    of senior shares.
+  \item \textbf{Dusk kernel:} One contract, two paths. Write: the sync
+    entrypoint solves the fixed point (\cref{sec:solver}), commits the
+    accountant checkpoint, and caches the solved rate $y^*$. Read:
+    Balancer's rate provider interface, \code{getRate()}, returns the
+    cached $y^*$ instantly.
+  \item \textbf{Balancer V3 Dusk hook:} Forwards Balancer's before-operation
+    callbacks (swap, add and remove liquidity) into the kernel's sync
+    entrypoint. Balancer reloads balances and rates after the hook so
+    every operation executes at a fresh senior share rate.
+  \item \textbf{Accountant:} Shared with Dawn. During a solve, the
+    kernel calls its view-only preview repeatedly to evaluate $F$ at
+    candidate rates. After convergence, exactly one call commits the
+    resultant checkpoint.
+\end{itemize}

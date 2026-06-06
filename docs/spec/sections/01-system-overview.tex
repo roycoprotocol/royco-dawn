@@ -54,9 +54,11 @@ Every accounting synchronization marks the tranche NAVs to market in three steps
         any. Any coverage that JT advances to ST is booked as \emph{JT
         impermanent loss} (ST's debt to JT). Losses exceeding JT's
         buffer reduce $\STeff$ and are booked as \emph{ST impermanent
-        loss} (JT's debt to ST). Note that JT IL is a transient debt obligation that only 
-        exists during the market's configured fixed-term regime: a period of time that
-        allows the tranched asset to recover before the junior tranche realizes any losses.
+        loss} (JT's debt to ST). Note that JT IL is a transient debt
+        obligation that only materially exists during the market's
+        configured fixed-term regime: a period of time that allows the
+        tranched asset to recover before the junior tranche realizes
+        any losses.
       \item \emph{Recovery:} Repay any debts before gains accrue.
         ST's IL has the first claim on appreciation from either side,
         and JT's IL has the second claim on senior appreciation only.
@@ -140,20 +142,18 @@ itself, as \cref{fig:recursion} shows.
   \node (y)  at (90:1.6)  {$y$};
   \node (jt) at (-30:1.6) {$\JTraw$};
   \node (st) at (210:1.6) {$\STeff$};
-  \draw (y)  to[bend left=30] node[right=8pt]  {value the BPT} (jt);
-  \draw (jt) to[bend left=30] node[below=8pt]  {apply $F$} (st);
-  \draw (st) to[bend left=30] node[left=8pt]   {value the senior share} (y);
-  \node[gray] at (0,0) {\Large$\circlearrowright$};
+  \draw (y)  to[bend left=30] node[right=8pt]  {Value the BPT} (jt);
+  \draw (jt) to[bend left=30] node[below=8pt]  {Apply $F$} (st);
+  \draw (st) to[bend left=30] node[left=8pt]   {Value the Share} (y);
 \end{tikzpicture}
-\caption{The Dusk valuation cycle. Each quantity requires the next, so
-a sync must find the rate the cycle reproduces.}
 \label{fig:recursion}
 \end{figure}
 
 Economically, the junior tranche's collateral contains the very senior
 shares its coverage protects. No evaluation order can resolve the cycle:
 the two unknowns, $\JTraw$ and $\STeff$ ($y$ is simply $\STeff$ per
-share), must be determined simultaneously. Exactly one value of
+share), must be determined simultaneously. Under conditions made
+precise in \cref{sec:existence}, exactly one value of
 $\STeff$ satisfies both dependencies at once: price the BPT at its
 implied rate $y = \STeff/N$, apply $F$, and the same $\STeff$ returns.
 This self-reproducing value is a \emph{fixed point}. \Cref{sec:setup}

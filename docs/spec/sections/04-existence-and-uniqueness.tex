@@ -87,10 +87,12 @@ so $|P_A(y) - P_A(y')| \leq f \cdot \sup_y \mathrm{yb}(y) \cdot |y - y'|$,
 modulo the 1-wei rounding noise of the floor.
 \end{proof}
 
-The fair-reserve formula $V(y)$ for the Gyro E-CLP is derivable
-symbolically from the pool's $\tau$, $\eta$, $\zeta$ and $A^{-1}$ maps.
-The resulting closed form round-trips against the pool's own
-\code{computePrice} to within $2 \cdot 10^{-16}$.
+The fair-reserve formula $V(y)$ for the Gyro E-CLP is derivable in
+closed form from the pool's $\tau$, $\eta$, $\zeta$ and $A^{-1}$ maps:
+the fair point at price $y$ is $r\,A^{-1}\tau(y)$ shifted by the
+virtual offsets, a finite composition of rational maps and one square
+root. The closed form can be validated against the pool's own
+\code{computePrice}.
 
 A useful corollary: $V$ depends only on the invariant and the rate, not
 on the live composition. A swap conserves $L$ exactly in the fee-free

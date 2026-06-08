@@ -166,9 +166,10 @@ rule jtTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -
     uint256 jtTotalAfter = juniorTranche.totalSupply();
     uint256 stTotalAfter = seniorTranche.totalSupply();
 
-    // jtTotal is incremented by one to account for virtual share.
-    // stEffectiveNAVAfter is incremented by one; the property doesn't hold precisely due to rounding errors.
-    assert jtEffectiveNAVBefore * (jtTotalAfter + 1) <= jtEffectiveNAVAfter * (jtTotalBefore + 1), "JT NAV per share increases";
+    // someone must have skin in the game
+    require jtTotalBefore > 0, "someone is invested";
+
+    assert jtEffectiveNAVBefore * jtTotalAfter <= jtEffectiveNAVAfter * jtTotalBefore, "JT NAV per share increases";
 }
 
 /**
@@ -208,9 +209,10 @@ rule stTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -
     uint256 jtTotalAfter = juniorTranche.totalSupply();
     uint256 stTotalAfter = seniorTranche.totalSupply();
 
-    // stTotal is incremented by one to account for virtual share.
-    // stEffectiveNAVAfter is incremented by two; the property doesn't hold precisely due to rounding errors.
-    assert stEffectiveNAVBefore * (stTotalAfter + 1) <= stEffectiveNAVAfter * (stTotalBefore + 1), "ST NAV per share increases";
+    // someone must have skin in the game
+    require stTotalBefore > 0, "someone is invested";
+
+    assert stEffectiveNAVBefore * stTotalAfter <= stEffectiveNAVAfter * stTotalBefore, "ST NAV per share increases";
 }
 
 
@@ -258,9 +260,11 @@ rule jtTokenValueDoesNotWorsenTooMuch(method f, env e, calldataarg args) filtere
     uint256 jtTotalAfter = juniorTranche.totalSupply();
     uint256 stTotalAfter = seniorTranche.totalSupply();
 
-    // jtTotal is incremented by one to account for virtual share.
-    // stEffectiveNAVAfter is incremented by one; the property doesn't hold precisely due to rounding errors.
-    assert (jtEffectiveNAVBefore) * (jtTotalAfter + 1) <= (jtEffectiveNAVAfter + 2) * (jtTotalBefore + 1), "JT NAV per share increases";
+    // someone must have skin in the game
+    require jtTotalBefore > 0, "someone is invested";
+
+    // jtEffectiveNAVAfter is incremented by two to account for one unit of rounding per tranche.
+    assert (jtEffectiveNAVBefore) * jtTotalAfter <= (jtEffectiveNAVAfter + 2) * jtTotalBefore, "JT NAV per share increases";
 }
 
 /**
@@ -300,7 +304,9 @@ rule stTokenValueDoesNotWorsenTooMuch(method f, env e, calldataarg args) filtere
     uint256 jtTotalAfter = juniorTranche.totalSupply();
     uint256 stTotalAfter = seniorTranche.totalSupply();
 
-    // stTotal is incremented by one to account for virtual share.
-    // stEffectiveNAVAfter is incremented by two; the property doesn't hold precisely due to rounding errors.
-    assert (stEffectiveNAVBefore) * (stTotalAfter + 1) <= (stEffectiveNAVAfter + 2) * (stTotalBefore + 1), "ST NAV per share increases";
+    // someone must have skin in the game
+    require stTotalBefore > 0, "someone is invested";
+
+    // stEffectiveNAVAfter is incremented by two to account for one unit of rounding per tranche.
+    assert (stEffectiveNAVBefore) * stTotalAfter <= (stEffectiveNAVAfter + 2) * stTotalBefore, "ST NAV per share increases";
 }

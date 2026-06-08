@@ -60,6 +60,8 @@ rule maxStDepositCorrect {
     RoycoAccountant.SyncedAccountingState state;
     RoycoAccountant.NAV_UNIT stDeposit;
 
+    uint256 cov = roycoAccountant.ext_Royco_storage_RoycoAccountantState.coverageWAD;
+    uint256 beta = roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD;
 
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTRawNAV == jtRawNAV, "assumption: no price change";
     require roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTRawNAV == stRawNAV, "assumption: no price change";
@@ -70,6 +72,8 @@ rule maxStDepositCorrect {
     roycoAccountant.preOpSyncTrancheAccounting(e, stRawNAV, jtRawNAV);
     RoycoAccountant.NAV_UNIT newSTRawNAV = assert_uint256(stRawNAV + stDeposit);
     state = roycoAccountant.postOpSyncTrancheAccounting(e, RoycoAccountant.Operation.ST_DEPOSIT, newSTRawNAV, jtRawNAV, 0);
+    mathint toCoverAfter = (state.stRawNAV + (state.jtRawNAV * beta + WAD() - 1) / WAD()) * cov;
+    assert state.jtEffectiveNAV * WAD() >= toCoverAfter;
     assert state.utilizationWAD <= WAD(), "utilization is below max";
 }
 

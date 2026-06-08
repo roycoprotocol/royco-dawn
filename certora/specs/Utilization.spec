@@ -138,6 +138,7 @@ rule jtDepositPreservesUtilization(env e) {
 
     mathint weightedSumBefore = (stRawNAVBefore + (jtRawNAVBefore * beta + WAD() - 1) / WAD());
     mathint toCoverBefore = weightedSumBefore * cov;
+    assert stRawNAVBefore == 0 || toCoverBefore <= WAD() * jtEffectiveNAVBefore, "everything was covered before";
 
     juniorTranche.deposit(e, amount, receiver);
 
@@ -152,8 +153,9 @@ rule jtDepositPreservesUtilization(env e) {
     assert jtRawNAVAfter - jtRawNAVBefore == jtEffectiveNAVAfter - jtEffectiveNAVBefore;
     assert weightedSumAfter - weightedSumBefore <= (jtEffectiveNAVAfter - jtEffectiveNAVBefore);
     assert toCoverAfter - toCoverBefore <= WAD() * (jtEffectiveNAVAfter - jtEffectiveNAVBefore);
+    assert stRawNAVBefore == 0 || toCoverAfter <= WAD() * jtEffectiveNAVAfter, "everything is covered after";
     
-    assert roycoAccountant.isCoverageRequirementSatisfied(),  "jtRedeem must not violate utilization";
+    assert roycoAccountant.isCoverageRequirementSatisfied(),  "jtDeposit must not violate utilization";
 }
 
 /**
@@ -205,7 +207,7 @@ rule stRedeemPreservesUtilization(env e) {
     assert jtEffectiveNAVAfter == jtEffectiveNAVBefore;
     assert toCoverAfter <= toCoverBefore;
 
-    assert roycoAccountant.isCoverageRequirementSatisfied(),  "jtRedeem must not violate utilization";
+    assert roycoAccountant.isCoverageRequirementSatisfied(),  "stRedeem must not violate utilization";
 }
 
 /**
@@ -221,7 +223,7 @@ rule stRedeemRevertsInFixedTerm(env e) {
     address owner;
     seniorTranche.redeem(e, amount, receiver, owner);
 
-    assert roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState != RoycoAccountant.MarketState.FIXED_TERM, "stRedeem reverts in fixe term";
+    assert roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState != RoycoAccountant.MarketState.FIXED_TERM, "stRedeem reverts in fixed term";
 }
 
 /**
@@ -236,7 +238,7 @@ rule jtDepositRevertsInFixedTerm(env e) {
     address receiver;
     juniorTranche.deposit(e, amount, receiver);
 
-    assert roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState != RoycoAccountant.MarketState.FIXED_TERM, "jtDeposit reverts in fixe term";
+    assert roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastMarketState != RoycoAccountant.MarketState.FIXED_TERM, "jtDeposit reverts in fixed term";
 }
 
 /**

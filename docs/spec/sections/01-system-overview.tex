@@ -1,15 +1,15 @@
 \section{Overview}
 \label{sec:overview}
 
-This section offers a brief primer on Royco's structuring substrates: Dawn and Dusk. 
+This section offers a brief primer on Royco's structuring substrates: Dawn and Dusk.
 Although this document specifies Dusk, the two substrates share their
-core machinery: tranches, the per tranche NAVs tracked, and the profit and loss
+core machinery: tranches, the per-tranche NAVs, and the profit and loss
 waterfall.
 
 \subsection{Tranches and NAVs}
 \label{sec:overview:tranches}
 
-A Royco market structures an asset into two complementary investment opportunities 
+A Royco market structures an asset into two complementary investment opportunities
 with distinct risk/return profiles called \emph{tranches}:
 
 \begin{itemize}
@@ -18,7 +18,7 @@ with distinct risk/return profiles called \emph{tranches}:
 \end{itemize}
 
 Moreover, each tranche holds a perpetual obligation to the other. The
-senior tranche pays the junior a share of its yield (risk premium) 
+senior tranche pays the junior a share of its yield (risk premium)
 for absorbing losses first. The junior tranche, in turn, stands
 as a first-loss buffer: senior losses consume junior capital in full
 before the senior tranche incurs any. Accounting for these obligations
@@ -28,7 +28,7 @@ tranche:
 
 \begin{itemize}
   \item \textbf{Raw NAV:} The mark-to-market value of the tranche's \emph{deposited} assets.
-  \item \textbf{Effective NAV:} The value that each tranche \emph{is entitled to} after executing their obligations to one another.
+  \item \textbf{Effective NAV:} The value that each tranche \emph{is entitled to} after its obligations to the other are settled.
 \end{itemize}
 
 \subsection{The profit and loss waterfall}
@@ -39,12 +39,12 @@ Every accounting synchronization marks the tranche NAVs to market in three steps
 \begin{enumerate}
   \item \textbf{Measure:} Read the current raw NAVs and
     compute the delta against their last checkpointed values. Each delta
-    represents the unrealized profit or loss of that tranche's holdings 
+    represents the unrealized profit or loss of that tranche's holdings
     since the previous accounting sync.
   \item \textbf{Attribute:} Past coverage and risk premiums can leave a
     tranche entitled to more than its own holdings are worth. The excess
     ($\STeff - \STraw$ when positive, and symmetrically for JT) is a
-    claim on the \emph{other} tranche's holdings. Each side's raw NAV deltas are
+    claim on the \emph{other} tranche's holdings. Each side's raw NAV delta is
     split pro rata over the claims on it. The result is a pair of
     effective NAV deltas that sum to the total profit and loss.
   \item \textbf{Settle:} The effective deltas are routed through the
@@ -54,11 +54,9 @@ Every accounting synchronization marks the tranche NAVs to market in three steps
         any. Any coverage that JT advances to ST is booked as \emph{JT
         impermanent loss} (ST's debt to JT). Losses exceeding JT's
         buffer reduce $\STeff$ and are booked as \emph{ST impermanent
-        loss} (JT's debt to ST). Note that JT IL is a transient debt
-        obligation that only materially exists during the market's
-        configured fixed-term regime: a period of time that allows the
-        tranched asset to recover before the junior tranche realizes
-        any losses.
+        loss} (JT's debt to ST). JT IL is transient: it exists only
+        during the market's fixed-term regime, a window that lets the
+        tranched asset recover before the junior realizes losses.
       \item \emph{Recovery:} Repay any debts before gains accrue.
         ST's IL has the first claim on appreciation from either side,
         and JT's IL has the second claim on senior appreciation only.
@@ -75,9 +73,8 @@ to the new effective NAVs:
 \[
   F\colon (\STraw,\ \JTraw;\ \text{checkpoint}) \longmapsto (\STeff,\ \JTeff).
 \]
-The semicolon separates variables from parameters: supplying the
-checkpoint yields a function of the raw NAVs alone, written
-$F_{\mathrm{cp}}$. The checkpoint holds the previous sync's raw NAVs,
+The semicolon separates variables from parameters: fixing the
+checkpoint yields a function of the raw NAVs alone. The checkpoint holds the previous sync's raw NAVs,
 effective NAVs, outstanding ILs, market state, and yield-accrual
 bookkeeping (the time-weighted YDM accumulator and its timestamps). It
 is read from storage when the sync begins and cannot change while it
@@ -88,9 +85,9 @@ $F$ holds two key properties:
 \begin{enumerate}
   \item \textbf{NAV conservation:} the inputs sum to the outputs,
     $\STraw + \JTraw = \STeff + \JTeff$, for every checkpoint that
-    itself conserves. All stored checkpoints are guaranteed to since they
-    are a prior output of $F$. $F$ only redistributes value between the tranches,
-    it never creates or destroys it.
+    itself conserves. Every stored checkpoint conserves, because it is
+    itself a prior output of $F$. $F$ only redistributes value between the tranches. It never
+    creates or destroys it.
   \item \textbf{Piecewise-affine:} each branch is affine in its inputs,
     with slope $\in [0, 1]$. Combined with NAV conservation, this makes
     $F$ continuous, non-decreasing, and 1-Lipschitz in each input. This
@@ -101,16 +98,16 @@ $F$ holds two key properties:
 \subsection{Dawn to Dusk}
 \label{sec:overview:dawn-to-dusk}
 
-Dawn transforms the \emph{risk profile} of any asset. However, 
-it doesn't transform its \emph{liquidity profile}:
-senior shares have no exit path other than primary redemption.
+Dawn transforms the \emph{risk profile} of any asset, but not its
+\emph{liquidity profile}: senior shares have no exit path other than
+primary redemption.
 
 Dusk extends the junior tranche to transform both. In Dawn, junior
-capital may sit in any priceable asset, Treasuries, money market
-funds, coinvested alongside the senior tranche, provided its value is
-exogenous to the market itself. Dusk drops that
-restriction: junior capital is deployed into an AMM pool paired against the
-senior tranche's shares.
+capital may sit in any priceable asset (Treasuries, a money market
+fund, or co-investment alongside the senior tranche), provided its
+value is exogenous to the market itself. Dusk drops that restriction:
+junior capital is deployed into an AMM pool paired against the senior
+tranche's shares.
 
 \begin{itemize}
   \item \textbf{Risk transformation:} Coverage still flows from JT to ST exactly
@@ -120,9 +117,9 @@ senior tranche's shares.
     buy and sell tranche shares for stables.
 \end{itemize}
 
-For the purposes of this document, the Dusk JT's asset is a Balancer V3 Pool Token (BPT)
-with the constituents being the senior tranche share and a stable quote asset 
-(\code{USDC}, \code{sUSDS}, \code{srRoyUSDC}, etc.).
+For the purposes of this document, the Dusk JT's asset is a Balancer V3
+Pool Token (BPT) whose constituents are the senior tranche share and a
+stable quote asset (USDC, sUSDS, or srRoyUSDC).
 
 \textbf{The recursion:} Marking JT to market is no longer a plain oracle
 read. To value the BPT, the pool's senior share leg must be priced at
@@ -144,8 +141,10 @@ itself, as \cref{fig:recursion} shows.
   \node (st) at (210:1.6) {$\STeff$};
   \draw (y)  to[bend left=30] node[right=8pt]  {Value the BPT} (jt);
   \draw (jt) to[bend left=30] node[below=8pt]  {Apply $F$} (st);
-  \draw (st) to[bend left=30] node[left=8pt]   {Value the Share} (y);
+  \draw (st) to[bend left=30] node[left=8pt]   {Value the share} (y);
 \end{tikzpicture}
+\caption{The recursion. Valuing the junior collateral needs the senior
+rate, and the senior rate depends on that valuation.}
 \label{fig:recursion}
 \end{figure}
 
@@ -163,21 +162,19 @@ formulates it, \cref{sec:existence} proves it exists and is unique, and
 \subsection{Components of a Dusk market}
 \label{sec:overview:pieces}
 
-A Dusk market adds three components to the Dawn stack and reuses its
-accountant. Each plays one role in resolving the recursion:
+A Dusk market adds three components to the Dawn stack (pool, kernel,
+hook) and reuses the Dawn accountant. Each plays one role in resolving
+the recursion:
 
 \begin{itemize}
   \item \textbf{Gyro E-CLP pool:} A Balancer V3 elliptic concentrated
     liquidity pool over the senior share and quote asset. The senior
-    share is registered as a \code{WITH_RATE} token: Balancer scales
-    its raw balance by the rate provider's \code{getRate()} before any
-    pool math, which is how the solved rate enters the pool's pricing
-    of senior shares.
+    leg is priced by the rate the kernel publishes, so the solved rate
+    is what the pool uses to value senior shares.
   \item \textbf{Dusk kernel:} One contract, two paths. Write: the sync
     entrypoint solves the fixed point (\cref{sec:solver}), commits the
-    accountant checkpoint, and caches the solved rate $y^*$. Read:
-    Balancer's rate provider interface, \code{getRate()}, returns the
-    cached $y^*$ instantly.
+    accountant checkpoint, and caches the solved rate $y^\star$. Read:
+    the kernel reports the cached rate $y^\star$ to the pool instantly.
   \item \textbf{Balancer V3 Dusk hook:} Forwards Balancer's before-operation
     callbacks (swap, add and remove liquidity) into the kernel's sync
     entrypoint. Balancer reloads balances and rates after the hook so

@@ -1,143 +1,152 @@
 \section{The fixed-point setup}
 \label{sec:setup}
 
-This section makes the circularity precise. It names the two functions
-that close the loop (the sync map $F$ and the conservative BPT
-valuation $P_A$), states the fixed-point equation the kernel's sync must
-solve on every pool operation, and defines the error function the
-on-chain solver targets.
+Every pool operation triggers a sync, and every sync must publish one
+number: the senior share rate $y$. \Cref{sec:overview:dawn-to-dusk}
+showed why this is not a plain oracle read. The rate depends on the
+junior tranche's collateral value, the collateral contains senior
+shares, and so the rate depends on itself. This section turns that
+circularity into a single equation in one unknown and reduces the whole
+problem to two facts about one function.
+
+\subsection{What we must prove}
+\label{sec:setup:roadmap}
+
+Write the senior NAV the sync must produce as $x$. We will see that a
+self-consistent $x$ is exactly a zero of the \emph{error function}
+\[
+  E(x) \;=\; F\!\left(P_A(x / N)\right) - x,
+\]
+where $P_A$ values the junior collateral at a candidate rate and $F$ is
+the accountant's sync map. The on-chain solver finds that zero by
+integer bisection, and bisection needs exactly two facts:
+
+\begin{description}
+  \item[(Monotonicity)] $E$ never rises: each step holds or falls. So the
+    values where $E \geq 0$ form a prefix, the crossing is \emph{unique},
+    and bisection knows which way to step.
+  \item[(Bracketing)] $E$ is non-negative at the bottom of the search range
+    and negative at the top. This makes the crossing \emph{exist} and
+    brackets it.
+\end{description}
+
+The rest of this section defines the three objects $F$, $P_A$, and $E$.
+\Cref{sec:existence} proves the two facts. \Cref{sec:solver} runs the
+solver. Nothing else is load-bearing.
 
 \subsection{The sync map $F$}
 \label{sec:setup:F}
 
-Each sync, the Dusk kernel calls the shared Royco accountant function
-\code{previewSyncTrancheAccounting}, which we denote $F$. Given the
+On each sync, the Dusk kernel calls the shared Royco accountant, whose
+sync map we denote $F$. Given the
 current raw NAVs of both tranches, $F$ runs the attribution and
 settlement steps of \cref{sec:overview:waterfall} against the stored
 checkpoint and returns the effective NAVs:
 \[
   F\colon \bigl(\STraw,\ \JTraw;\ \text{checkpoint}\bigr) \longmapsto (\STeff,\ \JTeff).
 \]
-Two structural properties of $F$ are stated in \cref{sec:overview:waterfall}
-and proved in \cref{sec:existence}:
-\begin{enumerate}
-  \item \textbf{NAV conservation:} $\STraw + \JTraw \equiv \STeff + \JTeff$.
-  \item \textbf{Piecewise-affine:} each branch is affine in its inputs with
-    slope in $[0, 1]$, and the branches are joined continuously at
-    their kinks.
-\end{enumerate}
+The two properties of $F$ that matter were stated in
+\cref{sec:overview:waterfall}: it conserves NAV ($\STraw + \JTraw =
+\STeff + \JTeff$), and it is piecewise-affine with slopes in $[0,1]$,
+joined continuously at its kinks. NAV conservation holds by
+construction, since every stored checkpoint is itself a prior output of
+$F$. The monotone, 1-Lipschitz behaviour these two properties imply is
+\cref{lem:F} in \cref{sec:existence}.
 
 In a Dusk market the senior raw NAV is exogenous to the loop: it is the
-value of the senior tranche's own underlying assets, marked to market
-independently of the pool. Only the junior raw NAV depends on the senior
-rate, because the junior's collateral is the BPT.
-The senior side therefore drops out of the loop, and we may regard $F$ as a
-function of one variable, $\JTraw$, holding $\STraw$ and the checkpoint
-fixed for the duration of a single sync:
+value of the senior tranche's own assets, marked independently of the
+pool. Only the junior raw NAV depends on the senior rate, because the
+junior's collateral is the BPT. The senior side therefore drops out, and
+for one sync, with $\STraw$ and the checkpoint fixed, we read $F$ as a
+function of a single variable:
 \[
   F\colon \JTraw \longmapsto \STeff.
 \]
-The kernel reads $\STraw$ once per sync and feeds it into every invocation
-of $F$ during the bisection.
 
-\subsection{The conservative BPT valuation $P_A$}
+\subsection{The conservative valuation $P_A$}
 \label{sec:setup:PA}
 
-The junior tranche's collateral is the BPT of the Gyro E-CLP pool, of
-which it owns a fraction
-$f = \text{\code{JT_BPT_BALANCE}} / \text{\code{BPT_TOTAL_SUPPLY}}$.
-The pool's two legs are the senior tranche share and a quote asset, with
-raw reserves $b_{s,\text{raw}}$ and $b_{q,\text{raw}}$.
+The junior tranche owns a fraction $f$ of a
+Gyro E-CLP pool whose two legs are the senior share and a quote asset.
+$P_A(y)$ is the value of that position when the senior share trades at
+rate $y$, marked conservatively so that no manipulation and no rounding
+can ever credit the junior tranche more than it could withdraw.
 
-Under the chosen architecture (\cref{sec:overview:pieces}), the senior
-share is registered as a Balancer V3 \code{WITH_RATE} token, so Balancer
-scales the senior leg's live balance by the rate $y$ at pool-load time
-before any pool math runs:
-\begin{align*}
-  b_s(y) &= b_{s,\text{raw}} \cdot y, \\
-  b_q    &= b_{q,\text{raw}} \cdot q,
-\end{align*}
-where $q$ is the quote-asset rate ($q = 1$ for a non-rate-bearing quote).
-The E-CLP invariant $L$ is then computed from the rate-scaled balances.
+\paragraph{The frozen curve.}
+The senior leg is priced by the rate the kernel publishes. At the start of a solve the
+kernel reads the cached rate $y_0$ once and computes the pool invariant
+$L$ from the rate-scaled balances, rounded down in favour of the senior
+tranche. $L$ is then held fixed while the candidate rate $y$ varies.
+Freezing $L$ is what makes $P_A$ a clean function of $y$ alone, which the
+monotonicity proof relies on. The implementation details of the scaling
+and rounding are collected in \cref{sec:solver:obligations}.
 
-Given the invariant, the pool's \emph{conservative} TVL is its value at
-the fair reserves implied by the invariant and the rate: the point on
-the curve where the marginal price equals $y$. Because this depends only
-on $L$ and $y$, not on the live composition, value-free swap
-manipulation cannot move it (a swap conserves $L$ in the fee-free pool
-math, and the LP fee it leaves behind only grows $L$). The external E-CLP price ratio is
-$[1, 1]$: the rate is injected through the senior leg's live balance, and
-double-injecting it as an external price would over-count.
+\paragraph{The fair point.}
+Given $L$, the conservative value at candidate rate $y$ is the pool's
+value at its \emph{fair point}: the point on the frozen curve whose
+marginal price equals $y$. Write this value $V(y)$ and write
+\[
+  D(y) \;=\; V'(y),
+\]
+the pool's \emph{demand} for senior shares at price $y$, that is, the
+senior reserve the fair point holds. Two geometric facts about the
+E-CLP, proved in \cref{sec:existence:mono}, are all we need: $V$ is
+non-decreasing, with $V'(y) = D(y) \geq 0$ (a higher senior price raises
+the value of the senior shares the pool holds), and the demand $D(y)$ is
+finite at every rate the curve can express.
 
-Write the conservative TVL as $V(y)$ (the invariant $L$ is fixed within
-a solve). The junior tranche's pro-rata claim, rounded down in favour of
-senior, is the \emph{conservative BPT valuation}:
+\paragraph{The clamp.}
+The fair point is a geometric construct, and far below the operating
+rate the curve's demand $D(y)$ can grow without bound: the quote leg,
+converted along the curve, would buy more senior shares than exist. That
+is impossible. Even if every senior holder sold into the pool, it would
+hold at most the total supply $N$, so the true demand never exceeds $N$.
+We cap it there:
+\[
+  \Dc(y) \;=\; \min\bigl(D(y),\ N\bigr),
+  \qquad
+  \widehat{V}(y) \;=\; \int_0^y \Dc(u)\,du.
+\]
+By definition $\widehat{V}(0) = 0$, and $V(0) \geq 0$ since a reserve
+is non-negative. With $\Dc \leq D = V'$ this gives
+$0 \leq \widehat{V} \leq V$ everywhere: the cap only lowers the mark and
+preserves conservatism. At any healthy
+rate the live demand is far below $N$ and the cap is inactive. Its
+purpose is to bound demand by the supply, which \cref{sec:existence}
+turns into unconditional monotonicity.
+
+\paragraph{The valuation.}
+The junior tranche's pro-rata claim, rounded down in favour of the
+senior tranche, is the \emph{conservative BPT valuation}:
 \begin{equation}
-  P_A(y) \;=\; \Bigl\lfloor\, f \cdot V(y) \,\Bigr\rfloor.
+  P_A(y) \;=\; \bigl\lfloor\, f \cdot \widehat{V}(y) \,\bigr\rfloor.
   \label{eq:PA}
 \end{equation}
-Two structural properties of $P_A$ matter (proved in \cref{sec:existence}):
-\begin{enumerate}
-  \item Non-decreasing in $y$.
-  \item Lipschitz in $y$ with constant $f \cdot \sup_y \mathrm{yb}(y)$,
-    where $\mathrm{yb}(y) = V'(y)$ is the fair senior-share reserve at
-    marginal price $y$.
-\end{enumerate}
+By the geometric facts and the clamp, $P_A$ is non-decreasing in $y$ and
+Lipschitz with constant $f N$ (\cref{sec:existence:mono}). The value $V$
+depends only on $L$ and $y$, never on the live pool composition, so a
+swap cannot move it: a swap conserves $L$ in the fee-free pool math, and
+the fee it leaves behind only grows $L$. Flash-loan rebalancing of the
+pool cannot change the mark.
 
-\subsection{Why the loop closes}
+\subsection{The fixed-point equation}
 \label{sec:setup:circularity}
 
-To run $F$ in a sync, the kernel needs $\JTraw$. But $\JTraw = P_A(y)$,
-and $y = \STeff / N$, and $\STeff$ is the output of $F$. Reading the
-dependency around the diagram:
-\[
-  y \;\xrightarrow{P_A}\; \JTraw \;\xrightarrow{F}\; \STeff
-    \;\xrightarrow{\;\div N\;}\; y.
-\]
-Equivalently, the value $\STeff$ that the sync must produce has to satisfy
-\begin{equation}
-  \STeff \;=\; F\!\left(P_A\!\left(\STeff / N\right)\right).
-  \label{eq:circularity}
-\end{equation}
-The loop is intrinsic, not an ordering bug. It exists because the junior
-tranche's collateral \emph{contains senior shares}, so pricing the junior
-collateral requires the senior price. If junior's coverage capital were
-pure quote, $P_A$ would not depend on $y$ and there would be no loop.
-
-The economic content is that the junior tranche is partly covering its
-own collateral. Junior coverage props the senior rate up, a higher
-senior rate raises the value of the senior shares sitting inside the
-junior's BPT, and that raises the junior's measured coverage capacity. The strength of this
-self-reference is the loop gain $g$, defined in \cref{sec:notation}
-and bounded in \cref{sec:existence}.
-
-\subsection{The fixed-point equation and the error function}
-\label{sec:setup:fixed-point}
-
-Let $x$ denote the search variable for the solved $\STeff$. The
-fixed-point equation \eqref{eq:circularity} is
+The loop now closes in one line. To value the junior collateral the
+kernel needs $\JTraw$, but $\JTraw = P_A(y)$, the rate $y = \STeff/N$,
+and $\STeff = F(\JTraw)$. The senior NAV the sync must produce therefore
+has to reproduce itself:
 \begin{equation}
   x \;=\; F\!\left(P_A\!\left(x / N\right)\right).
   \label{eq:fixed-point}
 \end{equation}
-Define the iteration map and the error function:
-\begin{align*}
-  T(x) &\;:=\; F\!\left(P_A\!\left(x / N\right)\right), \\
-  E(x) &\;:=\; T(x) - x.
-\end{align*}
-A self-consistent senior effective NAV is a root of $E$:
-\begin{equation}
-  E(x^*) = 0 \;\iff\; x^* = T(x^*).
-  \label{eq:root-fp}
-\end{equation}
-The on-chain solver finds $x^*$ by integer bisection on $E$.
-\Cref{sec:existence} proves that $E$ is continuous and strictly decreasing
-on the search bracket, with a sign change across it, so the root exists,
-is unique, and bisection converges to it deterministically.
-\Cref{sec:solver} specifies the on-chain solver (bracket, tolerance,
-iteration count, failure modes). Once $x^*$ is found, the published senior
-rate is
-\[
-  y^* \;=\; x^* \,/\, N,
-\]
-written to the rate cache and returned by \code{getRate()}.
+The loop is intrinsic, not an ordering bug: the junior's collateral
+contains senior shares, so pricing it requires the senior price. Were
+the junior's capital pure quote, $P_A$ would not depend on $y$ and
+there would be no loop.
+
+A solution of \eqref{eq:fixed-point} is a zero of the error function
+$E$ (\cref{sec:setup:roadmap}), and the published rate is
+$y^\star = x^\star / N$. \Cref{sec:existence} proves $E$ has
+exactly one zero (Monotonicity) inside a range whose endpoints straddle
+it (Bracketing).

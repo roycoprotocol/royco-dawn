@@ -55,9 +55,11 @@ the rebalancing terms cancel:
 \]
 This is the envelope theorem: the first-order effect of the rebalancing
 variable vanishes at the fair point, leaving the direct term. The
-cancellation holds on the open band $(\alpha, \beta)$, where the fair
-point moves smoothly. At the band edges $V$ is pinned at a corner and
-flat in $y$, which only helps. So $V$ is non-decreasing in $y$.
+cancellation holds on the open band $(\alpha, \beta)$. Below it the pool
+is all senior and $V(y) = y\,D(\alpha)$ rises linearly; above it the
+pool is all quote and $V$ is constant at $V_{\max}$. Both pieces are
+non-decreasing and join the band continuously, so $V$ is non-decreasing
+throughout.
 
 The clamp now does its one job. With $\Dc(y) = \min(D(y), N)$ the
 capped value $\widehat{V}$ has $\widehat{V}'(y) = \Dc(y) \leq N$
@@ -103,9 +105,11 @@ segment $[0, x^\star]$. At its right endpoint the next step must be a drop of
 $1$ (a flat step would keep $E \geq 0$), so $x^\star$ is the unique
 integer with $E(x^\star) \geq 0 > E(x^\star{+}1)$. The drop being
 exactly $1$ and $E$ integer-valued force $E(x^\star) = 0$, an exact
-fixed point. When $f$ is near $1$ a few integers can satisfy $E = 0$;
-$x^\star$ is the largest, hence the senior-conservative choice (smallest
-$\JTeff$). This proves Monotonicity.
+fixed point. When $f$ is near $1$ a few integers can satisfy $E = 0$.
+Conservation pins $\JTeff$ identically across them, so the root choice
+leaves the junior's entitlement unchanged. Bisection returns the
+largest, $x^\star$, the largest self-consistent senior rate. This proves
+Monotonicity.
 
 \begin{lemma}[$F$ is non-decreasing and 1-Lipschitz in $\JTraw$]
 \label{lem:F}

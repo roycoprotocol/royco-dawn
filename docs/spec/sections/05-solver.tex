@@ -30,9 +30,11 @@ and a unique root.
 
 The solver uses the \emph{conservation bracket} $\mathcal{B}$ of
 \cref{thm:main} as its search domain. Its endpoints straddle the root by
-construction, so the search always brackets a unique answer. Every probe
-$x \in \mathcal{B}$ maps to a senior balance within the E-CLP's
-computable domain, so no probe reverts inside the pool math.
+construction, so the search always brackets a unique answer. Each probe
+evaluates the frozen-$L$ valuation in closed form, not the pool's
+invariant solver, so no probe re-triggers the E-CLP domain check. That
+check runs once, when $L$ is computed at solve start from the live
+balances.
 
 The root is the economically correct rate, but the deployed pool can only
 \emph{quote} rates inside its price band $[\alpha, \beta]$. With $\alpha,
@@ -113,8 +115,8 @@ the solve converge, the third keeps every step conservative.
 
 \begin{description}
   \item[Senior independence.] The senior raw NAV is marked from sources
-    that do not read the published rate, so the loop has exactly one
-    fixed-point variable.
+    that do not read the pool (its BPT value, its spot price, or the
+    published rate), so the loop has exactly one fixed-point variable.
   \item[Valuation wiring.] The senior leg is lifted to WAD by its
     decimal factor $10^{18 - d_s}$ ($d_s$ its native decimals) and the
     published senior rate. The quote leg is lifted by $10^{18 - d_q}$
@@ -126,10 +128,11 @@ the solve converge, the third keeps every step conservative.
   \item[Clamp.] The valuation uses the integral form
     $\widehat{V}(y) = \int_0^y \min(D, N)$ (\cref{sec:setup:PA}), with $N$
     read at solve start. In closed form this is $N y$ below the rate
-    where demand falls to $N$, and $V$ shifted by a constant above it.
-    Capping the share count inside the point value, $b_q + y\min(D,N)$,
-    is a different function that is not $N$-Lipschitz and breaks
-    monotonicity.
+    where demand falls to $N$, and $V$ shifted by a constant above it
+    (the split is unique when demand is monotone, as for the Gyro
+    E-CLP). Capping the share count inside the point value,
+    $b_q + y\min(D,N)$, is a different function that is not $N$-Lipschitz
+    and breaks monotonicity.
   \item[Frozen inputs, live supply, total $E$.] As in
     \cref{sec:solver:convergence}: read once, $N \geq 1$, conserving
     checkpoint.

@@ -36,7 +36,7 @@ $10^6$ for USDC).
   $y^\star$          & Published senior rate, $y^\star = x^\star/N = \STeff/N$ at the fixed point       & NAV/share \\
   $y_0$              & Cached senior rate, read once at solve start (fixes $L$ and the band)            & NAV/share \\
   $x$                & Candidate senior NAV (the bisection probe), equal to the solved $\STeff$ only at the root $x^\star$ & NAV \\
-  $N$                & The total supply of senior shares                                                & shares \\
+  $N$                & Total senior-share supply (including any fee shares), frozen at solve start; the same $N$ in the clamp and the rate & shares \\
   \midrule
   \multicolumn{3}{@{}l}{\emph{The fixed-point machinery}} \\
   \midrule
@@ -51,7 +51,7 @@ $10^6$ for USDC).
   $b_q$              & Quote-leg reserve at the fair point                                             & NAV \\
   $q$                & Quote-asset rate ($1$ for non-rate-bearing quote tokens)                         & NAV/quote \\
   $f$                & JT's fractional share of the total BPT supply                                    & dimensionless \\
-  $\alpha$, $\beta$  & Lower / upper bounds on the senior rate the pool can quote                       & NAV/share \\
+  $\alpha$, $\beta$  & Lower / upper bounds on the senior rate the pool can quote (the E-CLP price band, distinct from Royco's correlation parameter) & NAV/share \\
   $L$                & E-CLP invariant value                         & --- \\
   $V_{\max}$         & Conservative pool value at the upper corner of the frozen curve                  & NAV \\
   $V(y)$             & Fair pool value at marginal price $y$ (envelope-theorem valuation)               & NAV \\

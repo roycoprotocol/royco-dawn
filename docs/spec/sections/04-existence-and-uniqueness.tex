@@ -15,11 +15,12 @@ invariant $L$ at the start of a sync. On the bracket
   \qquad
   x_{\max} \;=\; \STraw + \lfloor f\,V_{\max}\rfloor + 1,
 \]
-where $V_{\max}$ is the conservative pool value at the upper corner of
-the frozen curve, the integer error function $E(x) = F(P_A(x/N)) - x$ is
+where $V_{\max} = \sup_y V(y)$ is the pool value at the all-quote corner
+(the senior shares all sold), the integer error function
+$E(x) = F(P_A(x/N)) - x$ is
 non-increasing \textup{(Monotonicity)} and satisfies $E(0) \geq 0$ and
 $E(x_{\max}) < 0$ \textup{(Bracketing)}. Hence the integers where $E \geq 0$
-form a prefix $[0, x^\star]$ with a unique right endpoint $x^\star$, the
+form an initial segment $[0, x^\star]$ with a unique right endpoint $x^\star$, the
 self-consistent senior NAV, and bisection on the predicate
 $E(x) \geq 0$ finds it.
 \end{theorem}
@@ -53,8 +54,10 @@ the rebalancing terms cancel:
     \;=\; D(y) \;\geq\; 0.
 \]
 This is the envelope theorem: the first-order effect of the rebalancing
-variable vanishes at the fair point, leaving the direct term. So $V$ is
-non-decreasing in $y$.
+variable vanishes at the fair point, leaving the direct term. The
+cancellation holds on the open band $(\alpha, \beta)$, where the fair
+point moves smoothly. At the band edges $V$ is pinned at a corner and
+flat in $y$, which only helps. So $V$ is non-decreasing in $y$.
 
 The clamp now does its one job. With $\Dc(y) = \min(D(y), N)$ the
 capped value $\widehat{V}$ has $\widehat{V}'(y) = \Dc(y) \leq N$
@@ -76,7 +79,12 @@ $j > j'$.
 The chain $x \mapsto x/N \mapsto P_A \mapsto F$ multiplies the per-stage
 factors,
 \[
-  \frac{1}{N} \cdot f N \cdot 1 \;=\; f \;\leq\; 1,
+  \underbrace{\frac{1}{N}}_{\div\, N}
+  \;\cdot\;
+  \underbrace{f N}_{P_A}
+  \;\cdot\;
+  \underbrace{1}_{F}
+  \;=\; f \;\leq\; 1,
 \]
 since the junior owns at most the whole pool ($f \leq 1$). This product
 is the \emph{loop gain} $g = f$: the dollars that return to the senior
@@ -90,12 +98,14 @@ $x$ moves $P_A$ by $0$ or $1$ (Stage 1), and $F$ is 1-Lipschitz (Stage
 \[
   E(x{+}1) - E(x) \;\in\; \{-1,\ 0\}.
 \]
-$E$ is non-increasing, so the integers with $E \geq 0$ form a prefix
-$[0, x^\star]$. At its right endpoint the next step must be a drop of
+$E$ is non-increasing, so the integers with $E \geq 0$ form an initial
+segment $[0, x^\star]$. At its right endpoint the next step must be a drop of
 $1$ (a flat step would keep $E \geq 0$), so $x^\star$ is the unique
 integer with $E(x^\star) \geq 0 > E(x^\star{+}1)$. The drop being
-exactly $1$ and $E$ integer-valued force $E(x^\star) = 0$: an exact
-fixed point. This proves Monotonicity.
+exactly $1$ and $E$ integer-valued force $E(x^\star) = 0$, an exact
+fixed point. When $f$ is near $1$ a few integers can satisfy $E = 0$;
+$x^\star$ is the largest, hence the senior-conservative choice (smallest
+$\JTeff$). This proves Monotonicity.
 
 \begin{lemma}[$F$ is non-decreasing and 1-Lipschitz in $\JTraw$]
 \label{lem:F}
@@ -129,9 +139,11 @@ since the accountant holds effective NAVs non-negative, whatever the
 junior collateral is worth.
 
 \emph{Upper endpoint.} $P_A$ is bounded above by $\lfloor f V_{\max}
-\rfloor$, where $V_{\max}$ is the conservative value at the upper corner
-of the frozen curve (above the band the pool is all quote and its value
-is constant in $y$). By NAV conservation $\STeff = \STraw + \JTraw - \JTeff \leq \STraw
+\rfloor$, where $V_{\max} = \sup_y V(y)$ is the pool's value at the
+all-quote corner (the senior shares all sold). Since $V$ is
+non-decreasing, $\widehat V \leq V \leq V_{\max}$ for every candidate
+rate, whichever way the pool sorts its tokens. By NAV conservation
+$\STeff = \STraw + \JTraw - \JTeff \leq \STraw
 + \JTraw \leq \STraw + \lfloor f V_{\max}\rfloor$ (using $\JTeff \geq
 0$) for every candidate. At
 $x_{\max} = \STraw + \lfloor f V_{\max}\rfloor + 1$ we therefore have

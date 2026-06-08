@@ -2,8 +2,8 @@
 \label{sec:solver}
 
 \Cref{thm:main} gives a unique root in a bracket whose endpoints straddle
-it. This section runs the solver: integer bisection, in bounded gas, with
-the conditions that make the theorem apply on chain stated as explicit
+it. This section runs the solver: integer bisection, in bounded gas. The
+conditions that make the theorem apply on-chain are stated as explicit
 obligations.
 
 \subsection{Integer bisection}
@@ -63,8 +63,10 @@ cheap and is listed as an obligation in \cref{sec:solver:obligations}.
   \item[Frozen inputs.] Every input to $E$ ($\STraw$, $N$, $f$, the
     invariant $L$, the cached rate $y_0$, and the checkpoint) is read
     once at solve start and never re-read. Bisection compares $E$ at
-    different probes and assumes one fixed function. The loop makes no
-    external calls.
+    different probes and assumes one fixed function. Any external reads
+    inside $F$ (the yield-model view, the block timestamp) are constant
+    across the bisection, since it runs in one block against a frozen
+    checkpoint, so no probe sees a different function.
   \item[Live supply.] $N \geq 1$. The map divides by $N$, so the supply
     must be positive. A minimum senior position minted at market
     creation and never redeemable keeps $N$ bounded away from zero for
@@ -110,6 +112,9 @@ market. The first group makes $E$ the right function, the second makes
 the solve converge, the third keeps every step conservative.
 
 \begin{description}
+  \item[Senior independence.] The senior raw NAV is marked from sources
+    that do not read the published rate, so the loop has exactly one
+    fixed-point variable.
   \item[Valuation wiring.] The senior leg is lifted to WAD by its
     decimal factor $10^{18 - d_s}$ ($d_s$ its native decimals) and the
     published senior rate. The quote leg is lifted by $10^{18 - d_q}$
@@ -118,8 +123,13 @@ the solve converge, the third keeps every step conservative.
     scaled at $y_0$, rounded down (the underestimate), and held fixed across the
     bisection. $V_{\max}$ is the value at the upper corner of this same
     frozen curve.
-  \item[Clamp.] Demand is capped at the supply $N$ (read at solve start)
-    before the $f V$ floor.
+  \item[Clamp.] The valuation uses the integral form
+    $\widehat{V}(y) = \int_0^y \min(D, N)$ (\cref{sec:setup:PA}), with $N$
+    read at solve start. In closed form this is $N y$ below the rate
+    where demand falls to $N$, and $V$ shifted by a constant above it.
+    Capping the share count inside the point value, $b_q + y\min(D,N)$,
+    is a different function that is not $N$-Lipschitz and breaks
+    monotonicity.
   \item[Frozen inputs, live supply, total $E$.] As in
     \cref{sec:solver:convergence}: read once, $N \geq 1$, conserving
     checkpoint.

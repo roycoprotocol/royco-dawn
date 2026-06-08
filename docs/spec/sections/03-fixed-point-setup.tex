@@ -3,11 +3,9 @@
 
 Every pool operation triggers a sync, and every sync must publish one
 number: the senior share rate $y$. \Cref{sec:overview:dawn-to-dusk}
-showed why this is not a plain oracle read. The rate depends on the
-junior tranche's collateral value, the collateral contains senior
-shares, and so the rate depends on itself. This section turns that
-circularity into a single equation in one unknown and reduces the whole
-problem to two facts about one function.
+showed why this is a fixed point, not an oracle read. This section makes
+it precise: one equation in one unknown, then two facts about one
+function.
 
 \subsection{What we must prove}
 \label{sec:setup:roadmap}
@@ -23,8 +21,8 @@ integer bisection, and bisection needs exactly two facts:
 
 \begin{description}
   \item[(Monotonicity)] $E$ never rises: each step holds or falls. So the
-    values where $E \geq 0$ form a prefix, the crossing is \emph{unique},
-    and bisection knows which way to step.
+    values where $E \geq 0$ form an initial segment, the crossing is
+    \emph{unique}, and bisection knows which way to step.
   \item[(Bracketing)] $E$ is non-negative at the bottom of the search range
     and negative at the top. This makes the crossing \emph{exist} and
     brackets it.
@@ -45,13 +43,11 @@ checkpoint and returns the effective NAVs:
 \[
   F\colon \bigl(\STraw,\ \JTraw;\ \text{checkpoint}\bigr) \longmapsto (\STeff,\ \JTeff).
 \]
-The two properties of $F$ that matter were stated in
-\cref{sec:overview:waterfall}: it conserves NAV ($\STraw + \JTraw =
-\STeff + \JTeff$), and it is piecewise-affine with slopes in $[0,1]$,
-joined continuously at its kinks. NAV conservation holds by
-construction, since every stored checkpoint is itself a prior output of
-$F$. The monotone, 1-Lipschitz behaviour these two properties imply is
-\cref{lem:F} in \cref{sec:existence}.
+Two properties of $F$ matter downstream (\cref{sec:overview:waterfall}).
+It conserves NAV ($\STraw + \JTraw = \STeff + \JTeff$), and it is
+non-decreasing and 1-Lipschitz in each input (\cref{lem:F}).
+Conservation holds by construction: every stored checkpoint is itself a
+prior output of $F$.
 
 In a Dusk market the senior raw NAV is exogenous to the loop: it is the
 value of the senior tranche's own assets, marked independently of the
@@ -62,6 +58,10 @@ function of a single variable:
 \[
   F\colon \JTraw \longmapsto \STeff.
 \]
+$F$ returns $\STeff$ \emph{gross} of protocol fees: a fee accrues as a
+separate NAV claim settled outside $F$, never netted out of $\STeff$. So
+$y = \STeff/N$ is consistent only when $N$ counts the same shares the
+gross NAV backs, including any minted for fees.
 
 \subsection{The conservative valuation $P_A$}
 \label{sec:setup:PA}
@@ -84,7 +84,8 @@ and rounding are collected in \cref{sec:solver:obligations}.
 \paragraph{The fair point.}
 Given $L$, the conservative value at candidate rate $y$ is the pool's
 value at its \emph{fair point}: the point on the frozen curve whose
-marginal price equals $y$. Write this value $V(y)$ and write
+\emph{marginal price} (its local slope, the spot rate for an
+infinitesimal trade) equals $y$. Write this value $V(y)$ and write
 \[
   D(y) \;=\; V'(y),
 \]
@@ -96,12 +97,10 @@ the value of the senior shares the pool holds), and the demand $D(y)$ is
 finite at every rate the curve can express.
 
 \paragraph{The clamp.}
-The fair point is a geometric construct, and far below the operating
-rate the curve's demand $D(y)$ can grow without bound: the quote leg,
-converted along the curve, would buy more senior shares than exist. That
-is impossible. Even if every senior holder sold into the pool, it would
-hold at most the total supply $N$, so the true demand never exceeds $N$.
-We cap it there:
+Far below the operating rate the curve's demand $D(y)$ grows without
+bound, but the pool can hold at most the total supply $N$ (even if every
+senior holder sold into it). The true demand cannot exceed $N$, so we
+cap it there:
 \[
   \Dc(y) \;=\; \min\bigl(D(y),\ N\bigr),
   \qquad
@@ -123,30 +122,27 @@ senior tranche, is the \emph{conservative BPT valuation}:
   \label{eq:PA}
 \end{equation}
 By the geometric facts and the clamp, $P_A$ is non-decreasing in $y$ and
-Lipschitz with constant $f N$ (\cref{sec:existence:mono}). The value $V$
-depends only on $L$ and $y$, never on the live pool composition, so a
-swap cannot move it: a swap conserves $L$ in the fee-free pool math, and
-the fee it leaves behind only grows $L$. Flash-loan rebalancing of the
-pool cannot change the mark.
+Lipschitz with constant $f N$ (\cref{sec:existence:mono}). Within a
+single solve $V$ depends only on $L$ and $y$, not on the live pool
+composition. A fee-free swap conserves the pool's true invariant, and
+the $L$ the solver consumes is a round-down underestimate of it
+recomputed from live balances, so $L \leq L_{\mathrm{true}}$ for every
+reachable composition. A swap (or a donation, which Balancer V3 ignores
+since it accounts internally) can therefore move the mark only within
+the round-down band, and never above the true fair value. The mark is
+manipulation-bounded, not immovable.
 
 \subsection{The fixed-point equation}
 \label{sec:setup:circularity}
 
-The loop now closes in one line. To value the junior collateral the
-kernel needs $\JTraw$, but $\JTraw = P_A(y)$, the rate $y = \STeff/N$,
-and $\STeff = F(\JTraw)$. The senior NAV the sync must produce therefore
-has to reproduce itself:
+Chaining the definitions, $\JTraw = P_A(\STeff/N)$ and
+$\STeff = F(\JTraw)$, so the senior NAV must reproduce itself:
 \begin{equation}
   x \;=\; F\!\left(P_A\!\left(x / N\right)\right).
   \label{eq:fixed-point}
 \end{equation}
-The loop is intrinsic, not an ordering bug: the junior's collateral
-contains senior shares, so pricing it requires the senior price. Were
-the junior's capital pure quote, $P_A$ would not depend on $y$ and
-there would be no loop.
-
-A solution of \eqref{eq:fixed-point} is a zero of the error function
-$E$ (\cref{sec:setup:roadmap}), and the published rate is
-$y^\star = x^\star / N$. \Cref{sec:existence} proves $E$ has
-exactly one zero (Monotonicity) inside a range whose endpoints straddle
-it (Bracketing).
+A solution is a zero of the error function $E$
+(\cref{sec:setup:roadmap}), and the published rate is
+$y^\star = x^\star / N$. \Cref{sec:existence} proves $E$ has exactly one
+zero (Monotonicity) inside a range whose endpoints straddle it
+(Bracketing).

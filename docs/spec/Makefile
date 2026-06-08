@@ -6,13 +6,14 @@
 #   make clean   remove all build artifacts
 #   make open    build then open the PDF in the default viewer
 #
-# Output: build/main.pdf
+# Output: build/royco_dusk.pdf
 
 MAIN  := main
+OUT   := royco_dusk
 BUILD := build
-PDF   := $(BUILD)/$(MAIN).pdf
+PDF   := $(BUILD)/$(OUT).pdf
 
-LATEXMK_FLAGS := -pdf -outdir=$(BUILD) -interaction=nonstopmode -halt-on-error -file-line-error
+LATEXMK_FLAGS := -pdf -jobname=$(OUT) -outdir=$(BUILD) -interaction=nonstopmode -halt-on-error -file-line-error
 
 .PHONY: pdf watch clean open
 

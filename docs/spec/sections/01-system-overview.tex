@@ -22,7 +22,7 @@ senior tranche pays the junior a share of its yield (risk premium)
 for absorbing losses first. The junior tranche, in turn, stands
 as a first-loss buffer: senior losses consume junior capital in full
 before the senior tranche incurs any. Accounting for these obligations
-requires distinguishing what each tranche \emph{holds} from what it is
+requires distinguishing what each tranche \emph{deposited} from what it is
 \emph{entitled to}. Hence, Royco tracks two NAVs (net asset value) per
 tranche:
 
@@ -44,9 +44,11 @@ Every accounting synchronization marks the tranche NAVs to market in three steps
   \item \textbf{Attribute:} Past coverage and risk premiums can leave a
     tranche entitled to more than its own holdings are worth. The excess
     ($\STeff - \STraw$ when positive, and symmetrically for JT) is a
-    claim on the \emph{other} tranche's holdings. Each side's raw NAV delta is
-    split pro rata over the claims on it. The result is a pair of
-    effective NAV deltas that sum to the total profit and loss.
+    claim on the \emph{other} tranche's holdings. By conservation the two
+    excesses are equal and opposite, so one tranche's excess is exactly
+    the other's shortfall and the cross-claim runs one way. Each side's
+    raw NAV delta is split pro rata over the claims on it. The result is
+    a pair of effective NAV deltas that sum to the total profit and loss.
   \item \textbf{Settle:} The effective deltas are routed through the
     \emph{PnL waterfall} in fixed priority order:
     \begin{itemize}
@@ -86,8 +88,8 @@ $F$ holds two key properties:
   \item \textbf{NAV conservation:} the inputs sum to the outputs,
     $\STraw + \JTraw = \STeff + \JTeff$, for every checkpoint that
     itself conserves. Every stored checkpoint conserves, because it is
-    itself a prior output of $F$. $F$ only redistributes value between the tranches. It never
-    creates or destroys it.
+    itself a prior output of $F$. $F$ redistributes value between the tranches without
+    creating or destroying it.
   \item \textbf{Piecewise-affine:} each branch is affine in its inputs,
     with slope $\in [0, 1]$. Combined with NAV conservation, this makes
     $F$ continuous, non-decreasing, and 1-Lipschitz in each input. This

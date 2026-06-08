@@ -25,8 +25,8 @@ self-consistent senior NAV, and bisection on the predicate
 $E(x) \geq 0$ finds it.
 \end{theorem}
 
-The two pillars are proved in \cref{sec:existence:mono,sec:existence:sign}.
-\Cref{sec:existence:generality} records what the argument assumes about
+\Cref{sec:existence:mono,sec:existence:sign} prove the two pillars, and
+\cref{sec:existence:generality} records what the argument assumes about
 the pool, so an auditor can check it per market.
 
 \subsection{Monotonicity: $E$ is non-increasing}
@@ -143,8 +143,7 @@ since the accountant holds effective NAVs non-negative, whatever the
 junior collateral is worth.
 
 \emph{Upper endpoint.} $P_A$ is bounded above by $\lfloor f V_{\max}
-\rfloor$, where $V_{\max} = \sup_y V(y)$ is the pool's value at the
-all-quote corner (the senior shares all sold). Since $V$ is
+\rfloor$. Since $V$ is
 non-decreasing, $\widehat V \leq V \leq V_{\max}$ for every candidate
 rate, whichever way the pool sorts its tokens. By NAV conservation
 $\STeff = \STraw + \JTraw - \JTeff \leq \STraw

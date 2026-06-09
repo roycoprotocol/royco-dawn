@@ -17,6 +17,10 @@
 	path = lib/openzeppelin-contracts-v4
 	url = https://github.com/openzeppelin/openzeppelin-contracts
 	branch = release-v4.9
+	ignore = untracked
 [submodule "lib/balancer-v3-monorepo"]
 	path = lib/balancer-v3-monorepo
 	url = https://github.com/balancer/balancer-v3-monorepo
+[submodule "spec"]
+	path = spec
+	url = git@github.com:roycoprotocol/royco-dusk-paper.git

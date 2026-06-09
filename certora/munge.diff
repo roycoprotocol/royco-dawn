@@ -1,0 +1,73 @@
+diff --git a/remappings.txt b/remappings.txt
+index 9690d24..1b760cf 100644
+--- a/remappings.txt
++++ b/remappings.txt
+@@ -1 +1,4 @@
+ lib/Pendle-SY-Public/:@openzeppelin/contracts/=lib/openzeppelin-contracts-v4/contracts/
++@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
++@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
++
+diff --git a/src/accountant/RoycoAccountant.sol b/src/accountant/RoycoAccountant.sol
+index 21b7dd9..fc28b0b 100644
+--- a/src/accountant/RoycoAccountant.sol
++++ b/src/accountant/RoycoAccountant.sol
+@@ -229,7 +229,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
+         }
+ 
+         // Enforce the NAV conservation invariant
+-        require((_stRawNAV + _jtRawNAV) == (stEffectiveNAV + jtEffectiveNAV), NAV_CONSERVATION_VIOLATION());
++        //require((_stRawNAV + _jtRawNAV) == (stEffectiveNAV + jtEffectiveNAV), NAV_CONSERVATION_VIOLATION());
+ 
+         // Checkpoint the mark-to-market NAVs
+         $.lastSTRawNAV = _stRawNAV;
+@@ -582,7 +582,7 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
+         }
+ 
+         // Enforce the NAV conservation invariant
+-        require((_stRawNAV + _jtRawNAV) == (stEffectiveNAV + jtEffectiveNAV), NAV_CONSERVATION_VIOLATION());
++        //require((_stRawNAV + _jtRawNAV) == (stEffectiveNAV + jtEffectiveNAV), NAV_CONSERVATION_VIOLATION());
+ 
+         // Determine the resulting market state:
+         // 1. Forced Perpetual: The fixed-term duration is set to 0 (permanently perpetual), current fixed-term elapsed, or liquidation utilization threshold has been breached (undercollateralized) or ST IL exists (distressed)
+diff --git a/src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol b/src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol
+index ebcd69a..ae1ea9f 100644
+--- a/src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol
++++ b/src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol
+@@ -29,7 +29,7 @@ abstract contract IdenticalAssetsOracleQuoter is RoycoKernel {
+     uint256 internal constant CACHED_TRANCHE_UNIT_TO_NAV_UNIT_CONVERSION_RATE_MASK = 1 << 255;
+ 
+     /// @dev Value representing the scale factor of the tranche unit: 10^(TRANCHE_UNIT_DECIMALS)
+-    uint256 internal immutable TRANCHE_UNIT_SCALE_FACTOR;
++    uint256 public immutable TRANCHE_UNIT_SCALE_FACTOR;
+ 
+     /// @dev The cached tranche unit to NAV unit conversion rate
+     uint256 internal transient cachedTrancheUnitToNAVUnitConversionRateWAD;
+diff --git a/src/libraries/Units.sol b/src/libraries/Units.sol
+index 2d5fe36..0bbbf2f 100644
+--- a/src/libraries/Units.sol
++++ b/src/libraries/Units.sol
+@@ -88,7 +88,10 @@ function toUint256(NAV_UNIT _units) pure returns (uint256) {
+ }
+ 
+ function toInt256(NAV_UNIT _units) pure returns (int256) {
+-    return int256(NAV_UNIT.unwrap(_units));
++    int256 assets = int256(NAV_UNIT.unwrap(_units));
++    // check for signed overflow
++    require(assets >= 0, ASSETS_MUST_BE_NON_NEGATIVE());
++    return int256(assets);
+ }
+ 
+ function addNAVUnits(NAV_UNIT _a, NAV_UNIT _b) pure returns (NAV_UNIT) {
+diff --git a/src/tranches/base/RoycoVaultTranche.sol b/src/tranches/base/RoycoVaultTranche.sol
+index bd06759..2c15fcd 100644
+--- a/src/tranches/base/RoycoVaultTranche.sol
++++ b/src/tranches/base/RoycoVaultTranche.sol
+@@ -27,7 +27,7 @@ abstract contract RoycoVaultTranche is IRoycoVaultTranche, RoycoBase, ERC20Pausa
+     using SafeERC20 for IERC20;
+ 
+     /// @dev The address of the yield bearing asset of the tranche
+-    address private immutable ASSET;
++    address public immutable ASSET;
+ 
+     /// @inheritdoc IRoycoVaultTranche
+     address public immutable override(IRoycoVaultTranche) KERNEL;

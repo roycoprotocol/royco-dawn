@@ -12,14 +12,27 @@ import { PendleRoycoTrancheSYFactory } from "../../../src/periphery/pendle/Pendl
 
 import { MockTranche } from "../entrypoint/mocks/MockTranche.sol";
 
-/// @notice Minimal mock implementing only the IRoycoFactory tranche-mapping surface that the SY factory consumes
+/// @notice Minimal mock implementing the IRoycoFactory tranche-mapping and IAccessManager canCall surfaces that the SY consumes
 contract MockRoycoFactory {
     mapping(address senior => address junior) public seniorTrancheToJuniorTranche;
     mapping(address junior => address senior) public juniorTrancheToSeniorTranche;
 
+    // canCall result returned to the SY's base asset deposit gate (defaults to closed)
+    bool public canCallAllowed;
+    uint32 public canCallDelay;
+
     function registerPair(address _senior, address _junior) external {
         seniorTrancheToJuniorTranche[_senior] = _junior;
         juniorTrancheToSeniorTranche[_junior] = _senior;
+    }
+
+    function setCanCall(bool _allowed, uint32 _delay) external {
+        canCallAllowed = _allowed;
+        canCallDelay = _delay;
+    }
+
+    function canCall(address, address, bytes4) external view returns (bool, uint32) {
+        return (canCallAllowed, canCallDelay);
     }
 }
 
@@ -281,6 +294,48 @@ contract PendleRoycoTrancheSYFactoryTest is Test {
         assertEq(syFactory.trancheToOffchainRewardManagerToSY(address(seniorTranche), rewardManager), legitSY);
         assertEq(PendleRoycoTrancheSY(payable(legitSY)).offchainRewardManager(), rewardManager);
         assertEq(PendleRoycoTrancheSY(payable(attackerSY)).offchainRewardManager(), attacker);
+    }
+
+    /// =====================================================================
+    /// deploySY - base asset deposit wiring
+    /// =====================================================================
+
+    function test_deploySY_setsInfiniteBaseAssetApprovalToTranche() public {
+        // initialize runs in proxy context during deployment and must wire the SY's base asset approval to the tranche.
+        address sy = syFactory.deploySY(address(seniorTranche), rewardManager);
+        assertEq(asset.allowance(sy, address(seniorTranche)), type(uint256).max);
+    }
+
+    function test_deploySY_baseAssetGateClosedByDefault() public {
+        // The tranche's authority (the mock factory) rejects canCall by default: only the share is a valid token in.
+        PendleRoycoTrancheSY sy = PendleRoycoTrancheSY(payable(syFactory.deploySY(address(seniorTranche), rewardManager)));
+
+        address[] memory tokensIn = sy.getTokensIn();
+        assertEq(tokensIn.length, 1);
+        assertEq(tokensIn[0], address(seniorTranche));
+        assertFalse(sy.isValidTokenIn(address(asset)));
+    }
+
+    function test_deploySY_baseAssetGateOpensWithAuthorityApproval() public {
+        PendleRoycoTrancheSY sy = PendleRoycoTrancheSY(payable(syFactory.deploySY(address(seniorTranche), rewardManager)));
+
+        mockRoycoFactory.setCanCall(true, 0);
+        assertTrue(sy.isValidTokenIn(address(asset)));
+        assertEq(sy.getTokensIn().length, 2);
+
+        // An execution delay keeps the gate closed: the SY requires atomic deposit permission.
+        mockRoycoFactory.setCanCall(true, 1 hours);
+        assertFalse(sy.isValidTokenIn(address(asset)));
+    }
+
+    function test_deploySY_cachesTrancheAuthorityAtDeployment() public {
+        PendleRoycoTrancheSY sy = PendleRoycoTrancheSY(payable(syFactory.deploySY(address(seniorTranche), rewardManager)));
+
+        // Repoint the tranche's authority to a codeless address AFTER deployment. The SY must keep consulting the
+        // authority cached at construction (the mock factory), not the tranche's current one.
+        seniorTranche.setAuthority(makeAddr("migratedAuthority"));
+        mockRoycoFactory.setCanCall(true, 0);
+        assertTrue(sy.isValidTokenIn(address(asset)));
     }
 
     /// =====================================================================

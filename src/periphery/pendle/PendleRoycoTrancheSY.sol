@@ -14,9 +14,6 @@ import { toTrancheUnits, toUint256 } from "../../libraries/Units.sol";
  * @notice Pendle Standardized Yield (SY) implementation for Royco tranche shares (Senior or Junior)
  */
 contract PendleRoycoTrancheSY is PendleERC20SYUpgV2, MerklRewardAbstract__NoStorage {
-    /// @dev The authority of the Royco tranche for this SY
-    address private immutable ROYCO_AUTHORITY;
-
     /// @dev The base asset of the Royco tranche for this SY
     address private immutable TRANCHE_BASE_ASSET;
 
@@ -29,8 +26,6 @@ contract PendleRoycoTrancheSY is PendleERC20SYUpgV2, MerklRewardAbstract__NoStor
         PendleERC20SYUpgV2(_roycoTranche)
         MerklRewardAbstract__NoStorage(_offchainRewardManager)
     {
-        // Query and immutably set the tranche's authority and base asset
-        ROYCO_AUTHORITY = IAccessManaged(_roycoTranche).authority();
         TRANCHE_BASE_ASSET = IRoycoVaultTranche(_roycoTranche).asset();
     }
 
@@ -45,30 +40,6 @@ contract PendleRoycoTrancheSY is PendleERC20SYUpgV2, MerklRewardAbstract__NoStor
         __SYBaseUpgV2_init(_name, _symbol, _owner);
         // Extend a maximum approval to the tranche for the tranche's base asset
         _safeApproveInf(TRANCHE_BASE_ASSET, yieldToken);
-    }
-
-    /**
-     * @notice Computes the SY shares to mint for the deposited token
-     * @dev Tranche shares wrap 1:1; the tranche's base asset is deposited into the tranche and the minted shares are wrapped
-     * @param _tokenIn The deposited token (the tranche share or the tranche's base asset)
-     * @param _amountDeposited The amount of the token deposited
-     * @return amountSharesOut The amount of SY shares to mint to the depositor
-     */
-    function _deposit(address _tokenIn, uint256 _amountDeposited) internal override(PendleERC20SYUpgV2) returns (uint256 amountSharesOut) {
-        if (_tokenIn == yieldToken) return _amountDeposited;
-        return IRoycoVaultTranche(yieldToken).deposit(toTrancheUnits(_amountDeposited), address(this));
-    }
-
-    /**
-     * @notice Previews the SY shares that would be minted for a deposit
-     * @dev Tranche shares preview 1:1. For the base asset, returns the tranche's own deposit preview
-     * @param _tokenIn The token to deposit (the tranche share or the tranche's base asset)
-     * @param _amountTokenToDeposit The amount of the token to deposit
-     * @return amountSharesOut The amount of SY shares that would be minted to the depositor
-     */
-    function _previewDeposit(address _tokenIn, uint256 _amountTokenToDeposit) internal view override(PendleERC20SYUpgV2) returns (uint256 amountSharesOut) {
-        if (_tokenIn == yieldToken) return _amountTokenToDeposit;
-        return IRoycoVaultTranche(yieldToken).previewDeposit(toTrancheUnits(_amountTokenToDeposit));
     }
 
     /**
@@ -109,6 +80,30 @@ contract PendleRoycoTrancheSY is PendleERC20SYUpgV2, MerklRewardAbstract__NoStor
     }
 
     /**
+     * @notice Computes the SY shares to mint for the deposited token
+     * @dev Tranche shares wrap 1:1; the tranche's base asset is deposited into the tranche and the minted shares are wrapped
+     * @param _tokenIn The deposited token (the tranche share or the tranche's base asset)
+     * @param _amountDeposited The amount of the token deposited
+     * @return amountSharesOut The amount of SY shares to mint to the depositor
+     */
+    function _deposit(address _tokenIn, uint256 _amountDeposited) internal override(PendleERC20SYUpgV2) returns (uint256 amountSharesOut) {
+        if (_tokenIn == yieldToken) return _amountDeposited;
+        return IRoycoVaultTranche(yieldToken).deposit(toTrancheUnits(_amountDeposited), address(this));
+    }
+
+    /**
+     * @notice Previews the SY shares that would be minted for a deposit
+     * @dev Tranche shares preview 1:1. For the base asset, returns the tranche's own deposit preview
+     * @param _tokenIn The token to deposit (the tranche share or the tranche's base asset)
+     * @param _amountTokenToDeposit The amount of the token to deposit
+     * @return amountSharesOut The amount of SY shares that would be minted to the depositor
+     */
+    function _previewDeposit(address _tokenIn, uint256 _amountTokenToDeposit) internal view override(PendleERC20SYUpgV2) returns (uint256 amountSharesOut) {
+        if (_tokenIn == yieldToken) return _amountTokenToDeposit;
+        return IRoycoVaultTranche(yieldToken).previewDeposit(toTrancheUnits(_amountTokenToDeposit));
+    }
+
+    /**
      * @notice Returns whether this SY can deposit the tranche's base asset directly into the tranche
      * @dev Holds when the tranche's authority lets this SY call deposit on the tranche with no execution delay,
      *      either because direct deposits are permissionless or because this SY was whitelisted as an LP
@@ -116,7 +111,8 @@ contract PendleRoycoTrancheSY is PendleERC20SYUpgV2, MerklRewardAbstract__NoStor
      * @return Whether this SY can deposit the tranche's base asset directly into the tranche
      */
     function _canDepositTrancheBaseAsset() internal view returns (bool) {
-        (bool allowed, uint32 delay) = IAccessManager(ROYCO_AUTHORITY).canCall(address(this), yieldToken, IRoycoVaultTranche.deposit.selector);
+        (bool allowed, uint32 delay) =
+            IAccessManager(IAccessManaged(yieldToken).authority()).canCall(address(this), yieldToken, IRoycoVaultTranche.deposit.selector);
         return (allowed && delay == 0);
     }
 }

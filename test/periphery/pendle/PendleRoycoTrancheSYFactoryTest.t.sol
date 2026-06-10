@@ -328,13 +328,21 @@ contract PendleRoycoTrancheSYFactoryTest is Test {
         assertFalse(sy.isValidTokenIn(address(asset)));
     }
 
-    function test_deploySY_cachesTrancheAuthorityAtDeployment() public {
+    function test_deploySY_followsLiveTrancheAuthority() public {
         PendleRoycoTrancheSY sy = PendleRoycoTrancheSY(payable(syFactory.deploySY(address(seniorTranche), rewardManager)));
 
-        // Repoint the tranche's authority to a codeless address AFTER deployment. The SY must keep consulting the
-        // authority cached at construction (the mock factory), not the tranche's current one.
-        seniorTranche.setAuthority(makeAddr("migratedAuthority"));
+        // Opening deposits on the original authority opens the base asset gate.
         mockRoycoFactory.setCanCall(true, 0);
+        assertTrue(sy.isValidTokenIn(address(asset)));
+
+        // Migrating the tranche to a fresh, closed authority closes the gate: the SY consults the tranche's
+        // current authority, not the one present at deployment.
+        MockRoycoFactory migratedAuthority = new MockRoycoFactory();
+        seniorTranche.setAuthority(address(migratedAuthority));
+        assertFalse(sy.isValidTokenIn(address(asset)));
+
+        // And opening deposits on the new authority re-opens the gate.
+        migratedAuthority.setCanCall(true, 0);
         assertTrue(sy.isValidTokenIn(address(asset)));
     }
 

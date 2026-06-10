@@ -105,12 +105,22 @@ contract PendleRoycoTrancheSYBaseAssetDepositTest is Test {
         sharesOut = sy.deposit(_user, address(asset), _amount, 0);
     }
 
-    /// @dev Mints tranche shares to a user and deposits them into the SY
-    function _depositTrancheShares(address _user, uint256 _shares) internal returns (uint256 sharesOut) {
-        seniorTranche.mint(_user, _shares);
+    /// @dev Acquires tranche shares for a user by depositing the equivalent assets directly at the tranche
+    function _acquireTrancheShares(address _user, uint256 _shares) internal returns (uint256 trancheShares) {
+        uint256 assetsNeeded = _shares * seniorTranche.sharePriceWAD() / WAD;
+        asset.mint(_user, assetsNeeded);
         vm.startPrank(_user);
-        seniorTranche.approve(address(sy), _shares);
-        sharesOut = sy.deposit(_user, address(seniorTranche), _shares, 0);
+        asset.approve(address(seniorTranche), assetsNeeded);
+        trancheShares = seniorTranche.deposit(toTrancheUnits(assetsNeeded), _user);
+        vm.stopPrank();
+    }
+
+    /// @dev Acquires tranche shares legitimately at the tranche, then wraps them into the SY
+    function _depositTrancheShares(address _user, uint256 _shares) internal returns (uint256 sharesOut) {
+        uint256 trancheShares = _acquireTrancheShares(_user, _shares);
+        vm.startPrank(_user);
+        seniorTranche.approve(address(sy), trancheShares);
+        sharesOut = sy.deposit(_user, address(seniorTranche), trancheShares, 0);
         vm.stopPrank();
     }
 
@@ -190,9 +200,9 @@ contract PendleRoycoTrancheSYBaseAssetDepositTest is Test {
         assertFalse(sy.isValidTokenIn(address(asset)));
     }
 
-    function test_gate_authorityIsCachedAtConstruction() public {
-        // Migrating the tranche to a new wide-open authority does NOT open the SY's gate: the SY consults the
-        // authority cached at construction (a conscious design trade-off; the SY is upgradeable if this ever changes).
+    function test_gate_followsLiveTrancheAuthority() public {
+        // The SY reads the tranche's authority live, so the gate tracks an authority migration with no SY redeploy.
+        // A new wide-open authority opens the gate.
         AccessManager openManager = new AccessManager(authorityAdmin);
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = IRoycoVaultTranche.deposit.selector;
@@ -201,11 +211,12 @@ contract PendleRoycoTrancheSYBaseAssetDepositTest is Test {
         openManager.setTargetFunctionRole(address(seniorTranche), selectors, publicRole);
 
         seniorTranche.setAuthority(address(openManager));
-        assertFalse(sy.isValidTokenIn(address(asset)));
-
-        // Conversely, the cached authority keeps governing the gate after the tranche migrates away from it.
-        _openGateToPublic();
         assertTrue(sy.isValidTokenIn(address(asset)));
+
+        // Migrating back to the original (still-closed) authority closes the gate again: the answer tracks
+        // whichever authority the tranche currently points at, not the one present at construction.
+        seniorTranche.setAuthority(address(accessManager));
+        assertFalse(sy.isValidTokenIn(address(asset)));
     }
 
     function test_gate_closed_previewDepositBaseAssetReverts() public {
@@ -464,11 +475,11 @@ contract PendleRoycoTrancheSYBaseAssetDepositTest is Test {
         vm.expectRevert();
         sy.deposit(alice, address(asset), 1e18, 0);
 
-        seniorTranche.mint(alice, 1e18);
+        uint256 trancheShares = _acquireTrancheShares(alice, 1e18);
         vm.startPrank(alice);
-        seniorTranche.approve(address(sy), 1e18);
+        seniorTranche.approve(address(sy), trancheShares);
         vm.expectRevert();
-        sy.deposit(alice, address(seniorTranche), 1e18, 0);
+        sy.deposit(alice, address(seniorTranche), trancheShares, 0);
         vm.stopPrank();
 
         // Unpausing restores both paths.

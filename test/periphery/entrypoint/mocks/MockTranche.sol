@@ -94,11 +94,6 @@ contract MockTranche is IRoycoVaultTranche, ERC20 {
         sharePriceWAD = sharePriceWAD.mulDiv(1e18 - _lossPercentWAD, 1e18);
     }
 
-    /// @notice Mints shares directly (test helper)
-    function mint(address _account, uint256 _shares) external {
-        _mint(_account, _shares);
-    }
-
     /// @notice Burns shares from the caller (used by entry point for yield forfeiture)
     /// @param _amount Amount of shares to burn
     function burn(uint256 _amount) external override {

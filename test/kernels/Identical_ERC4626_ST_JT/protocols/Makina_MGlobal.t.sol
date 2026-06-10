@@ -66,7 +66,9 @@ contract Makina_MGlobal_Test is YieldBearingERC4626_TestBase {
 
         // Override the initial conversion rate for testing so we always start at 1:1.
         marketConfig.kernelSpecificParams = abi.encode(
-            MarketDeploymentConfig.IdenticalMakinaSTMakinaJTKernelParams({ makinaMachine: MAKINA_MACHINE, initialConversionRateWAD: _getInitialConversionRate() })
+            MarketDeploymentConfig.IdenticalMakinaSTMakinaJTKernelParams({
+                makinaMachine: MAKINA_MACHINE, initialConversionRateWAD: _getInitialConversionRate()
+            })
         );
 
         DeployScript.DeploymentResult memory r =

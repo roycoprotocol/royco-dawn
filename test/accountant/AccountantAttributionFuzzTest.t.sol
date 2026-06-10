@@ -5,8 +5,8 @@ import { IERC20 } from "../../lib/openzeppelin-contracts/contracts/token/ERC20/I
 import { DeployScript } from "../../script/Deploy.s.sol";
 import { MarketDeploymentConfig } from "../../script/config/MarketDeploymentConfig.sol";
 import { ST_LP_ROLE } from "../../src/factory/RolesConfiguration.sol";
-import { IRoycoAccountant } from "../../src/interfaces/IRoycoAccountant.sol";
 import { COMPONENT_ID_KERNEL_IDENTICAL_ERC4626_ADMIN_ORACLE } from "../../src/factory/templates/Components.sol";
+import { IRoycoAccountant } from "../../src/interfaces/IRoycoAccountant.sol";
 import { IRoycoDawnKernel } from "../../src/interfaces/IRoycoDawnKernel.sol";
 import { IdenticalAssetsOracleQuoter } from "../../src/kernels/base/quoter/dawn/identical-assets/base/IdenticalAssetsOracleQuoter.sol";
 import { WAD } from "../../src/libraries/Constants.sol";

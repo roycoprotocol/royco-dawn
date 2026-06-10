@@ -1307,8 +1307,8 @@ contract RoycoAccountantRevertTest is BaseTest {
 
     /// @notice Test syncTrancheAccounting reverts when called by non-kernel
     function test_revert_preOpSync_onlyKernel() public {
-        vm.prank(NON_KERNEL);
         AccountingStateCheckpoint memory _cp84 = accountant.getLastAccountingStateCheckpoint();
+        vm.prank(NON_KERNEL);
         vm.expectRevert(IRoycoAccountant.ONLY_ROYCO_KERNEL.selector);
         accountant.preOpSyncTrancheAccounting(_cp84, _nav(100e18), _nav(50e18));
     }
@@ -1421,8 +1421,11 @@ contract RoycoAccountantRevertTest is BaseTest {
     function test_revert_postOpSyncAndEnforceCoverage_unsatisfied() public {
         // Initialize with high JT to satisfy coverage
         AccountingStateCheckpoint memory _cp33 = accountant.getLastAccountingStateCheckpoint();
-        vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_cp33, _nav(100e18), _nav(100e18));
+        vm.startPrank(MOCK_KERNEL);
+        accountant.preOpSyncTrancheAccounting(_cp33, _nav(0), _nav(0));
+        accountant.postOpSyncTrancheAccounting(Operation.JT_DEPOSIT, _nav(0), _nav(100e18), ZERO_NAV_UNITS);
+        accountant.postOpSyncTrancheAccounting(Operation.ST_DEPOSIT, _nav(100e18), _nav(100e18), ZERO_NAV_UNITS);
+        vm.stopPrank();
 
         // Try to add ST deposit that would violate coverage
         // With 20% coverage, 100 JT can cover up to 500 ST
@@ -1637,8 +1640,8 @@ contract RoycoAccountantRevertTest is BaseTest {
         stNav = bound(stNav, 1e6, 1e30);
         jtNav = bound(jtNav, 1e6, 1e30);
 
-        vm.prank(caller);
         AccountingStateCheckpoint memory _cp85 = accountant.getLastAccountingStateCheckpoint();
+        vm.prank(caller);
         vm.expectRevert(IRoycoAccountant.ONLY_ROYCO_KERNEL.selector);
         accountant.preOpSyncTrancheAccounting(_cp85, _nav(stNav), _nav(jtNav));
     }
@@ -2025,8 +2028,17 @@ contract RoycoAccountantLLTVInvariantTest is BaseTest {
 
     function _initializeState(uint256 stNav, uint256 jtNav) internal {
         AccountingStateCheckpoint memory _cp36 = accountant.getLastAccountingStateCheckpoint();
-        vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_cp36, _nav(stNav), _nav(jtNav));
+        vm.startPrank(MOCK_KERNEL);
+        // Initialize timestamps and market state via no-op preOp sync from zero
+        accountant.preOpSyncTrancheAccounting(_cp36, _nav(0), _nav(0));
+        // JT must deposit first so coverage is satisfied when ST follows
+        if (jtNav > 0) {
+            accountant.postOpSyncTrancheAccounting(Operation.JT_DEPOSIT, _nav(0), _nav(jtNav), ZERO_NAV_UNITS);
+        }
+        if (stNav > 0) {
+            accountant.postOpSyncTrancheAccounting(Operation.ST_DEPOSIT, _nav(stNav), _nav(jtNav), ZERO_NAV_UNITS);
+        }
+        vm.stopPrank();
     }
 
     // =========================================================================
@@ -2639,10 +2651,13 @@ contract RoycoAccountantEdgeCaseTest is BaseTest {
     /// @notice Tests ST withdrawal when there's both JT coverage realization AND existing JT self IL
     /// This covers line 176: proportional reduction of JT self IL during ST withdrawal
     function test_stWithdrawal_withJTCoverageAndJTSelfIL() public {
-        // Initialize
+        // Initialize via proper deposit bootstrap (JT first for coverage)
         AccountingStateCheckpoint memory _cp38 = accountant.getLastAccountingStateCheckpoint();
-        vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_cp38, _nav(100e18), _nav(50e18));
+        vm.startPrank(MOCK_KERNEL);
+        accountant.preOpSyncTrancheAccounting(_cp38, _nav(0), _nav(0));
+        accountant.postOpSyncTrancheAccounting(Operation.JT_DEPOSIT, _nav(0), _nav(50e18), ZERO_NAV_UNITS);
+        accountant.postOpSyncTrancheAccounting(Operation.ST_DEPOSIT, _nav(100e18), _nav(50e18), ZERO_NAV_UNITS);
+        vm.stopPrank();
 
         vm.warp(vm.getBlockTimestamp() + 1 days);
 
@@ -2790,10 +2805,13 @@ contract RoycoAccountantEdgeCaseTest is BaseTest {
     /// @notice Test that K_S + K_J rounding doesn't cause dust accumulation
     /// @dev K_S and K_J both use Floor rounding, so kS + kJ could be < WAD
     function test_kSkJSumRounding_noDustAccumulation() public {
-        // Initialize
+        // Initialize via proper deposit bootstrap (JT first for coverage)
         AccountingStateCheckpoint memory _cp47 = accountant.getLastAccountingStateCheckpoint();
-        vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_cp47, _nav(100e18), _nav(100e18));
+        vm.startPrank(MOCK_KERNEL);
+        accountant.preOpSyncTrancheAccounting(_cp47, _nav(0), _nav(0));
+        accountant.postOpSyncTrancheAccounting(Operation.JT_DEPOSIT, _nav(0), _nav(100e18), ZERO_NAV_UNITS);
+        accountant.postOpSyncTrancheAccounting(Operation.ST_DEPOSIT, _nav(100e18), _nav(100e18), ZERO_NAV_UNITS);
+        vm.stopPrank();
 
         // Use values that cause rounding: e.g., 1e18 / 3 causes precision loss
         uint256 jtClaimOnST = 1e18;
@@ -2825,10 +2843,13 @@ contract RoycoAccountantEdgeCaseTest is BaseTest {
         jtClaimOnST = bound(jtClaimOnST, 1e15, 1e24);
         jtClaimOnJT = bound(jtClaimOnJT, 1e15, 1e24);
 
-        // Initialize with healthy coverage
+        // Initialize with healthy coverage via proper deposit bootstrap
         AccountingStateCheckpoint memory _cp48 = accountant.getLastAccountingStateCheckpoint();
-        vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_cp48, _nav(100e18), _nav(100e18));
+        vm.startPrank(MOCK_KERNEL);
+        accountant.preOpSyncTrancheAccounting(_cp48, _nav(0), _nav(0));
+        accountant.postOpSyncTrancheAccounting(Operation.JT_DEPOSIT, _nav(0), _nav(100e18), ZERO_NAV_UNITS);
+        accountant.postOpSyncTrancheAccounting(Operation.ST_DEPOSIT, _nav(100e18), _nav(100e18), ZERO_NAV_UNITS);
+        vm.stopPrank();
 
         // Get max JT withdrawal
         (NAV_UNIT totalNAVClaimable, NAV_UNIT stClaimable, NAV_UNIT jtClaimable) = accountant.maxJTWithdrawalGivenCoverage(
@@ -3119,10 +3140,13 @@ contract RoycoAccountantBranchCoverageTest is BaseTest {
 
     /// @notice Test ST loss when JT effective NAV is already zero (coverageApplied == 0)
     function test_stLoss_withZeroJTEffective() public {
-        // Initialize with JT capital
+        // Initialize with JT capital via proper deposit bootstrap
         AccountingStateCheckpoint memory _cp56 = accountant.getLastAccountingStateCheckpoint();
-        vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_cp56, _nav(100e18), _nav(10e18));
+        vm.startPrank(MOCK_KERNEL);
+        accountant.preOpSyncTrancheAccounting(_cp56, _nav(0), _nav(0));
+        accountant.postOpSyncTrancheAccounting(Operation.JT_DEPOSIT, _nav(0), _nav(10e18), ZERO_NAV_UNITS);
+        accountant.postOpSyncTrancheAccounting(Operation.ST_DEPOSIT, _nav(100e18), _nav(10e18), ZERO_NAV_UNITS);
+        vm.stopPrank();
 
         // First, exhaust JT by having large ST loss that wipes out JT
         vm.warp(vm.getBlockTimestamp() + 1);
@@ -3156,10 +3180,13 @@ contract RoycoAccountantBranchCoverageTest is BaseTest {
 
     /// @notice Test ST loss that exhausts JT and then incurs ST IL in one operation
     function test_stLoss_exhaustsJTAndIncursSTIL() public {
-        // Initialize with small JT
+        // Initialize with small JT via proper deposit bootstrap
         AccountingStateCheckpoint memory _cp60 = accountant.getLastAccountingStateCheckpoint();
-        vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_cp60, _nav(100e18), _nav(5e18));
+        vm.startPrank(MOCK_KERNEL);
+        accountant.preOpSyncTrancheAccounting(_cp60, _nav(0), _nav(0));
+        accountant.postOpSyncTrancheAccounting(Operation.JT_DEPOSIT, _nav(0), _nav(5e18), ZERO_NAV_UNITS);
+        accountant.postOpSyncTrancheAccounting(Operation.ST_DEPOSIT, _nav(100e18), _nav(5e18), ZERO_NAV_UNITS);
+        vm.stopPrank();
 
         // Large ST loss that exceeds JT buffer
         vm.warp(vm.getBlockTimestamp() + 1);
@@ -3257,10 +3284,13 @@ contract RoycoAccountantBranchCoverageTest is BaseTest {
 
     /// @notice Test postOpSyncTrancheAccountingAndEnforceCoverage when coverage is unsatisfied
     function test_coverageEnforcement_unsatisfied() public {
-        // Initialize with balanced market
+        // Initialize with balanced market via proper deposit bootstrap
         AccountingStateCheckpoint memory _cp62 = accountant.getLastAccountingStateCheckpoint();
-        vm.prank(MOCK_KERNEL);
-        accountant.preOpSyncTrancheAccounting(_cp62, _nav(100e18), _nav(100e18));
+        vm.startPrank(MOCK_KERNEL);
+        accountant.preOpSyncTrancheAccounting(_cp62, _nav(0), _nav(0));
+        accountant.postOpSyncTrancheAccounting(Operation.JT_DEPOSIT, _nav(0), _nav(100e18), ZERO_NAV_UNITS);
+        accountant.postOpSyncTrancheAccounting(Operation.ST_DEPOSIT, _nav(100e18), _nav(100e18), ZERO_NAV_UNITS);
+        vm.stopPrank();
 
         // Try to withdraw too much JT (violating coverage)
         vm.prank(MOCK_KERNEL);
@@ -3548,10 +3578,13 @@ contract RoycoAccountantAdditionalBranchTests is BaseTest {
 
     /// @notice Test ST_DECREASE_NAV with valid deltas (line 160 success path)
     function test_postOp_stDecreaseNAV_validDeltas() public {
-        // Initialize
+        // Initialize via proper deposit bootstrap (JT first for coverage)
         AccountingStateCheckpoint memory _cp77 = accountant.getLastAccountingStateCheckpoint();
-        vm.prank(address(mockKernel));
-        accountant.preOpSyncTrancheAccounting(_cp77, _nav(100e18), _nav(50e18));
+        vm.startPrank(address(mockKernel));
+        accountant.preOpSyncTrancheAccounting(_cp77, _nav(0), _nav(0));
+        accountant.postOpSyncTrancheAccounting(Operation.JT_DEPOSIT, _nav(0), _nav(50e18), ZERO_NAV_UNITS);
+        accountant.postOpSyncTrancheAccounting(Operation.ST_DEPOSIT, _nav(100e18), _nav(50e18), ZERO_NAV_UNITS);
+        vm.stopPrank();
 
         // ST_DECREASE_NAV with negative ST delta
         vm.prank(address(mockKernel));

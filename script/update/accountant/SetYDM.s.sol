@@ -60,15 +60,42 @@ contract SetYDM is ParameterUpdateBase {
      *      with `maxAdaptationSpeedWAD` forced to 0.
      */
     function _initializeConfigs() internal {
-        // apyUSD on Ethereum
+        // ── Mainnet ──────────────────────────────────────────────────────────
+        // syrupUSDC : Y_0=7%, Y_target=7%, Y_100=11%, adaptation speed = 40 days
         _configs.push(
             SetYDMConfig({
                 chainId: MAINNET,
-                marketName: APYUSD,
+                marketName: SYRUP_USDC,
                 ydm: ADAPTIVE_CURVE_YDM_V2,
-                jtYieldShareAtZeroUtilWAD: 0.15e18,
-                jtYieldShareAtTargetUtilWAD: 0.15e18,
-                jtYieldShareAtFullUtilWAD: 0.4e18,
+                jtYieldShareAtZeroUtilWAD: 0.07e18,
+                jtYieldShareAtTargetUtilWAD: 0.07e18,
+                jtYieldShareAtFullUtilWAD: 0.11e18,
+                maxAdaptationSpeedWAD: uint64(40e18 / uint256(365 days))
+            })
+        );
+        // stcUSD    : Y_0=6%, Y_target=6%, Y_100=18%, adaptation speed = 40 days
+        _configs.push(
+            SetYDMConfig({
+                chainId: MAINNET,
+                marketName: STCUSD,
+                ydm: ADAPTIVE_CURVE_YDM_V2,
+                jtYieldShareAtZeroUtilWAD: 0.06e18,
+                jtYieldShareAtTargetUtilWAD: 0.06e18,
+                jtYieldShareAtFullUtilWAD: 0.18e18,
+                maxAdaptationSpeedWAD: uint64(40e18 / uint256(365 days))
+            })
+        );
+
+        // ── Arbitrum ─────────────────────────────────────────────────────────
+        // sUSDai    : Y_0=11%, Y_target=11%, Y_100=31%, adaptation speed = 40 days
+        _configs.push(
+            SetYDMConfig({
+                chainId: ARBITRUM,
+                marketName: SUSDAI,
+                ydm: ADAPTIVE_CURVE_YDM_V2,
+                jtYieldShareAtZeroUtilWAD: 0.11e18,
+                jtYieldShareAtTargetUtilWAD: 0.11e18,
+                jtYieldShareAtFullUtilWAD: 0.31e18,
                 maxAdaptationSpeedWAD: uint64(40e18 / uint256(365 days))
             })
         );

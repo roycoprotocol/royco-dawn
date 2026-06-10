@@ -46,6 +46,7 @@ abstract contract UpgradeConfig {
     string internal constant STCUSD = "stcUSD";
     string internal constant PARETO_FALCONX = "ParetoFalconX";
     string internal constant APYUSD = "apyUSD";
+    string internal constant EEARN = "eEARN";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // TYPES
@@ -163,6 +164,12 @@ abstract contract UpgradeConfig {
             juniorTranche: 0xAB2ab53E1e2E2c5D7202918EC8c873712bcc4a2D,
             accountant: 0x5A42DD2e3C30b20663BB86D40DB0ea28689BbD0f,
             kernel: 0xcFbdEA0990F21b103c8D123d0D5273B4ea269cb4
+        });
+        _markets[MAINNET][EEARN] = MarketAddresses({
+            seniorTranche: 0x1BA515a409DD702105415cDAAe439059aA0B402A,
+            juniorTranche: 0x059bC7AA5000A26AAE2601CfbF060653Adf8Fd91,
+            accountant: 0x0684a043e7b19f3325556A3cB5d074cfc601905D,
+            kernel: 0x36c1d7CaFa9A220fc1450fA070277aED69F8c9B2
         });
 
         // ── Avalanche ────────────────────────────────────────────────────────

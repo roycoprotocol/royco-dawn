@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import { IAccessManager } from "../../../lib/openzeppelin-contracts/contracts/access/manager/IAccessManager.sol";
 import { UUPSUpgradeable } from "../../../lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { IRoycoDawnKernel } from "../../../src/interfaces/IRoycoDawnKernel.sol";
 import { AccessManagerConfigUtils } from "../../utils/AccessManagerConfigUtils.sol";
 import { Create2DeployUtils } from "../../utils/Create2DeployUtils.sol";
 import { ChainlinkFreshness } from "./ChainlinkFreshness.sol";
@@ -88,10 +89,39 @@ abstract contract UpgradeBase is UpgradeConfig, AccessManagerConfigUtils, Create
         require(_ups.length == _modules.length, UpgradeBase__LengthMismatch());
 
         address factory = getFactory(_chainId);
+        // Derive per-market sync kernels: for each upgrade, if it is the first one encountered for
+        // its market in this chain's batch, capture the kernel address to be synced first. Sync
+        // entries are emitted only in the execute phase, never in schedule or cancel.
+        address[] memory syncKernelBefore = _deriveSyncKernelsBeforeUpgrades(_chainId, _ups);
+
         _logChainHeader(_chainId, factory, _ups);
         _deployImpls(_ups);
-        _simulateBatchedUpgrades(factory, _ups, _modules);
-        _writeJsonsForChain(_chainId, factory, _ups);
+        _simulateBatchedUpgrades(factory, _ups, _modules, syncKernelBefore);
+        _writeJsonsForChain(_chainId, factory, _ups, syncKernelBefore);
+    }
+
+    /// @dev Returns an array parallel to `_ups`. `syncKernelBefore[i]` is the kernel address whose
+    ///      `syncTrancheAccounting()` must be invoked immediately before `_ups[i]` executes; `address(0)`
+    ///      means no sync is needed for that position (either the market was already synced earlier in
+    ///      the batch, or the upgrade is not market-scoped, e.g. a factory upgrade).
+    function _deriveSyncKernelsBeforeUpgrades(uint256 _chainId, PreparedUpgrade[] memory _ups) internal view returns (address[] memory syncKernelBefore) {
+        syncKernelBefore = new address[](_ups.length);
+        string[] memory seen = new string[](_ups.length);
+        uint256 seenCount = 0;
+        for (uint256 i = 0; i < _ups.length; i++) {
+            string memory marketName = _ups[i].call.marketName;
+            if (bytes(marketName).length == 0) continue; // factory / cross-chain singletons have no market scope
+            bool alreadySeen = false;
+            for (uint256 j = 0; j < seenCount; j++) {
+                if (keccak256(bytes(seen[j])) == keccak256(bytes(marketName))) {
+                    alreadySeen = true;
+                    break;
+                }
+            }
+            if (alreadySeen) continue;
+            seen[seenCount++] = marketName;
+            syncKernelBefore[i] = getMarketAddresses(_chainId, marketName).kernel;
+        }
     }
 
     function _logChainHeader(uint256 _chainId, address _factory, PreparedUpgrade[] memory _ups) private view {
@@ -137,7 +167,7 @@ abstract contract UpgradeBase is UpgradeConfig, AccessManagerConfigUtils, Create
     // SIMULATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function _simulateBatchedUpgrades(address _factory, PreparedUpgrade[] memory _ups, address[] memory _modules) internal {
+    function _simulateBatchedUpgrades(address _factory, PreparedUpgrade[] memory _ups, address[] memory _modules, address[] memory _syncKernelBefore) internal {
         _scheduleAll(_factory, _ups);
         console2.log("  [OK] Scheduled", _ups.length, "upgrades");
 
@@ -150,7 +180,7 @@ abstract contract UpgradeBase is UpgradeConfig, AccessManagerConfigUtils, Create
 
         ChainlinkFreshness.mockFresh(oracles, oraclePre);
 
-        _executeAndVerifyAll(_factory, _ups, _modules);
+        _executeAndVerifyAll(_factory, _ups, _modules, _syncKernelBefore);
     }
 
     function _scheduleAll(address _factory, PreparedUpgrade[] memory _ups) private {
@@ -160,8 +190,11 @@ abstract contract UpgradeBase is UpgradeConfig, AccessManagerConfigUtils, Create
         }
     }
 
-    function _executeAndVerifyAll(address _factory, PreparedUpgrade[] memory _ups, address[] memory _modules) private {
+    function _executeAndVerifyAll(address _factory, PreparedUpgrade[] memory _ups, address[] memory _modules, address[] memory _syncKernelBefore) private {
         for (uint256 i = 0; i < _ups.length; i++) {
+            if (_syncKernelBefore[i] != address(0)) {
+                _syncKernel(_factory, _ups[i].call.marketName, _syncKernelBefore[i]);
+            }
             _executeAndVerifyOne(_factory, _ups[i], _modules[i]);
         }
     }
@@ -172,6 +205,16 @@ abstract contract UpgradeBase is UpgradeConfig, AccessManagerConfigUtils, Create
         IAccessManager(_factory).execute(_up.call.target, _up.call.callData);
         IUpgradeVerifier(_module).verify(_up.proxy, preSnapshot);
         console2.log("  [OK] Executed + verified:", _up.label);
+    }
+
+    function _syncKernel(address _factory, string memory _marketName, address _kernel) private {
+        vm.prank(ROOT_MULTISIG);
+        IAccessManager(_factory).execute(_kernel, _buildSyncCallData());
+        console2.log("  [OK] Synced market:", _marketName);
+    }
+
+    function _buildSyncCallData() internal pure returns (bytes memory) {
+        return abi.encodeCall(IRoycoDawnKernel.syncTrancheAccounting, ());
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -206,26 +249,99 @@ abstract contract UpgradeBase is UpgradeConfig, AccessManagerConfigUtils, Create
     // JSON OUTPUT
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function _writeJsonsForChain(uint256 _chainId, address _factory, PreparedUpgrade[] memory _ups) private {
+    function _writeJsonsForChain(uint256 _chainId, address _factory, PreparedUpgrade[] memory _ups, address[] memory _syncKernelBefore) private {
         vm.createDir(UPGRADE_OUTPUT_DIRECTORY, true);
         string memory fileBase = vm.toString(_chainId);
-        _writeOnePhase(_factory, _ups, 0, fileBase, "schedule");
-        _writeOnePhase(_factory, _ups, 1, fileBase, "execute");
-        _writeOnePhase(_factory, _ups, 2, fileBase, "cancel");
+        _writeOnePhase(_factory, _ups, _syncKernelBefore, 0, fileBase, "schedule");
+        _writeOnePhase(_factory, _ups, _syncKernelBefore, 1, fileBase, "execute");
+        _writeOnePhase(_factory, _ups, _syncKernelBefore, 2, fileBase, "cancel");
     }
 
     /// @dev Builds and writes one phase batch JSON. Per-tx serialization (including the per-tx
     ///      description) happens inline via `_serializeOneUpgradeTx` so the parallel `txs` /
     ///      `descriptions` arrays from earlier never live simultaneously on the stack — this keeps
     ///      via-IR's stack budget happy.
-    function _writeOnePhase(address _factory, PreparedUpgrade[] memory _ups, uint8 _phase, string memory _fileBase, string memory _suffix) private {
-        string memory name = string.concat("Royco upgrade batch (chain ", _fileBase, ") - ", _suffix);
+    ///
+    /// @dev Sync TXs are interleaved only into the execute phase (phase == 1). For the schedule
+    ///      and cancel phases the sync calls are omitted: syncs run with no delay and have nothing
+    ///      to roll back.
+    function _writeOnePhase(
+        address _factory,
+        PreparedUpgrade[] memory _ups,
+        address[] memory _syncKernelBefore,
+        uint8 _phase,
+        string memory _fileBase,
+        string memory _suffix
+    )
+        private
+    {
         string memory path = string.concat(UPGRADE_OUTPUT_DIRECTORY, _fileBase, "_", _suffix, ".json");
-        string[] memory txJsons = new string[](_ups.length);
-        for (uint256 i = 0; i < _ups.length; i++) {
-            txJsons[i] = _serializeOneUpgradeTx(i, _factory, _ups[i], _phase, _suffix);
+        string[] memory txJsons = _buildPhaseTxJsons(_factory, _ups, _syncKernelBefore, _phase, _suffix);
+        vm.writeJson(_wrapTxsInRoot(txJsons, string.concat("Royco upgrade batch (chain ", _fileBase, ") - ", _suffix)), path);
+    }
+
+    /// @dev Materializes the per-phase array of serialized Safe TX JSONs. Sync TXs are interleaved
+    ///      only when `_phase == 1` (execute).
+    function _buildPhaseTxJsons(
+        address _factory,
+        PreparedUpgrade[] memory _ups,
+        address[] memory _syncKernelBefore,
+        uint8 _phase,
+        string memory _suffix
+    )
+        private
+        returns (string[] memory txJsons)
+    {
+        if (_phase != 1) {
+            txJsons = new string[](_ups.length);
+            for (uint256 i = 0; i < _ups.length; i++) {
+                txJsons[i] = _serializeOneUpgradeTx(i, _factory, _ups[i], _phase, _suffix);
+            }
+            return txJsons;
         }
-        vm.writeJson(_wrapTxsInRoot(txJsons, name), path);
+        txJsons = new string[](_countExecutePhaseTxs(_ups, _syncKernelBefore));
+        _fillExecutePhaseTxJsons(txJsons, _factory, _ups, _syncKernelBefore, _suffix);
+    }
+
+    function _fillExecutePhaseTxJsons(
+        string[] memory _txJsons,
+        address _factory,
+        PreparedUpgrade[] memory _ups,
+        address[] memory _syncKernelBefore,
+        string memory _suffix
+    )
+        private
+    {
+        uint256 outIdx;
+        for (uint256 i = 0; i < _ups.length; i++) {
+            address kernel = _syncKernelBefore[i];
+            if (kernel != address(0)) {
+                _txJsons[outIdx] = _serializeSyncTx(outIdx, _factory, _ups[i].call.marketName, kernel, _suffix);
+                outIdx++;
+            }
+            _txJsons[outIdx] = _serializeOneUpgradeTx(outIdx, _factory, _ups[i], 1, _suffix);
+            outIdx++;
+        }
+    }
+
+    function _countExecutePhaseTxs(PreparedUpgrade[] memory _ups, address[] memory _syncKernelBefore) private pure returns (uint256 total) {
+        total = _ups.length;
+        for (uint256 i = 0; i < _ups.length; i++) {
+            if (_syncKernelBefore[i] != address(0)) total++;
+        }
+    }
+
+    /// @dev Serializes a `factory.execute(kernel, syncTrancheAccounting())` Safe TX. Used only in
+    ///      the execute phase. The pre-upgrade sync flushes any pending PNL / fees through the
+    ///      current accountant before its impl is swapped.
+    function _serializeSyncTx(uint256 _i, address _factory, string memory _marketName, address _kernel, string memory _suffix) private returns (string memory) {
+        SafeTransaction memory syncTx =
+            SafeTransaction({ to: _factory, value: 0, data: abi.encodeCall(IAccessManager.execute, (_kernel, _buildSyncCallData())) });
+        string memory key = string.concat("tx", vm.toString(_i));
+        vm.serializeAddress(key, "to", syncTx.to);
+        vm.serializeString(key, "value", vm.toString(syncTx.value));
+        vm.serializeString(key, "description", string.concat("[", _suffix, "] Pre-upgrade sync of ", _marketName, " kernel ", vm.toString(_kernel)));
+        return vm.serializeBytes(key, "data", syncTx.data);
     }
 
     /// @dev Each tx serializes as `{ to, value, data, description }`. The `description` is a

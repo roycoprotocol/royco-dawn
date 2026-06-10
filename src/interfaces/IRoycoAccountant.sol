@@ -21,10 +21,8 @@ interface IRoycoAccountant {
      * @custom:field ydmInitializationData - The data used to initialize the YDM for this market
      * @custom:field fixedTermDurationSeconds - The duration of a fixed term for this market in seconds
      * @custom:field liquidationUtilizationWAD - The liquidation utilization threshold for this market, scaled to WAD precision
-     * @custom:field stNAVDustTolerance - The dust tolerance in NAV units to account for minuscule deltas in the ST's underlying NAV calculations
-     *               Primarily used for rounding in NAV calculations, and can be safely set to 0 if the underlying investments don't exhibit this behavior
-     * @custom:field jtNAVDustTolerance - The dust tolerance in NAV units to account for minuscule deltas in the JT's underlying NAV calculations
-     *               Primarily used for rounding in NAV calculations, and can be safely set to 0 if the underlying investments don't exhibit this behavior
+     * @custom:field stNAVDustTolerance - The worst case dust tolerance for stRawNAV from underlying NAV quoting/rounding
+     * @custom:field jtNAVDustTolerance - The worst case dust tolerance for jtRawNAV from underlying NAV quoting/rounding
      */
     struct RoycoAccountantInitParams {
         uint64 stProtocolFeeWAD;
@@ -65,10 +63,9 @@ interface IRoycoAccountant {
      * @custom:field twJTYieldShareAccruedWAD - The time-weighted junior tranche yield share (YDM output) since the last yield distribution, scaled to WAD precision
      * @custom:field lastAccrualTimestamp - The timestamp at which the time-weighted JT yield share accumulator was last updated
      * @custom:field lastDistributionTimestamp - The timestamp at which the last ST yield distribution occurred
-     * @custom:field stNAVDustTolerance - The dust tolerance in NAV units to account for minuscule deltas in the ST's underlying NAV calculations
-     *               Primarily used for rounding in NAV calculations, and can be safely set to 0 if the underlying investments don't exhibit this behavior
-     * @custom:field jtNAVDustTolerance - The dust tolerance in NAV units to account for minuscule deltas in the JT's underlying NAV calculations
-     *               Primarily used for rounding in NAV calculations, and can be safely set to 0 if the underlying investments don't exhibit this behavior
+     * @custom:field stNAVDustTolerance - The worst case dust tolerance for stRawNAV from underlying NAV quoting/rounding
+     * @custom:field jtNAVDustTolerance - The worst case dust tolerance for jtRawNAV from underlying NAV quoting/rounding
+     * @custom:field effectiveNAVDustTolerance - Effective NAV deltas are claim-weighted linear combinations of stRawNAV and jtRawNAV deltas, so the worst-case dust is bounded by the sum of the raw NAV dust tolerances
      */
     struct RoycoAccountantState {
         MarketState lastMarketState;
@@ -92,6 +89,7 @@ interface IRoycoAccountant {
         uint32 lastDistributionTimestamp;
         NAV_UNIT stNAVDustTolerance;
         NAV_UNIT jtNAVDustTolerance;
+        NAV_UNIT effectiveNAVDustTolerance;
     }
 
     /**

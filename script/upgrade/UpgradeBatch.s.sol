@@ -30,7 +30,7 @@ import { UpgradeSUSDaiKernelModule } from "./modules/kernels/UpgradeSUSDaiKernel
  *
  *      Each `UpgradeConfig` entry carries:
  *        - `chainId`     — which chain
- *        - `kind`        — which contract type (TRANCHE, KERNEL, ACCOUNTANT, FACTORY)
+ *        - `kind`        — which contract type (TRANCHE, KERNEL, ACCOUNTANT)
  *        - `saltVersion` — version suffix folded into the CREATE2 salt (e.g. "V3"); bump per upgrade
  *        - `payload`     — ABI-encoded module-specific data (see each module's natspec)
  */
@@ -104,22 +104,23 @@ contract UpgradeBatch is UpgradeBase {
      * @notice Populate the upgrade list here. Empty by default.
      */
     function _initializeConfigs() internal {
-        string memory v = "V1.2.1";
+        string memory v = "V1.3.0";
 
         // ── Mainnet ──────────────────────────────────────────────────────────
-        _pushAccountantUpgrade(MAINNET, SNUSD, v);
-        _pushAccountantUpgrade(MAINNET, AUTOUSD, v);
-        _pushAccountantUpgrade(MAINNET, SMOKEHOUSE_USDC, v);
-        _pushAccountantUpgrade(MAINNET, SYRUP_USDC, v);
-        _pushAccountantUpgrade(MAINNET, STCUSD, v);
-        _pushAccountantUpgrade(MAINNET, PARETO_FALCONX, v);
-        _pushAccountantUpgrade(MAINNET, APYUSD, v);
+        _pushTrancheAndAccountantUpgrades(MAINNET, SNUSD, v);
+        _pushTrancheAndAccountantUpgrades(MAINNET, AUTOUSD, v);
+        _pushTrancheAndAccountantUpgrades(MAINNET, SMOKEHOUSE_USDC, v);
+        _pushTrancheAndAccountantUpgrades(MAINNET, SYRUP_USDC, v);
+        _pushTrancheAndAccountantUpgrades(MAINNET, STCUSD, v);
+        _pushTrancheAndAccountantUpgrades(MAINNET, PARETO_FALCONX, v);
+        _pushTrancheAndAccountantUpgrades(MAINNET, APYUSD, v);
+        _pushTrancheAndAccountantUpgrades(MAINNET, EEARN, v);
 
         // ── Avalanche ────────────────────────────────────────────────────────
-        _pushAccountantUpgrade(AVALANCHE, SAVUSD, v);
+        _pushTrancheAndAccountantUpgrades(AVALANCHE, SAVUSD, v);
 
         // ── Arbitrum ─────────────────────────────────────────────────────────
-        _pushAccountantUpgrade(ARBITRUM, SUSDAI, v);
+        _pushTrancheAndAccountantUpgrades(ARBITRUM, SUSDAI, v);
     }
 
     /// @dev Push ST + JT + Kernel + Accountant entries for a market. The caller picks the right
@@ -140,6 +141,20 @@ contract UpgradeBatch is UpgradeBase {
     ///      changes (vs. `_pushMarketUpgrades` which pushes the full ST + JT + kernel + accountant
     ///      set for a market).
     function _pushAccountantUpgrade(uint256 chainId, string memory marketName, string memory saltVersion) internal {
+        _configs.push(UpgradeConfigEntry({ chainId: chainId, kind: UpgradeKind.ACCOUNTANT, saltVersion: saltVersion, payload: abi.encode(marketName) }));
+    }
+
+    /// @dev Push ST + JT + Accountant entries for a market — used when the kernel impl is unchanged
+    ///      but both tranche bytecode and accountant bytecode are being rolled. Order is ST → JT →
+    ///      accountant so that on simulation/execute the tranche-side changes are verified before
+    ///      the accountant's sync math is re-validated against them.
+    function _pushTrancheAndAccountantUpgrades(uint256 chainId, string memory marketName, string memory saltVersion) internal {
+        _configs.push(
+            UpgradeConfigEntry({ chainId: chainId, kind: UpgradeKind.TRANCHE, saltVersion: saltVersion, payload: abi.encode(marketName, TrancheType.SENIOR) })
+        );
+        _configs.push(
+            UpgradeConfigEntry({ chainId: chainId, kind: UpgradeKind.TRANCHE, saltVersion: saltVersion, payload: abi.encode(marketName, TrancheType.JUNIOR) })
+        );
         _configs.push(UpgradeConfigEntry({ chainId: chainId, kind: UpgradeKind.ACCOUNTANT, saltVersion: saltVersion, payload: abi.encode(marketName) }));
     }
 

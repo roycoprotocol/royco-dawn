@@ -91,24 +91,79 @@ struct SyncedAccountingState {
 }
 
 /**
- * @title AccountingStateCheckpoint
- * @dev Contains the last checkpointed mark-to-market NAV accounting data for the market's tranches
- * @custom:field lastSTRawNAV - The last recorded pure NAV (excluding any coverage taken and yield shared) of the senior tranche
- * @custom:field lastJTRawNAV - The last recorded pure NAV (excluding any coverage given and yield shared) of the junior tranche
- * @custom:field lastSTEffectiveNAV - The last recorded effective NAV (including any prior applied coverage, ST yield distribution, and uncovered losses) of the senior tranche
- * @custom:field lastJTEffectiveNAV - The last recorded effective NAV (including any prior provided coverage, JT yield, ST yield distribution, and JT losses) of the junior tranche
- * @custom:field lastSTImpermanentLoss - The impermanent loss that ST has suffered after exhausting JT's loss-absorption buffer
- *                                       This represents the first claim on capital that the senior tranche has on future ST and JT recoveries
- * @custom:field lastJTImpermanentLoss - The impermanent loss that JT has suffered after providing coverage for ST losses
- *                                       This represents the second claim on capital that the junior tranche has on future ST recoveries
+ * @title AccountingCheckpoint
+ * @dev Contains a mark-to-market NAV accounting checkpoint for the market's tranches
+ * @custom:field stRawNAV - The pure NAV (excluding any coverage taken and yield shared) of the senior tranche
+ * @custom:field jtRawNAV - The pure NAV (excluding any coverage given and yield shared) of the junior tranche
+ * @custom:field stEffectiveNAV - The effective NAV (including any prior applied coverage, ST yield distribution, and uncovered losses) of the senior tranche
+ * @custom:field jtEffectiveNAV - The effective NAV (including any prior provided coverage, JT yield, ST yield distribution, and JT losses) of the junior tranche
+ * @custom:field stImpermanentLoss - The impermanent loss that ST has suffered after exhausting JT's loss-absorption buffer
+ *                                   This represents the first claim on capital that the senior tranche has on future ST and JT recoveries
+ * @custom:field jtImpermanentLoss - The impermanent loss that JT has suffered after providing coverage for ST losses
+ *                                   This represents the second claim on capital that the junior tranche has on future ST recoveries
  */
-struct AccountingStateCheckpoint {
-    NAV_UNIT lastSTRawNAV;
-    NAV_UNIT lastJTRawNAV;
-    NAV_UNIT lastSTEffectiveNAV;
-    NAV_UNIT lastJTEffectiveNAV;
-    NAV_UNIT lastSTImpermanentLoss;
-    NAV_UNIT lastJTImpermanentLoss;
+struct AccountingCheckpoint {
+    NAV_UNIT stRawNAV;
+    NAV_UNIT jtRawNAV;
+    NAV_UNIT stEffectiveNAV;
+    NAV_UNIT jtEffectiveNAV;
+    NAV_UNIT stImpermanentLoss;
+    NAV_UNIT jtImpermanentLoss;
+}
+
+/**
+ * @title PnLWaterfallParams
+ * @dev The fixed inputs of the PnL waterfall: everything it consumes besides the current raw NAVs
+ * @dev Built once per sync and held constant, so the waterfall can be evaluated repeatedly at different raw NAVs against one consistent set of inputs
+ * @custom:field checkpoint - The previous sync's accounting checkpoint (must conserve NAV)
+ *                            Its raw NAVs are the baseline the deltas are measured against, its effective NAVs define the cross-tranche claims
+ *                            that attribute those deltas, and its effective NAVs and impermanent losses seed the settlement's opening balances
+ * @custom:field twJTYieldShareAccruedWAD - The accrued time-weighted JT yield share YDM output since the last distribution, scaled to WAD precision
+ * @custom:field instantaneousJTYieldShareWAD - The instantaneous JT yield share YDM output, scaled to WAD precision (consumed only when `elapsedSinceLastDistribution` is zero)
+ *                                              Must be validated by the caller to be at most WAD (100% of senior appreciation) before being passed in
+ * @custom:field elapsedSinceLastDistribution - The seconds elapsed since the last yield distribution
+ * @custom:field stProtocolFeeWAD - The protocol fee rate on ST yield, scaled to WAD precision
+ * @custom:field jtProtocolFeeWAD - The protocol fee rate on JT yield, scaled to WAD precision
+ * @custom:field yieldShareProtocolFeeWAD - The protocol fee rate on the JT yield share, scaled to WAD precision
+ * @custom:field effectiveNAVDustTolerance - The effective NAV dust tolerance: gains within it are treated as rounding dust and accrue no fees
+ */
+struct PnLWaterfallParams {
+    AccountingCheckpoint checkpoint;
+    uint192 twJTYieldShareAccruedWAD;
+    uint256 instantaneousJTYieldShareWAD;
+    uint256 elapsedSinceLastDistribution;
+    uint64 stProtocolFeeWAD;
+    uint64 jtProtocolFeeWAD;
+    uint64 yieldShareProtocolFeeWAD;
+    NAV_UNIT effectiveNAVDustTolerance;
+}
+
+/**
+ * @title MarketStateTransitionParams
+ * @dev The inputs of the market state transition: the synced accounting data produced by the PnL waterfall alongside the market's coverage and fixed-term configuration
+ * @dev The market state the transition originates from is passed alongside this struct
+ * @custom:field postPnLWaterfallCheckpoint - The checkpoint output by the PnL waterfall: the current raw NAVs alongside the settled effective NAVs and impermanent losses
+ * @custom:field stProtocolFeeAccrued - The protocol fee accrued on ST yield by the waterfall
+ * @custom:field jtProtocolFeeAccrued - The protocol fee accrued on JT yield and the JT yield share by the waterfall
+ * @custom:field betaWAD - The JT's sensitivity to the same downside stress that affects ST, scaled to WAD precision
+ * @custom:field coverageWAD - The coverage ratio that the senior tranche is expected to be protected by, scaled to WAD precision
+ * @custom:field effectiveNAVDustTolerance - The effective NAV dust tolerance of the market
+ * @custom:field fixedTermDurationSeconds - The market's configured fixed-term duration (0 means permanently perpetual)
+ * @custom:field fixedTermEndTimestamp - The currently persisted fixed-term end timestamp
+ * @custom:field liquidationUtilizationWAD - The market's liquidation utilization threshold, scaled to WAD precision
+ * @custom:field currentTimestamp - The current block timestamp, passed in so the transition stays pure and deterministic from its arguments
+ */
+struct MarketStateTransitionParams {
+    AccountingCheckpoint postPnLWaterfallCheckpoint;
+    NAV_UNIT stProtocolFeeAccrued;
+    NAV_UNIT jtProtocolFeeAccrued;
+    uint96 betaWAD;
+    uint64 coverageWAD;
+    NAV_UNIT effectiveNAVDustTolerance;
+    uint24 fixedTermDurationSeconds;
+    uint32 fixedTermEndTimestamp;
+    uint256 liquidationUtilizationWAD;
+    uint256 currentTimestamp;
 }
 
 /**

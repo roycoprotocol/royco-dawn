@@ -11,7 +11,7 @@ import { IRoycoDawnKernel } from "../../interfaces/IRoycoDawnKernel.sol";
 import { IRoycoVaultTranche } from "../../interfaces/IRoycoVaultTranche.sol";
 import { MAX_TRANCHE_UNITS, WAD, ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "../../libraries/Constants.sol";
 import {
-    AccountingStateCheckpoint,
+    AccountingCheckpoint,
     AssetClaims,
     ConversionRateCacheKey,
     KernelType,
@@ -808,8 +808,8 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
      * @dev Overrides must remain pure-view since this is consumed by view-only paths (e.g. `_previewSyncTrancheAccounting`)
      * @return checkpoint The last mark-to-market NAV accounting checkpoint
      */
-    function _getLastAccountingCheckpoint() internal view virtual returns (AccountingStateCheckpoint memory checkpoint) {
-        return IRoycoAccountant(ACCOUNTANT).getLastAccountingStateCheckpoint();
+    function _getLastAccountingCheckpoint() internal view virtual returns (AccountingCheckpoint memory checkpoint) {
+        return IRoycoAccountant(ACCOUNTANT).getLastAccountingCheckpoint();
     }
 
     /**

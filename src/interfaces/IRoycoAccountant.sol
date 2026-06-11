@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { AccountingStateCheckpoint, MarketState, Operation, SyncedAccountingState } from "../libraries/Types.sol";
+import { AccountingCheckpoint, MarketState, Operation, SyncedAccountingState } from "../libraries/Types.sol";
 import { NAV_UNIT } from "../libraries/Units.sol";
 
 /**
@@ -195,8 +195,8 @@ interface IRoycoAccountant {
     /// @notice Thrown when the YDM failed to initialize
     error FAILED_TO_INITIALIZE_YDM(bytes data);
 
-    /// @notice Thrown when the sum of the raw NAVs don't equal the sum of the effective NAVs of both tranches
-    error NAV_CONSERVATION_VIOLATION();
+    /// @notice Thrown when the YDM reports a JT yield share above 100% of senior appreciation: the yield model is buggy and the sync must not consume its output
+    error INVALID_YDM_OUTPUT();
 
     /// @notice Thrown when the operation and NAVs passed to post-op lead to an invalid state
     error INVALID_POST_OP_STATE(Operation _op);
@@ -223,7 +223,7 @@ interface IRoycoAccountant {
      * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function preOpSyncTrancheAccounting(
-        AccountingStateCheckpoint memory _checkpoint,
+        AccountingCheckpoint memory _checkpoint,
         NAV_UNIT _stRawNAV,
         NAV_UNIT _jtRawNAV
     )
@@ -240,7 +240,7 @@ interface IRoycoAccountant {
      * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function previewSyncTrancheAccounting(
-        AccountingStateCheckpoint memory _checkpoint,
+        AccountingCheckpoint memory _checkpoint,
         NAV_UNIT _stRawNAV,
         NAV_UNIT _jtRawNAV
     )
@@ -301,7 +301,7 @@ interface IRoycoAccountant {
      * @return maxSTDeposit The maximum assets depositable into the senior tranche without violating the market's coverage requirement
      */
     function maxSTDepositGivenCoverage(
-        AccountingStateCheckpoint memory _checkpoint,
+        AccountingCheckpoint memory _checkpoint,
         NAV_UNIT _stRawNAV,
         NAV_UNIT _jtRawNAV
     )
@@ -324,7 +324,7 @@ interface IRoycoAccountant {
      * @return jtClaimable The maximum claims on JT assets that the junior tranche can withdraw, denominated in NAV units
      */
     function maxJTWithdrawalGivenCoverage(
-        AccountingStateCheckpoint memory _checkpoint,
+        AccountingCheckpoint memory _checkpoint,
         NAV_UNIT _stRawNAV,
         NAV_UNIT _jtRawNAV,
         NAV_UNIT _jtClaimOnStUnits,
@@ -421,7 +421,7 @@ interface IRoycoAccountant {
      * @notice Returns the last checkpointed accounting state persisted from the most recent NAV synchronization
      * @return state The last checkpointed raw NAVs, effective NAVs, and impermanent losses for both tranches
      */
-    function getLastAccountingStateCheckpoint() external view returns (AccountingStateCheckpoint memory state);
+    function getLastAccountingCheckpoint() external view returns (AccountingCheckpoint memory state);
 
     /**
      * @notice Returns the state of the accountant

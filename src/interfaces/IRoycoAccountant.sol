@@ -214,7 +214,7 @@ interface IRoycoAccountant {
      * @dev Persists updated NAV and JT coverage impermanent loss checkpoints for the next sync to use as reference
      * @param _checkpoint The mark-to-market NAV accounting checkpoint to use as the starting state for the synchronization
      *                    Contains the last checkpointed raw NAVs, effective NAVs, and JT coverage impermanent loss
-     *                    May be the accountant's persisted checkpoint (Dawn) or a recomposed checkpoint reflecting an internal/external ST share partition shift (Dusk)
+     *                    Sourced by the kernel from the accountant's persisted checkpoint
      * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
      * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
@@ -231,7 +231,7 @@ interface IRoycoAccountant {
      * @notice Previews a synchronization of the effective NAVs and JT coverage impermanent loss of both tranches by marking them to market
      * @param _checkpoint The mark-to-market NAV accounting checkpoint to use as the starting state for the synchronization
      *                    Contains the last checkpointed raw NAVs, effective NAVs, and JT coverage impermanent loss
-     *                    May be the accountant's persisted checkpoint (Dawn) or a recomposed checkpoint reflecting an internal/external ST share partition shift (Dusk)
+     *                    Sourced by the kernel from the accountant's persisted checkpoint
      * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
      * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
@@ -292,7 +292,7 @@ interface IRoycoAccountant {
      * @dev Always rounds in favor of senior tranche protection
      * @param _checkpoint The mark-to-market NAV accounting checkpoint to use as the starting state for the synchronization
      *                    Contains the last checkpointed raw NAVs, effective NAVs, and JT coverage impermanent loss
-     *                    May be the accountant's persisted checkpoint (Dawn) or a recomposed checkpoint reflecting an internal/external ST share partition shift (Dusk)
+     *                    Sourced by the kernel from the accountant's persisted checkpoint
      * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
      * @return maxSTDeposit The maximum assets depositable into the senior tranche without violating the market's coverage requirement
@@ -311,7 +311,7 @@ interface IRoycoAccountant {
      * @dev Always rounds in favor of senior tranche protection
      * @param _checkpoint The mark-to-market NAV accounting checkpoint to use as the starting state for the synchronization
      *                    Contains the last checkpointed raw NAVs, effective NAVs, and JT coverage impermanent loss
-     *                    May be the accountant's persisted checkpoint (Dawn) or a recomposed checkpoint reflecting an internal/external ST share partition shift (Dusk)
+     *                    Sourced by the kernel from the accountant's persisted checkpoint
      * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtClaimOnStUnits The total claims on ST assets that the junior tranche has denominated in NAV units

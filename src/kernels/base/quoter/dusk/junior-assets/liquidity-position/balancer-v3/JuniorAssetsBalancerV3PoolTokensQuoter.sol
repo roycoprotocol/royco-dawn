@@ -9,7 +9,8 @@ import { VaultGuard } from "../../../../../../../../lib/balancer-v3-monorepo/pkg
 import { IERC20Metadata } from "../../../../../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import { IERC20 } from "../../../../../../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import { QUOTE_UNIT, TRANCHE_UNIT, toQuoteUnits, toUint256 } from "../../../../../../../libraries/Units.sol";
-import { IRoycoDuskKernel, LiquidityPositionClaims, RoycoDuskKernel, SyncedAccountingState } from "../../../../../RoycoDuskKernel.sol";
+import { SyncedAccountingState } from "../../../../../../../libraries/Types.sol";
+import { IRoycoDuskKernel, LiquidityPositionClaims, RoycoDuskKernel } from "../../../../../RoycoDuskKernel.sol";
 
 /**
  * @title JuniorAssetsBalancerV3PoolTokensQuoter

@@ -98,7 +98,7 @@ abstract contract ChainlinkOracle_ST_BPTsWithChainlinkOracleQuoteAssets_JT_Quote
     }
 
     /// @inheritdoc RoycoDuskKernel
-    /// @dev Delegates to the Dusk recomposed senior tranche raw NAV
+    /// @dev Delegates to the Dusk senior tranche raw NAV, marked over the effective ST share supply (excluding JT-owned ST shares)
     function _getSeniorTrancheRawNAV() internal view override(RoycoDawnKernel, RoycoDuskKernel) returns (NAV_UNIT stRawNAV) {
         return RoycoDuskKernel._getSeniorTrancheRawNAV();
     }

@@ -5,7 +5,6 @@ import { IHooks } from "../../../../../../../../lib/balancer-v3-monorepo/pkg/int
 import { IVault } from "../../../../../../../../lib/balancer-v3-monorepo/pkg/interfaces/contracts/vault/IVault.sol";
 import {
     AddLiquidityKind,
-    AfterSwapParams,
     HookFlags,
     LiquidityManagement,
     PoolSwapParams,
@@ -22,8 +21,7 @@ import { IRoycoDuskKernel } from "../../../../../../../interfaces/IRoycoDuskKern
  * @author Waymont
  * @notice Balancer V3 hook contract for a Dusk market's junior tranche pool that bridges the pool's liquidity operations into the kernel's tranche accounting
  * @notice Pre-op hooks (add liquidity, remove liquidity, swap) trigger a PNL sync on the kernel
- * @notice Post-op hooks trigger a NAV recomposition across internal and external ST shares followed by a PNL sync to apply trade-execution slippage and fees
- * @dev Kernel-initiated remove liquidity operations bypass both syncs since the outer JT redeem flow already brackets the unwrap with its own pre/post syncs and re-routing through this hook would corrupt the accounting checkpoint
+ * @dev Kernel-initiated remove liquidity operations bypass the sync since the outer JT redeem flow already brackets the unwrap with its own pre/post syncs and re-routing through this hook would corrupt the accounting checkpoint
  */
 contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
     /// @notice The Royco Dusk kernel this hook contract bridges Balancer V3 pool operations into
@@ -90,11 +88,6 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
     }
 
     /// @inheritdoc IHooks
-    function onAfterInitialize(uint256[] memory, uint256, bytes memory) public override(BaseHooks) onlyVault returns (bool) {
-        return _postLiquidityOpertionSyncTrancheAccounting();
-    }
-
-    /// @inheritdoc IHooks
     function onBeforeAddLiquidity(
         address,
         address _pool,
@@ -114,27 +107,7 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
     }
 
     /// @inheritdoc IHooks
-    function onAfterAddLiquidity(
-        address,
-        address _pool,
-        AddLiquidityKind,
-        uint256[] memory,
-        uint256[] memory amountsInRaw,
-        uint256,
-        uint256[] memory,
-        bytes memory
-    )
-        public
-        override(BaseHooks)
-        onlyVault
-        onlyJuniorTrancheBalancerV3Pool(_pool)
-        returns (bool, uint256[] memory)
-    {
-        return (_postLiquidityOpertionSyncTrancheAccounting(), amountsInRaw);
-    }
-
-    /// @inheritdoc IHooks
-    /// @dev Skips the post-op sync when invoked by the Royco Kernel: the outer JT redeem flow already brackets them with its own pre/post syncs
+    /// @dev Skips the sync when invoked by the Royco Kernel: the outer JT redeem flow already brackets the unwrap with its own pre/post syncs
     function onBeforeRemoveLiquidity(
         address _router,
         address _pool,
@@ -154,40 +127,8 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
     }
 
     /// @inheritdoc IHooks
-    /// @dev Skips the post-op sync when invoked by the Royco Kernel: the outer JT redeem flow already brackets them with its own pre/post syncs
-    function onAfterRemoveLiquidity(
-        address _router,
-        address _pool,
-        RemoveLiquidityKind,
-        uint256,
-        uint256[] memory,
-        uint256[] memory amountsOutRaw,
-        uint256[] memory,
-        bytes memory
-    )
-        public
-        override(BaseHooks)
-        onlyVault
-        onlyJuniorTrancheBalancerV3Pool(_pool)
-        returns (bool, uint256[] memory)
-    {
-        return ((_router == ROYCO_DUSK_KERNEL || _postLiquidityOpertionSyncTrancheAccounting()), amountsOutRaw);
-    }
-
-    /// @inheritdoc IHooks
     function onBeforeSwap(PoolSwapParams calldata, address _pool) public override(BaseHooks) onlyVault onlyJuniorTrancheBalancerV3Pool(_pool) returns (bool) {
         return _preLiquidityOpertionSyncTrancheAccounting();
-    }
-
-    /// @inheritdoc IHooks
-    function onAfterSwap(AfterSwapParams calldata _params)
-        public
-        override(BaseHooks)
-        onlyVault
-        onlyJuniorTrancheBalancerV3Pool(_params.pool)
-        returns (bool, uint256)
-    {
-        return (_postLiquidityOpertionSyncTrancheAccounting(), _params.amountCalculatedRaw);
     }
 
     /// @inheritdoc IHooks
@@ -207,20 +148,19 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
     /**
      * @inheritdoc IHooks
      * @dev All liquidity operations execute a PNL accounting sync to ensure that accounting is fresh before the operation
-     * @dev All liquidity operations execute a NAV recomposition, reconciling the new internal and external ST shares, and a PNL sync, applying trade execution slippage and fees, after the operation
      */
     function getHookFlags() public view virtual override(BaseHooks) returns (HookFlags memory) {
         return HookFlags({
             enableHookAdjustedAmounts: false,
             shouldCallBeforeInitialize: true,
-            shouldCallAfterInitialize: true,
+            shouldCallAfterInitialize: false,
             shouldCallComputeDynamicSwapFee: false,
             shouldCallBeforeSwap: true,
-            shouldCallAfterSwap: true,
+            shouldCallAfterSwap: false,
             shouldCallBeforeAddLiquidity: true,
-            shouldCallAfterAddLiquidity: true,
+            shouldCallAfterAddLiquidity: false,
             shouldCallBeforeRemoveLiquidity: true,
-            shouldCallAfterRemoveLiquidity: true
+            shouldCallAfterRemoveLiquidity: false
         });
     }
 
@@ -237,18 +177,6 @@ contract RoycoDuskBalancerV3Hooks is RoycoBase, BaseHooks, VaultGuard {
      */
     function _preLiquidityOpertionSyncTrancheAccounting() internal whenNotPaused returns (bool synced) {
         IRoycoDuskKernel(ROYCO_DUSK_KERNEL).syncTrancheAccounting();
-        return true;
-    }
-
-    /**
-     * @notice Routes a post-operation tranche accounting sync into the kernel
-     * @dev Intended to be invoked from every `onAfter*` hook (add/remove liquidity, swap) so the kernel runs the recomposition checkpoint (reconciling the new internal vs external ST share distribution) and applies the post-op PNL waterfall
-     * @dev Requires this hook contract to hold the SYNCER role on the kernel
-     * @dev Reverts if this hook contract is paused
-     * @return synced Always true on success; lets callers forward the result directly as the hook's required `bool` return
-     */
-    function _postLiquidityOpertionSyncTrancheAccounting() internal whenNotPaused returns (bool synced) {
-        IRoycoDuskKernel(ROYCO_DUSK_KERNEL).postLiquidityPositionOpSyncTrancheAccounting();
         return true;
     }
 }

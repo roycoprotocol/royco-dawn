@@ -614,7 +614,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
 
     /**
      * @notice Previews an accounting sync via the accountant
-     * @dev Seeds the waterfall with the checkpoint returned by `_getLastAccountingCheckpoint()`, which subclasses may override to inject a recomposed starting state
+     * @dev Seeds the waterfall with the checkpoint returned by `_getLastAccountingCheckpoint()`
      * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function _previewSyncTrancheAccounting() internal view virtual whenNotPaused returns (SyncedAccountingState memory state) {
@@ -625,7 +625,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
     /**
      * @notice Invokes the accountant to do a pre-operation (deposit and withdrawal) NAV sync and mints any protocol fee shares accrued
      * @dev A sync must be executed before every NAV mutating operation (deposit and withdrawal)
-     * @dev Seeds the waterfall with the checkpoint returned by `_getLastAccountingCheckpoint()`, which subclasses may override to inject a recomposed starting state
+     * @dev Seeds the waterfall with the checkpoint returned by `_getLastAccountingCheckpoint()`
      * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function _preOpSyncTrancheAccounting() internal virtual returns (SyncedAccountingState memory state) {
@@ -639,7 +639,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
     /**
      * @notice Invokes the accountant to do a NAV sync and mints any protocol fee shares accrued
      * @dev A sync must be executed before every NAV mutating operation (deposit and withdrawal)
-     * @dev Seeds the waterfall with the checkpoint returned by `_getLastAccountingCheckpoint()`, which subclasses may override to inject a recomposed starting state
+     * @dev Seeds the waterfall with the checkpoint returned by `_getLastAccountingCheckpoint()`
      * @notice Returns the asset claims and total tranche shares after minting any fees for the specified tranche
      * @param _trancheType An enumerator indicating which tranche to return claims and total tranche shares for
      * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
@@ -799,7 +799,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
 
     /**
      * @notice Returns the mark-to-market NAV accounting checkpoint that seeds every accountant sync and coverage query in this kernel
-     * @dev This is the canonical read-side override seam: subclasses that need to inject a different starting state (e.g. Dusk's recomposed checkpoint that reflects an internal/external ST share partition shift) should override this function
+     * @dev This is the canonical read-side override seam: subclasses that need to inject a different starting state should override this function
      * @dev Overrides must remain pure-view since this is consumed by view-only paths (e.g. `_previewSyncTrancheAccounting`)
      * @return checkpoint The last mark-to-market NAV accounting checkpoint
      */

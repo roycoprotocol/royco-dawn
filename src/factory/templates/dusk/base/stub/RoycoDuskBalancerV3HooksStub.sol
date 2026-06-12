@@ -29,11 +29,11 @@ contract RoycoDuskBalancerV3HooksStub is BaseHooks, UUPSUpgradeable {
             shouldCallAfterInitialize: false,
             shouldCallComputeDynamicSwapFee: false,
             shouldCallBeforeSwap: true,
-            shouldCallAfterSwap: true,
+            shouldCallAfterSwap: false,
             shouldCallBeforeAddLiquidity: true,
-            shouldCallAfterAddLiquidity: true,
+            shouldCallAfterAddLiquidity: false,
             shouldCallBeforeRemoveLiquidity: true,
-            shouldCallAfterRemoveLiquidity: true
+            shouldCallAfterRemoveLiquidity: false
         });
     }
 }

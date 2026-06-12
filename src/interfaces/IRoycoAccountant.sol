@@ -56,10 +56,8 @@ interface IRoycoAccountant {
      * @custom:field lastJTRawNAV - The last recorded pure NAV (excluding any coverage given and yield shared) of the junior tranche
      * @custom:field lastSTEffectiveNAV - The last recorded effective NAV (including any prior applied coverage, ST yield distribution, and uncovered losses) of the senior tranche
      * @custom:field lastJTEffectiveNAV - The last recorded effective NAV (including any prior provided coverage, JT yield, ST yield distribution, and JT losses) of the junior tranche
-     * @custom:field lastSTImpermanentLoss - The impermanent loss that ST has suffered after exhausting JT's loss-absorption buffer
-     *                                       This represents the first claim on capital that the senior tranche has on future ST and JT recoveries
-     * @custom:field lastJTImpermanentLoss - The impermanent loss that JT has suffered after providing coverage for ST losses
-     *                                       This represents the second claim on capital that the junior tranche has on future ST recoveries
+     * @custom:field lastJTCoverageImpermanentLoss - The impermanent loss that JT has suffered after providing coverage for ST losses
+     *                                               This represents the first claim on capital that the junior tranche has on future ST recoveries
      * @custom:field twJTYieldShareAccruedWAD - The time-weighted junior tranche yield share (YDM output) since the last yield distribution, scaled to WAD precision
      * @custom:field lastAccrualTimestamp - The timestamp at which the time-weighted JT yield share accumulator was last updated
      * @custom:field lastDistributionTimestamp - The timestamp at which the last ST yield distribution occurred
@@ -82,8 +80,7 @@ interface IRoycoAccountant {
         NAV_UNIT lastJTRawNAV;
         NAV_UNIT lastSTEffectiveNAV;
         NAV_UNIT lastJTEffectiveNAV;
-        NAV_UNIT lastSTImpermanentLoss;
-        NAV_UNIT lastJTImpermanentLoss;
+        NAV_UNIT lastJTCoverageImpermanentLoss;
         uint192 twJTYieldShareAccruedWAD;
         uint32 lastAccrualTimestamp;
         uint32 lastDistributionTimestamp;
@@ -174,9 +171,9 @@ interface IRoycoAccountant {
 
     /**
      * @notice Emitted when JT's coverage loss is realized and reset to zero when transitioning from a fixed term state to a perpetual state
-     * @param jtImpermanentLossErased The amount of JT coverage loss erased when transitioning from a fixed term state to a perpetual state
+     * @param jtCoverageImpermanentLossErased The amount of JT coverage loss erased when transitioning from a fixed term state to a perpetual state
      */
-    event JTImpermanentLossReset(NAV_UNIT jtImpermanentLossErased);
+    event JTCoverageImpermanentLossReset(NAV_UNIT jtCoverageImpermanentLossErased);
 
     /**
      * @notice Emitted when a fixed term regime is ended by this market
@@ -206,21 +203,21 @@ interface IRoycoAccountant {
 
     /**
      * @notice Retrieves the address of the kernel tied to this accountant
-     * @return kernel The kernel that this accountant maintains mark-to-market NAV, impermanent loss, and fee accounting for
+     * @return kernel The kernel that this accountant maintains mark-to-market NAV, JT coverage impermanent loss, and fee accounting for
      */
     function KERNEL() external view returns (address kernel);
 
     /**
-     * @notice Synchronizes the effective NAVs and impermanent losses of both tranches by marking them to market
+     * @notice Synchronizes the effective NAVs and JT coverage impermanent loss of both tranches by marking them to market
      * @dev Must be called before any NAV mutating operation
      * @dev Accrues JT yield share over time based on the market's YDM output
-     * @dev Persists updated NAV and impermanent loss checkpoints for the next sync to use as reference
+     * @dev Persists updated NAV and JT coverage impermanent loss checkpoints for the next sync to use as reference
      * @param _checkpoint The mark-to-market NAV accounting checkpoint to use as the starting state for the synchronization
-     *                    Contains the last checkpointed raw NAVs, effective NAVs, and impermanent losses for both tranches
+     *                    Contains the last checkpointed raw NAVs, effective NAVs, and JT coverage impermanent loss
      *                    May be the accountant's persisted checkpoint (Dawn) or a recomposed checkpoint reflecting an internal/external ST share partition shift (Dusk)
      * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
-     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
+     * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function preOpSyncTrancheAccounting(
         AccountingCheckpoint memory _checkpoint,
@@ -231,13 +228,13 @@ interface IRoycoAccountant {
         returns (SyncedAccountingState memory state);
 
     /**
-     * @notice Previews a synchronization of the effective NAVs and impermanent losses of both tranches by marking them to market
+     * @notice Previews a synchronization of the effective NAVs and JT coverage impermanent loss of both tranches by marking them to market
      * @param _checkpoint The mark-to-market NAV accounting checkpoint to use as the starting state for the synchronization
-     *                    Contains the last checkpointed raw NAVs, effective NAVs, and impermanent losses for both tranches
+     *                    Contains the last checkpointed raw NAVs, effective NAVs, and JT coverage impermanent loss
      *                    May be the accountant's persisted checkpoint (Dawn) or a recomposed checkpoint reflecting an internal/external ST share partition shift (Dusk)
      * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
-     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
+     * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function previewSyncTrancheAccounting(
         AccountingCheckpoint memory _checkpoint,
@@ -255,7 +252,7 @@ interface IRoycoAccountant {
      * @param _stRawNAV The post-op senior tranche's raw NAV
      * @param _jtRawNAV The post-op junior tranche's raw NAV
      * @param _stSelfLiquidationBonusNAV The self-liquidation bonus remitted to an ST LP on redemption after the liquidation utilization threshold has been breached, sourced from JT effective NAV
-     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
+     * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function postOpSyncTrancheAccounting(
         Operation _op,
@@ -273,7 +270,7 @@ interface IRoycoAccountant {
      * @param _op The operation being executed in between the pre and post operation synchronizations
      * @param _stRawNAV The post-op senior tranche's raw NAV
      * @param _jtRawNAV The post-op junior tranche's raw NAV
-     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
+     * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function postOpSyncTrancheAccountingAndEnforceCoverage(
         Operation _op,
@@ -294,7 +291,7 @@ interface IRoycoAccountant {
      * @notice Returns the maximum assets depositable into the senior tranche without violating the market's coverage requirement
      * @dev Always rounds in favor of senior tranche protection
      * @param _checkpoint The mark-to-market NAV accounting checkpoint to use as the starting state for the synchronization
-     *                    Contains the last checkpointed raw NAVs, effective NAVs, and impermanent losses for both tranches
+     *                    Contains the last checkpointed raw NAVs, effective NAVs, and JT coverage impermanent loss
      *                    May be the accountant's persisted checkpoint (Dawn) or a recomposed checkpoint reflecting an internal/external ST share partition shift (Dusk)
      * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
@@ -313,7 +310,7 @@ interface IRoycoAccountant {
      * @notice Returns the maximum assets withdrawable from the junior tranche without violating the market's coverage requirement
      * @dev Always rounds in favor of senior tranche protection
      * @param _checkpoint The mark-to-market NAV accounting checkpoint to use as the starting state for the synchronization
-     *                    Contains the last checkpointed raw NAVs, effective NAVs, and impermanent losses for both tranches
+     *                    Contains the last checkpointed raw NAVs, effective NAVs, and JT coverage impermanent loss
      *                    May be the accountant's persisted checkpoint (Dawn) or a recomposed checkpoint reflecting an internal/external ST share partition shift (Dusk)
      * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
@@ -419,7 +416,7 @@ interface IRoycoAccountant {
 
     /**
      * @notice Returns the last checkpointed accounting state persisted from the most recent NAV synchronization
-     * @return state The last checkpointed raw NAVs, effective NAVs, and impermanent losses for both tranches
+     * @return state The last checkpointed raw NAVs, effective NAVs, and JT coverage impermanent loss
      */
     function getLastAccountingCheckpoint() external view returns (AccountingCheckpoint memory state);
 

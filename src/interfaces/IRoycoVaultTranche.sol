@@ -113,7 +113,7 @@ interface IRoycoVaultTranche is IERC20Metadata {
 
     /**
      * @notice Returns the maximum amount of assets that can be deposited by the specified receiver
-     * @dev May return zero if deposits are disabled due to market conditions (e.g., ST impermanent loss exists or coverage violated)
+     * @dev May return zero if deposits are disabled due to market conditions (e.g., coverage violated)
      * @param _receiver The address that would receive the minted shares
      * @return assets The maximum amount of assets that can be deposited, denominated in the tranche's base asset units
      */

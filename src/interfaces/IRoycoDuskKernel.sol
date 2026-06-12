@@ -75,7 +75,7 @@ interface IRoycoDuskKernel is IRoycoDawnKernel {
     /**
      * @notice Synchronizes and persists the raw and effective NAVs of both tranches after an external operation on the JT's underlying liquidity position
      * @dev Reconciles the distribution of ST shares in circulation (internally and externally owned) into a recomposed tranche NAVs checkpoint before applying the PNL sync
-     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
+     * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function postLiquidityPositionOpSyncTrancheAccounting() external returns (SyncedAccountingState memory state);
 }

@@ -92,19 +92,19 @@ The two states are:
 
 **FIXED_TERM**: Recovery state entered when JT provides coverage for ST losses. ST redemptions and JT deposits are blocked to protect JT's claim on future recovery. ST deposits and JT redemptions remain enabled. The YDM is frozen and no protocol fees are taken.
 
-**Transitions back to PERPETUAL** occur when: (1) losses fully recover, (2) the fixed term duration expires, (3) liquidation threshold is breached (unhealthy), or (4) ST IL exists (distressed). In all cases besides (1), the market is forced into a PERPETUAL state to restore liquidity, and JT IL is erased (JT forfeits its recovery claim).
+**Transitions back to PERPETUAL** occur when: (1) losses fully recover, (2) the fixed term duration expires, or (3) the liquidation threshold is breached (unhealthy). In cases (2) and (3), the market is forced into a PERPETUAL state to restore liquidity, and JT coverage IL is erased (JT forfeits its recovery claim).
 
 ### Impermanent Loss
 
 When losses occur, they are handled differently based on which tranche experiences them:
 
-**ST Losses**: JT provides coverage from its buffer up to its available capacity. The coverage provided is tracked as JT IL (a JT claim on future ST appreciation). Any ST loss exceeding JT's coverage capacity is absorbed by ST and tracked as ST IL.
+**ST Losses**: JT provides coverage from its buffer up to its available capacity. The coverage provided is tracked as JT coverage IL (a JT claim on future ST appreciation). Any ST loss exceeding JT's coverage capacity reduces ST's effective NAV with no recovery claim: losses beyond the buffer are final once booked. Seniors retain full upside on their remaining position and can always exit at effective NAV, so a senior holding through a wiped market is never owed a make-whole by future entrants.
 
-**JT Losses**: First reduce JT effective NAV. If JT effective NAV is depleted, excess losses spill over to ST and are tracked as ST IL.
+**JT Losses**: Reduce JT effective NAV in full (the attribution step caps each tranche's loss at its effective claim, so JT losses never spill over to ST).
 
-**Recovery**: When appreciation occurs, ST IL is recovered first (senior priority), then JT IL is repaid. Remaining gains are distributed as yield via the YDM.
+**Recovery**: When ST appreciation occurs, JT coverage IL is repaid first. Remaining gains are distributed as yield via the YDM.
 
-**JT IL Erasure**: JT IL is erased (JT forfeits its claim) when the market transitions to PERPETUAL state. This occurs when the fixed-term period expires, utilization exceeds the liquidation threshold, or ST IL exists (distressed state).
+**JT Coverage IL Erasure**: JT coverage IL is erased (JT forfeits its claim) when the market is forced into a PERPETUAL state. This occurs when the fixed-term period expires or utilization exceeds the liquidation threshold.
 
 ## Supported Yield Sources
 

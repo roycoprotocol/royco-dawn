@@ -232,9 +232,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
     function stMaxDeposit(address _receiver) public view virtual override(IRoycoDawnKernel) returns (TRANCHE_UNIT) {
         // If the receiver is blacklisted or the kernel is currently paused, return zero tranche units
         if (isBlacklisted(_receiver) || paused()) return ZERO_TRANCHE_UNITS;
-        // If ST IL exists, ST deposits are disabled to preclude existing ST's from getting diluted and realizing losses
-        if (_previewSyncTrancheAccounting().stImpermanentLoss != ZERO_NAV_UNITS) return ZERO_TRANCHE_UNITS;
-        // ST deposits are enabled as long as ST IL is nonexistent and coverage is satisfied
+        // ST deposits are enabled as long as coverage is satisfied
         // No need to include ST liquidation proceeds in the raw NAV because those assets are not exposed to any volatility
         NAV_UNIT stMaxDepositableNAV =
             IRoycoAccountant(ACCOUNTANT).maxSTDepositGivenCoverage(_getLastAccountingCheckpoint(), _getSeniorTrancheRawNAV(), _getJuniorTrancheRawNAV());
@@ -368,7 +366,6 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
 
     /// @inheritdoc IRoycoDawnKernel
     /// @dev ST deposits are enabled if the market is in a PERPETUAL or FIXED_TERM state, granted that the market's coverage requirement is satisfied post-deposit
-    /// @dev ST deposits are disabled if the senior tranche has incurred any impermanent loss to prevent dilution
     function stDeposit(TRANCHE_UNIT _assets)
         external
         virtual
@@ -381,8 +378,6 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
     {
         // Execute an accounting sync to reconcile underlying PNL
         SyncedAccountingState memory state = _preOpSyncTrancheAccounting();
-        // If ST IL exists, ST deposits are disabled to preclude existing ST's from getting diluted and realizing losses
-        require(state.stImpermanentLoss == ZERO_NAV_UNITS, ST_DEPOSIT_DISABLED_IN_LOSS());
 
         // Process the deposit for the senior tranche
         _stDepositAssets(_assets);
@@ -620,7 +615,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
     /**
      * @notice Previews an accounting sync via the accountant
      * @dev Seeds the waterfall with the checkpoint returned by `_getLastAccountingCheckpoint()`, which subclasses may override to inject a recomposed starting state
-     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
+     * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function _previewSyncTrancheAccounting() internal view virtual whenNotPaused returns (SyncedAccountingState memory state) {
         // Preview an accounting sync via the accountant
@@ -631,7 +626,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
      * @notice Invokes the accountant to do a pre-operation (deposit and withdrawal) NAV sync and mints any protocol fee shares accrued
      * @dev A sync must be executed before every NAV mutating operation (deposit and withdrawal)
      * @dev Seeds the waterfall with the checkpoint returned by `_getLastAccountingCheckpoint()`, which subclasses may override to inject a recomposed starting state
-     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
+     * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function _preOpSyncTrancheAccounting() internal virtual returns (SyncedAccountingState memory state) {
         // Execute the pre-op sync via the accountant
@@ -647,7 +642,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
      * @dev Seeds the waterfall with the checkpoint returned by `_getLastAccountingCheckpoint()`, which subclasses may override to inject a recomposed starting state
      * @notice Returns the asset claims and total tranche shares after minting any fees for the specified tranche
      * @param _trancheType An enumerator indicating which tranche to return claims and total tranche shares for
-     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
+     * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      * @return claims The cumulative asset claims that the specified tranche is entitled to
      * @return totalTrancheShares The total shares outstanding in the specified tranche after minting any protocol fee shares
      */
@@ -687,7 +682,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
      * @dev Must be executed after every NAV mutating operation that doesn't require a coverage check (ST redemption and JT deposit)
      * @param _op The operation being executed in between the pre and post synchronizations
      * @param _stSelfLiquidationBonusNAV The NAV of assets from JT effective NAV used as a bonus for ST redemptions (only applicable if _op == ST_REDEEM)
-     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
+     * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function _postOpSyncTrancheAccounting(Operation _op, NAV_UNIT _stSelfLiquidationBonusNAV) internal virtual returns (SyncedAccountingState memory state) {
         // Execute the post-op sync on the accountant
@@ -698,7 +693,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
      * @notice Invokes the accountant to do a post-operation (deposit or withdrawal) NAV sync and enforce that the market's coverage requirement is satisfied after reconciliation
      * @dev Must be executed after every NAV mutating operation that requires a coverage check (ST deposit and JT redemption)
      * @param _op The operation being executed in between the pre and post synchronizations
-     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
+     * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function _postOpSyncTrancheAccountingAndEnforceCoverage(Operation _op) internal virtual returns (SyncedAccountingState memory state) {
         // Execute the post-op sync on the accountant
@@ -732,7 +727,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
     /**
      * @notice Derives the cumulative asset claims that the specified tranche is entitled to
      * @param _trancheType An enumerator indicating which tranche to return cumulative claims for
-     * @param _state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
+     * @param _state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      * @return claims The cumulative asset claims that the specified tranche is entitled to
      */
     function _deriveTrancheAssetClaims(TrancheType _trancheType, SyncedAccountingState memory _state)
@@ -758,7 +753,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
 
     /**
      * @notice Decomposes the synced accounting state into self-backed and cross-tranche NAV claims
-     * @param _state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
+     * @param _state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      * @return stClaimOnSelfRawNAV The portion of ST's effective NAV that is funded by ST’s raw NAV
      * @return stClaimOnJTRawNAV The portion of ST's effective NAV that is funded by JT’s raw NAV
      * @return jtClaimOnSTRawNAV The portion of JT's effective NAV that is funded by ST’s raw NAV
@@ -867,7 +862,7 @@ abstract contract RoycoDawnKernel is IRoycoDawnKernel, RoycoBase, ReentrancyGuar
      *      2. Absorb any duration risk associated with liquidating the withdrawn exposure
      * @dev The bonus is computed on the NAV being redeemed by the senior tranche
      * @dev The bonus is capped to ensure utilization does not increase, preventing bank run dynamics where one LP's bonus eats into coverage for remaining LPs
-     * @param _state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
+     * @param _state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      * @param _stUserClaims The claims of the redeeming ST user
      * @return stUserClaimsWithBonus The claims of the redeeming ST user after applying the self-liquidation bonus
      * @return stSelfLiquidationBonusNAV Bonus sourced from JT's claims on ST and JT assets

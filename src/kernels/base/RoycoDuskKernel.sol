@@ -145,18 +145,15 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
             // If there were no external ST shares on the last sync, but there are now
             if (lastSTSharesEffectiveSupply == 0) {
                 // The senior tranche raw NAV and effective NAVs are identical: the current raw NAV based on the distribution of shares (internal vs external)
-                // NOTE: If there were no external senior holder on the last sync, all self and coverage related impermanent losses must have been zeroed out
+                // NOTE: If there were no external senior holder on the last sync, the JT coverage impermanent loss must have been zeroed out
                 checkpoint.stRawNAV = _getSeniorTrancheRawNAV();
                 checkpoint.stEffectiveNAV = checkpoint.stRawNAV;
             } else {
                 // The senior tranche NAVs are scaled to reflect the ST shares that have been bought/sold by the junior tranche's LP position since the last accounting synchronization
                 checkpoint.stRawNAV = checkpoint.stRawNAV.mulDiv(currentSTSharesEffectiveSupply, lastSTSharesEffectiveSupply, Math.Rounding.Floor);
-                checkpoint.stEffectiveNAV =
-                    checkpoint.stEffectiveNAV.mulDiv(currentSTSharesEffectiveSupply, lastSTSharesEffectiveSupply, Math.Rounding.Floor);
-                checkpoint.stImpermanentLoss =
-                    checkpoint.stImpermanentLoss.mulDiv(currentSTSharesEffectiveSupply, lastSTSharesEffectiveSupply, Math.Rounding.Ceil);
-                checkpoint.jtImpermanentLoss =
-                    checkpoint.jtImpermanentLoss.mulDiv(currentSTSharesEffectiveSupply, lastSTSharesEffectiveSupply, Math.Rounding.Floor);
+                checkpoint.stEffectiveNAV = checkpoint.stEffectiveNAV.mulDiv(currentSTSharesEffectiveSupply, lastSTSharesEffectiveSupply, Math.Rounding.Floor);
+                checkpoint.jtCoverageImpermanentLoss =
+                    checkpoint.jtCoverageImpermanentLoss.mulDiv(currentSTSharesEffectiveSupply, lastSTSharesEffectiveSupply, Math.Rounding.Floor);
             }
 
             // NOTE: The junior tranche raw NAV is always left untouched, implying that any JT buys/sells of ST shares occurred at par value

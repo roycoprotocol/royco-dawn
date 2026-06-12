@@ -605,7 +605,7 @@ abstract contract YieldBearingERC4626_ChainlinkOracle_TestBase is AbstractKernel
         assertLe(maxRedeemAfter, maxRedeemBefore, "maxRedeem should decrease or stay same after loss with ST claims");
     }
 
-    /// @notice Tests that significant loss creates impermanent loss and disables ST deposits
+    /// @notice Tests that significant loss books JT coverage impermanent loss and gates ST deposits only by the coverage requirement
     function testFuzz_vaultSharePrice_significantLoss_createsImpermanentLoss(uint256 _jtAmount, uint256 _stPercentage, uint256 _lossPercentage) external {
         _jtAmount = bound(_jtAmount, _minDepositAmount() * 10, config.initialFunding / 100);
         _stPercentage = bound(_stPercentage, 50, 80);
@@ -623,7 +623,7 @@ abstract contract YieldBearingERC4626_ChainlinkOracle_TestBase is AbstractKernel
         _depositST(BOB_ADDRESS, stAmount);
 
         (SyncedAccountingState memory stateBefore,,) = KERNEL.previewSyncTrancheAccounting(TrancheType.SENIOR);
-        NAV_UNIT impermanentLossBefore = stateBefore.stImpermanentLoss;
+        NAV_UNIT impermanentLossBefore = stateBefore.jtCoverageImpermanentLoss;
 
         uint256 lossWAD = _lossPercentage * 1e16;
         simulateVaultSharePriceLoss(lossWAD);
@@ -632,16 +632,21 @@ abstract contract YieldBearingERC4626_ChainlinkOracle_TestBase is AbstractKernel
         KERNEL.syncTrancheAccounting();
 
         (SyncedAccountingState memory stateAfter,,) = KERNEL.previewSyncTrancheAccounting(TrancheType.SENIOR);
-        NAV_UNIT impermanentLossAfter = stateAfter.stImpermanentLoss;
+        NAV_UNIT impermanentLossAfter = stateAfter.jtCoverageImpermanentLoss;
 
         if (impermanentLossAfter > impermanentLossBefore) {
+            assertGt(toUint256(impermanentLossAfter), 0, "JT coverage impermanent loss should be tracked in accountant state");
+            assertLt(toUint256(stateAfter.jtEffectiveNAV), toUint256(stateBefore.jtEffectiveNAV), "JT effective NAV should decrease after covering ST losses");
+        }
+
+        if (stateAfter.jtEffectiveNAV == ZERO_NAV_UNITS) {
             TRANCHE_UNIT maxSTDepositAfterLoss = ST.maxDeposit(CHARLIE_ADDRESS);
-            assertEq(toUint256(maxSTDepositAfterLoss), 0, "ST deposits should be disabled during impermanent loss");
-            assertGt(toUint256(impermanentLossAfter), 0, "Impermanent loss should be tracked in accountant state");
+            assertEq(toUint256(maxSTDepositAfterLoss), 0, "ST deposits should be blocked when JT effective NAV is zero");
+            assertLe(toUint256(stateAfter.stEffectiveNAV), toUint256(stateBefore.stEffectiveNAV), "Uncovered loss should reduce ST effective NAV");
         }
     }
 
-    /// @notice Tests that share price recovery reduces impermanent loss
+    /// @notice Tests that share price recovery repays JT coverage impermanent loss
     function testFuzz_vaultSharePrice_recovery_reducesImpermanentLoss(uint256 _jtAmount, uint256 _stPercentage, uint256 _lossPercentage) external {
         _jtAmount = bound(_jtAmount, _minDepositAmount(), config.initialFunding / 10);
         _stPercentage = bound(_stPercentage, 50, 80);
@@ -667,7 +672,7 @@ abstract contract YieldBearingERC4626_ChainlinkOracle_TestBase is AbstractKernel
         KERNEL.syncTrancheAccounting();
 
         (SyncedAccountingState memory stateAfterLoss,,) = KERNEL.previewSyncTrancheAccounting(TrancheType.SENIOR);
-        NAV_UNIT impermanentLossAfterDrop = stateAfterLoss.stImpermanentLoss;
+        NAV_UNIT impermanentLossAfterDrop = stateAfterLoss.jtCoverageImpermanentLoss;
 
         // Recover share price to original
         uint256 currentSharePrice = _getCurrentSharePriceWAD();
@@ -682,9 +687,13 @@ abstract contract YieldBearingERC4626_ChainlinkOracle_TestBase is AbstractKernel
         assertApproxEqRel(_getCurrentSharePriceWAD(), initialSharePrice, 1e15, "Share price should recover to approximately initial");
 
         (SyncedAccountingState memory stateAfterRecovery,,) = KERNEL.previewSyncTrancheAccounting(TrancheType.SENIOR);
-        NAV_UNIT impermanentLossAfterRecovery = stateAfterRecovery.stImpermanentLoss;
+        NAV_UNIT impermanentLossAfterRecovery = stateAfterRecovery.jtCoverageImpermanentLoss;
 
-        assertLe(toUint256(impermanentLossAfterRecovery), toUint256(impermanentLossAfterDrop), "Impermanent loss should decrease after share price recovery");
+        assertLe(
+            toUint256(impermanentLossAfterRecovery),
+            toUint256(impermanentLossAfterDrop),
+            "JT coverage impermanent loss should decrease after share price recovery"
+        );
 
         if (impermanentLossAfterRecovery == ZERO_NAV_UNITS) {
             NAV_UNIT jtNAVAfterRecovery = JT.totalAssets().nav;

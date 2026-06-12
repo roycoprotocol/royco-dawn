@@ -20,6 +20,7 @@ library UtilsLib {
      * @notice Computes the utilization of the Royco market given the market's state
      * @dev Informally: (total coverage required for exposure) / (loss absorption buffer)
      * @dev Formally: Utilization = ((ST_RAW_NAV + (JT_RAW_NAV * β)) * COV) / JT_EFFECTIVE_NAV
+     * @dev Rounding favors ensuring senior tranche protection
      * @param _stRawNAV The raw net asset value of the senior tranche invested assets
      * @param _jtRawNAV The raw net asset value of the junior tranche invested assets
      * @param _betaWAD The JT's sensitivity to the same downside stress that affects ST, scaled to WAD precision
@@ -39,12 +40,14 @@ library UtilsLib {
         pure
         returns (uint256 utilization)
     {
-        // If there is no senior capital to protect, utilization is 0
-        if (_stRawNAV == ZERO_NAV_UNITS) return 0;
-        // If there is no remaining JT loss-absorption buffer, utilization is effectively infinite
+        // Compute the total exposure that the junior tranche is obligated to protect against a coverage sized drawdown
+        NAV_UNIT totalCoveredExposure = _stRawNAV + _jtRawNAV.mulDiv(_betaWAD, WAD, Math.Rounding.Ceil);
+        // If there is no covered exposure, there is nothing the junior buffer needs to protect, so utilization is 0
+        if (totalCoveredExposure == ZERO_NAV_UNITS) return 0;
+        // If there is no remaining JT loss-absorption buffer but covered exposure exists, utilization is effectively infinite
         if (_jtEffectiveNAV == ZERO_NAV_UNITS) return type(uint256).max;
-        // Round in favor of ensuring senior tranche protection
-        utilization = _coverageWAD.mulDiv((_stRawNAV + _jtRawNAV.mulDiv(_betaWAD, WAD, Math.Rounding.Ceil)), _jtEffectiveNAV, Math.Rounding.Ceil);
+        // Return the computed utilization
+        utilization = _coverageWAD.mulDiv(totalCoveredExposure, _jtEffectiveNAV, Math.Rounding.Ceil);
     }
 
     /**

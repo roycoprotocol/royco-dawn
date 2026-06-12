@@ -19,20 +19,20 @@ library AccountingLib {
     error NAV_CONSERVATION_VIOLATION();
 
     /**
-     * @notice Synchronizes the tranche NAVs and impermanent losses based on the unrealized PNL of the underlying investment(s)
-     * @dev Attributes each tranche's raw NAV delta across the checkpointed claims, then settles the deltas through the PnL waterfall (loss -> IL recovery -> yield split)
+     * @notice Synchronizes the tranche NAVs and the JT coverage impermanent loss based on the unrealized PNL of the underlying investment(s)
+     * @dev Attributes each tranche's raw NAV delta across the checkpointed claims, then settles the deltas through the PnL waterfall (loss -> coverage IL recovery -> yield split)
      * @dev Pure by design: all inputs are passed in explicitly so that callers can evaluate the waterfall repeatedly at candidate raw NAVs without touching state
      * @dev Protocol fees are computed alongside the settlement but are never deducted from the effective NAVs: collecting them is the caller's responsibility
      * @dev The YDM outputs consumed by the yield split are pre-resolved by the caller: they depend only on the last committed sync, so they are valid for any raw NAV inputs measured against this checkpoint
      * @param _stRawNAV The senior tranche's current raw NAV: the pure value of its invested assets
      * @param _jtRawNAV The junior tranche's current raw NAV: the pure value of its invested assets
      * @param _params The fixed inputs of the waterfall: the checkpoint, pre-resolved YDM outputs, fee rates, and dust tolerance
-     * @return postPnLWaterfallCheckpoint The post-waterfall checkpoint: the current raw NAVs alongside the settled effective NAVs and impermanent losses
+     * @return postPnLWaterfallCheckpoint The post-waterfall checkpoint: the current raw NAVs alongside the settled effective NAVs and JT coverage impermanent loss
      * @return stProtocolFeeAccrued The protocol fee accrued on ST yield in this sync (gross: not netted out of the effective NAVs)
      * @return jtProtocolFeeAccrued The protocol fee accrued on JT yield and the JT yield share in this sync (gross: not netted out of the effective NAVs)
      * @return yieldDistributed A boolean indicating whether ST yield was split between ST and JT
      */
-    function executeProfitAndLossWaterfall(
+    function applyProfitAndLossWaterfall(
         NAV_UNIT _stRawNAV,
         NAV_UNIT _jtRawNAV,
         PnLWaterfallParams memory _params
@@ -78,11 +78,10 @@ library AccountingLib {
             deltaJTEffectiveNAV = (deltaSTRawNAV + deltaJTRawNAV) - deltaSTEffectiveNAV;
         }
 
-        // Cache the checkpointed impermanent losses for each tranche
-        NAV_UNIT stImpermanentLoss = _params.checkpoint.stImpermanentLoss;
-        NAV_UNIT jtImpermanentLoss = _params.checkpoint.jtImpermanentLoss;
+        // Cache the checkpointed JT coverage impermanent loss
+        NAV_UNIT jtCoverageImpermanentLoss = _params.checkpoint.jtCoverageImpermanentLoss;
 
-        // The net JT gains after ST IL recovery. The JT protocol fee accrued is calculated using this NAV.
+        // The net JT gains. The JT protocol fee accrued is calculated using this NAV.
         NAV_UNIT jtNetGain = ZERO_NAV_UNITS;
         // Mark both the tranche NAVs to market
         /// @dev STEP_APPLY_JT_LOSS: The JT assets depreciated in value
@@ -93,26 +92,11 @@ library AccountingLib {
             jtEffectiveNAV = (jtEffectiveNAV - jtLoss);
             /// @dev STEP_APPLY_JT_GAIN: The JT assets appreciated in value
         } else if (deltaJTEffectiveNAV > 0) {
-            NAV_UNIT jtGain = toNAVUnits(deltaJTEffectiveNAV);
-            /// @dev STEP_ST_IMPERMANENT_LOSS_RECOVERY: First, recover any ST impermanent losses (first claim on JT appreciation)
-            NAV_UNIT stImpermanentLossRecovery = UnitsMathLib.min(jtGain, stImpermanentLoss);
-            if (stImpermanentLossRecovery != ZERO_NAV_UNITS) {
-                // Recover as much of the ST impermanent loss as possible
-                stImpermanentLoss = (stImpermanentLoss - stImpermanentLossRecovery);
-                // Apply the retroactive coverage to the ST
-                stEffectiveNAV = (stEffectiveNAV + stImpermanentLossRecovery);
-                jtGain = (jtGain - stImpermanentLossRecovery);
-            }
-            /// @dev STEP_JT_ACCRUES_RESIDUAL_GAINS: JT accrues any remaining appreciation after clearing ST IL
-            if (jtGain != ZERO_NAV_UNITS) {
-                jtNetGain = jtGain;
-                // Compute the protocol fee taken on this JT yield accrual if it is not attributable to any rounding/dust
-                if (jtNetGain > _params.effectiveNAVDustTolerance) {
-                    jtProtocolFeeAccrued = jtNetGain.mulDiv(_params.jtProtocolFeeWAD, WAD, Math.Rounding.Floor);
-                }
-                // Book the residual gains to the JT
-                jtEffectiveNAV = (jtEffectiveNAV + jtNetGain);
-            }
+            jtNetGain = toNAVUnits(deltaJTEffectiveNAV);
+            // Compute the protocol fee taken on this JT yield accrual if it is not attributable to any rounding/dust
+            if (jtNetGain > _params.effectiveNAVDustTolerance) jtProtocolFeeAccrued = jtNetGain.mulDiv(_params.jtProtocolFeeWAD, WAD, Math.Rounding.Floor);
+            // Book the gains to the JT
+            jtEffectiveNAV = (jtEffectiveNAV + jtNetGain);
         }
 
         /// @dev STEP_APPLY_ST_LOSS: The ST assets depreciated in value
@@ -130,38 +114,24 @@ library AccountingLib {
                 // Apply the coverage to JT effective NAV
                 jtEffectiveNAV = (jtEffectiveNAV - coverageApplied);
                 // Any coverage provided is a ST liability to JT
-                jtImpermanentLoss = (jtImpermanentLoss + coverageApplied);
+                jtCoverageImpermanentLoss = (jtCoverageImpermanentLoss + coverageApplied);
                 stLoss = stLoss - coverageApplied;
             }
             /// @dev STEP_ST_INCURS_RESIDUAL_LOSSES: Apply any uncovered losses by JT to ST
-            if (stLoss != ZERO_NAV_UNITS) {
-                // Apply residual losses to ST
-                stEffectiveNAV = (stEffectiveNAV - stLoss);
-                // The uncovered portion of the ST loss is a JT liability to ST
-                stImpermanentLoss = (stImpermanentLoss + stLoss);
-            }
+            if (stLoss != ZERO_NAV_UNITS) stEffectiveNAV = (stEffectiveNAV - stLoss);
             /// @dev STEP_APPLY_ST_GAIN: The ST assets appreciated in value
         } else if (deltaSTEffectiveNAV > 0) {
             NAV_UNIT stGain = toNAVUnits(deltaSTEffectiveNAV);
-            /// @dev STEP_ST_IMPERMANENT_LOSS_RECOVERY: First, recover any ST impermanent losses (first claim on ST appreciation)
-            NAV_UNIT impermanentLossRecovery = UnitsMathLib.min(stGain, stImpermanentLoss);
-            if (impermanentLossRecovery != ZERO_NAV_UNITS) {
-                // Recover as much of the ST impermanent loss as possible
-                stImpermanentLoss = (stImpermanentLoss - impermanentLossRecovery);
-                // Apply the ST IL recovery
-                stEffectiveNAV = (stEffectiveNAV + impermanentLossRecovery);
-                stGain = (stGain - impermanentLossRecovery);
-            }
-            /// @dev STEP_JT_COVERAGE_IMPERMANENT_LOSS_RECOVERY: Second, recover any JT coverage inflicted impermanent losses (second claim on ST appreciation)
-            impermanentLossRecovery = UnitsMathLib.min(stGain, jtImpermanentLoss);
-            if (impermanentLossRecovery != ZERO_NAV_UNITS) {
+            /// @dev STEP_JT_COVERAGE_IMPERMANENT_LOSS_RECOVERY: First, recover any JT coverage inflicted impermanent losses (first claim on ST appreciation)
+            NAV_UNIT jtCoverageImpermanentLossRecovery = UnitsMathLib.min(stGain, jtCoverageImpermanentLoss);
+            if (jtCoverageImpermanentLossRecovery != ZERO_NAV_UNITS) {
                 // Recover as much of the JT coverage impermanent loss as possible
-                jtImpermanentLoss = (jtImpermanentLoss - impermanentLossRecovery);
+                jtCoverageImpermanentLoss = (jtCoverageImpermanentLoss - jtCoverageImpermanentLossRecovery);
                 // Apply the JT coverage IL recovery
-                jtEffectiveNAV = (jtEffectiveNAV + impermanentLossRecovery);
-                stGain = (stGain - impermanentLossRecovery);
+                jtEffectiveNAV = (jtEffectiveNAV + jtCoverageImpermanentLossRecovery);
+                stGain = (stGain - jtCoverageImpermanentLossRecovery);
             }
-            /// @dev STEP_DISTRIBUTE_YIELD: There are no remaining impermanent losses that ST yield is obligated to repay, the residual gains will be used to distribute yield to both tranches
+            /// @dev STEP_DISTRIBUTE_YIELD: There is no remaining JT coverage impermanent loss that ST yield is obligated to repay, the residual gains will be used to distribute yield to both tranches
             if (stGain != ZERO_NAV_UNITS) {
                 // Mark yield as distributed if the gain is not attributable to any rounding/dust
                 if (stGain > _params.effectiveNAVDustTolerance) yieldDistributed = true;
@@ -197,8 +167,7 @@ library AccountingLib {
             jtRawNAV: _jtRawNAV,
             stEffectiveNAV: stEffectiveNAV,
             jtEffectiveNAV: jtEffectiveNAV,
-            stImpermanentLoss: stImpermanentLoss,
-            jtImpermanentLoss: jtImpermanentLoss
+            jtCoverageImpermanentLoss: jtCoverageImpermanentLoss
         });
     }
 
@@ -208,13 +177,13 @@ library AccountingLib {
      * @dev Computes the market's utilization internally from the post-waterfall checkpoint and the coverage configuration
      * @dev Erases the JT coverage IL and zeroes the protocol fees in the marshaled state where the transition demands it; all inputs are read-only
      * @dev Resulting market state:
-     *      1. Forced Perpetual: The fixed-term duration is set to 0 (permanently perpetual), current fixed-term elapsed, or liquidation utilization threshold has been breached (undercollateralized) or ST IL exists (distressed)
+     *      1. Forced Perpetual: The fixed-term duration is set to 0 (permanently perpetual), current fixed-term elapsed, or liquidation utilization threshold has been breached (undercollateralized)
      *      2. Normal Perpetual: JT coverage IL is within dust tolerance (staying perpetual) or fully recovered (exiting fixed-term for perpetual)
-     *      3. Fixed-term: The JT coverage IL is above the dust tolerance of the market, fixed-term duration hasn't elapsed, liquidation utilization threshold hasn't been breached, and ST IL nonexistent
+     *      3. Fixed-term: The JT coverage IL is above the dust tolerance of the market, fixed-term duration hasn't elapsed, and liquidation utilization threshold hasn't been breached
      * @param _initialMarketState The market state persisted by the last committed sync (the transition's origin state)
      * @param _params The inputs of the transition: the post-waterfall checkpoint, the fees accrued, and the market's coverage and fixed-term configuration
-     * @return state The complete post-sync accounting state: the resulting market state alongside the synced NAVs, impermanent losses, fees, and metrics
-     * @return jtImpermanentLossErased The JT coverage impermanent loss erased (reset to 0) by a forced perpetual transition
+     * @return state The complete post-sync accounting state: the resulting market state alongside the synced NAVs, JT coverage impermanent loss, fees, and metrics
+     * @return jtCoverageImpermanentLossErased The JT coverage impermanent loss erased (reset to 0) by a forced perpetual transition
      */
     function applyStateTransition(
         MarketState _initialMarketState,
@@ -222,7 +191,7 @@ library AccountingLib {
     )
         internal
         pure
-        returns (SyncedAccountingState memory state, NAV_UNIT jtImpermanentLossErased)
+        returns (SyncedAccountingState memory state, NAV_UNIT jtCoverageImpermanentLossErased)
     {
         // Compute the market's utilization against the post-waterfall JT effective NAV
         uint256 utilizationWAD = UtilsLib.computeUtilization(
@@ -239,27 +208,27 @@ library AccountingLib {
 
         MarketState resultingMarketState;
         uint32 fixedTermEndTimestamp = _params.fixedTermEndTimestamp;
-        NAV_UNIT jtImpermanentLoss = _params.postPnLWaterfallCheckpoint.jtImpermanentLoss;
-        // If the market is permanently perpetual, the fixed-term elapsed, undercollateralized, or distressed, the market must be in a perpetual state
+        NAV_UNIT jtCoverageImpermanentLoss = _params.postPnLWaterfallCheckpoint.jtCoverageImpermanentLoss;
+        // If the market is permanently perpetual, the fixed-term elapsed, or under/uncollateralized, the market must be in a perpetual state
         if (
             _params.fixedTermDurationSeconds == 0 || (_initialMarketState == MarketState.FIXED_TERM && fixedTermEndTimestamp <= _params.currentTimestamp)
-                || utilizationWAD >= _params.liquidationUtilizationWAD || _params.postPnLWaterfallCheckpoint.stImpermanentLoss != ZERO_NAV_UNITS
+                || utilizationWAD >= _params.liquidationUtilizationWAD
+                || (_params.postPnLWaterfallCheckpoint.jtEffectiveNAV == ZERO_NAV_UNITS && _params.postPnLWaterfallCheckpoint.stEffectiveNAV > ZERO_NAV_UNITS)
         ) {
             // JT coverage impermanent loss has to be explicitly cleared in this branch:
             // If the fixed-term duration is 0, the market is permanently in a perpetual state and never incurs any JT coverage IL
             // If the current fixed-term has elapsed, the market needs to transition to a perpetual state since the transient JT protection period is complete
-            // If the liquidation utilization threshold has been breached without existent ST IL, the market is approaching an uncollateralized state: ST needs to be able to withdraw to avoid losses and the YDM needs to kick in to reinstate proper collateralization
-            // If ST IL exists, the market is in a distressed state: STs need to be able to book losses and any future appreciation will go to making ST whole again
-            jtImpermanentLossErased = jtImpermanentLoss;
-            jtImpermanentLoss = ZERO_NAV_UNITS;
+            // If the market is under/uncollateralized, ST needs to be able to withdraw to avoid/book losses and the YDM needs to kick in to reinstate proper collateralization
+            jtCoverageImpermanentLossErased = jtCoverageImpermanentLoss;
+            jtCoverageImpermanentLoss = ZERO_NAV_UNITS;
             // Transition to a perpetual state
             resultingMarketState = MarketState.PERPETUAL;
             fixedTermEndTimestamp = 0;
             // If the market has less than dust coverage provided by JT
-        } else if (jtImpermanentLoss <= _params.effectiveNAVDustTolerance) {
+        } else if (jtCoverageImpermanentLoss <= _params.effectiveNAVDustTolerance) {
             // JT coverage IL is either nonexistent or can be attributed to dust ST losses (eg. rounding in the underlying ST NAV)
             // If market was in a perpetual state or the coverage IL was completely wiped, transition to a perpetual state
-            if (_initialMarketState == MarketState.PERPETUAL || jtImpermanentLoss == ZERO_NAV_UNITS) {
+            if (_initialMarketState == MarketState.PERPETUAL || jtCoverageImpermanentLoss == ZERO_NAV_UNITS) {
                 // Transition to a perpetual state
                 resultingMarketState = MarketState.PERPETUAL;
                 fixedTermEndTimestamp = 0;
@@ -287,8 +256,7 @@ library AccountingLib {
             jtRawNAV: _params.postPnLWaterfallCheckpoint.jtRawNAV,
             stEffectiveNAV: _params.postPnLWaterfallCheckpoint.stEffectiveNAV,
             jtEffectiveNAV: _params.postPnLWaterfallCheckpoint.jtEffectiveNAV,
-            stImpermanentLoss: _params.postPnLWaterfallCheckpoint.stImpermanentLoss,
-            jtImpermanentLoss: jtImpermanentLoss,
+            jtCoverageImpermanentLoss: jtCoverageImpermanentLoss,
             stProtocolFeeAccrued: stProtocolFeeAccrued,
             jtProtocolFeeAccrued: jtProtocolFeeAccrued,
             utilizationWAD: utilizationWAD,

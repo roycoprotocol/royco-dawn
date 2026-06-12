@@ -107,9 +107,6 @@ interface IRoycoDawnKernel {
     /// @notice Thrown when the caller of a permissioned function isn't the market's junior tranche
     error ONLY_JUNIOR_TRANCHE();
 
-    /// @notice Thrown when a ST LP is attempting to deposit when ST impermanent loss exists
-    error ST_DEPOSIT_DISABLED_IN_LOSS();
-
     /// @notice Thrown when a ST LP is attempting to redeem in a fixed term market state
     error ST_REDEEM_DISABLED_IN_FIXED_TERM_STATE();
 
@@ -255,7 +252,7 @@ interface IRoycoDawnKernel {
     /**
      * @notice Synchronizes and persists the raw and effective NAVs of both tranches
      * @dev Only executes a pre-op sync because there is no operation being executed in the same call as this sync
-     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
+     * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      */
     function syncTrancheAccounting() external returns (SyncedAccountingState memory state);
 
@@ -263,7 +260,7 @@ interface IRoycoDawnKernel {
      * @notice Previews a synchronization of the raw and effective NAVs of both tranches
      * @dev Does not mutate any state
      * @param _trancheType An enumerator indicating which tranche to execute this preview for
-     * @return state The synced NAV, impermanent loss, and fee accounting containing all mark-to-market accounting data
+     * @return state The synced NAV, JT coverage impermanent loss, and fee accounting containing all mark-to-market accounting data
      * @return claims The claims on ST and JT assets that the specified tranche has denominated in tranche-native units
      * @return totalTrancheShares The total number of shares that exist in the specified tranche after minting any protocol fee shares post-sync
      */

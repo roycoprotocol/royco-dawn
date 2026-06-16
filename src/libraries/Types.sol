@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { NAV_UNIT, QUOTE_UNIT, TRANCHE_UNIT } from "./Units.sol";
+import { NAV_UNIT, TRANCHE_UNIT } from "./Units.sol";
 /**
  * @title MarketState
  * @notice Defines the operational state of a Royco market
@@ -35,17 +35,6 @@ struct AssetClaims {
     TRANCHE_UNIT stAssets;
     TRANCHE_UNIT jtAssets;
     NAV_UNIT nav;
-}
-
-/**
- * @title LiquidityPositionClaims
- * @dev A struct representing liquidity position claims on senior tranche shares and quote assets for Royco Dusk Kernel
- * @custom:field stShares - The claim on senior tranche shares that the liquidity position holds
- * @custom:field quoteAssets - The claim on quote assets that the liquidity position holds denominated in quote units
- */
-struct LiquidityPositionClaims {
-    uint256 stShares;
-    QUOTE_UNIT quoteAssets;
 }
 
 /**

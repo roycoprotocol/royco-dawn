@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { LiquidityPositionClaims } from "../libraries/Types.sol";
-import { NAV_UNIT, QUOTE_UNIT, TRANCHE_UNIT } from "../libraries/Units.sol";
+import { NAV_UNIT, QUOTE_UNIT } from "../libraries/Units.sol";
 import { IRoycoDawnKernel } from "./IRoycoDawnKernel.sol";
 
 /**
@@ -51,24 +50,9 @@ interface IRoycoDuskKernel is IRoycoDawnKernel {
     function QUOTE_ASSET() external view returns (address quoteAsset);
 
     /**
-     * @notice Converts the specified JT assets (LP tokens) denominated in its tranche units to the liquidity postion's claims
-     * @param _jtAssets The JT assets (LP tokens) denominated in tranche units to convert to the liquidity postion's claims
-     * @return lpClaims The liquidity position claims for the specified amount of JT assets (LP tokens)
-     */
-    function jtConvertTrancheUnitsToLPClaims(TRANCHE_UNIT _jtAssets) external view returns (LiquidityPositionClaims memory lpClaims);
-
-    /**
-     * @notice Converts the specified quote assets for the ST share of  denominated in its tranche units to the liquidity postion's claims
+     * @notice Converts the specified quote assets denominated in quote units to the kernel's NAV units
      * @param _quoteAssets The quote assets denominated in quote units to convert to the kernel's NAV units
      * @return nav The specified quote assets denominated in quote units converted to the kernel's NAV units
      */
     function lpConvertQuoteAssetsToNAVUnits(QUOTE_UNIT _quoteAssets) external view returns (NAV_UNIT nav);
-
-    /**
-     * @notice Converts the specified amount of internal senior tranche shares to their pro-rata claim on the senior tranche's underlying yield-bearing assets
-     * @dev Internal senior tranche shares are the senior tranche shares held by the junior tranche's liquidity position, as opposed to the external senior tranche shares held by senior tranche depositors
-     * @param _internalSTShares The amount of internal senior tranche shares to convert
-     * @return stAssets The pro-rata claim on the senior tranche's underlying yield-bearing assets, denominated in tranche units
-     */
-    function convertInternalSTSharesToSTAssets(uint256 _internalSTShares) external view returns (TRANCHE_UNIT stAssets);
 }

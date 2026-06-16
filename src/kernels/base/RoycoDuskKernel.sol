@@ -3,19 +3,15 @@ pragma solidity ^0.8.28;
 
 import { IERC20Metadata } from "../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import { IRoycoDuskKernel } from "../../interfaces/IRoycoDuskKernel.sol";
-import { ZERO_NAV_UNITS, ZERO_QUOTE_UNITS, ZERO_TRANCHE_UNITS } from "../../libraries/Constants.sol";
-import { AssetClaims, ConversionRateCacheKey, KernelType, LiquidityPositionClaims } from "../../libraries/Types.sol";
+import { AssetClaims, ConversionRateCacheKey, KernelType } from "../../libraries/Types.sol";
 import { Math, NAV_UNIT, QUOTE_UNIT, TRANCHE_UNIT, UnitsMathLib, toTrancheUnits, toUint256 } from "../../libraries/Units.sol";
-import { IERC20, IRoycoDawnKernel, IRoycoVaultTranche, RoycoDawnKernel, SafeERC20 } from "./RoycoDawnKernel.sol";
+import { IRoycoDawnKernel, RoycoDawnKernel } from "./RoycoDawnKernel.sol";
 
 /**
  * @title RoycoDuskKernel
  */
 abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
-    using SafeERC20 for IERC20;
-    using UnitsMathLib for uint256;
     using UnitsMathLib for NAV_UNIT;
-    using UnitsMathLib for TRANCHE_UNIT;
 
     /// @dev Storage slot for RoycoDuskKernelState using ERC-7201 pattern
     // keccak256(abi.encode(uint256(keccak256("Royco.storage.RoycoDuskKernelState")) - 1)) & ~bytes32(uint256(0xff))
@@ -56,17 +52,8 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
     // =============================
 
     /// @inheritdoc IRoycoDawnKernel
-    /// @dev Retrieves the ST shares and quote assets owned by the JT liquidity position and converts them to NAV units
-    function jtConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _jtAssets) public view virtual override(IRoycoDawnKernel, RoycoDawnKernel) returns (NAV_UNIT nav) {
-        // Retrieve the liquidity position claims for the specified JT assets
-        LiquidityPositionClaims memory lpClaims = jtConvertTrancheUnitsToLPClaims(_jtAssets);
-        // Retrieve the NAV of the quote asset claims if non-zero
-        if (lpClaims.quoteAssets != ZERO_QUOTE_UNITS) nav = lpConvertQuoteAssetsToNAVUnits(lpClaims.quoteAssets);
-        // Preemptively return if the liquidity position has no ST shares to value
-        if (lpClaims.stShares == 0) return nav;
-        // Sum any quote asset NAV with the NAV of the ST yield bearing assets owned by JT
-        nav = nav + stConvertTrancheUnitsToNAVUnits(convertInternalSTSharesToSTAssets(lpClaims.stShares));
-    }
+    /// @dev TODO: rewire to the conservative BPT valuation (frozen invariant, fair-point value, demand clamp, senior-favoring floor) per the Dusk spec
+    function jtConvertTrancheUnitsToNAVUnits(TRANCHE_UNIT _jtAssets) public view virtual override(IRoycoDawnKernel, RoycoDawnKernel) returns (NAV_UNIT nav) { }
 
     /// @inheritdoc IRoycoDawnKernel
     function jtConvertNAVUnitsToTrancheUnits(NAV_UNIT _navAssets) public view virtual override(IRoycoDawnKernel, RoycoDawnKernel) returns (TRANCHE_UNIT) {
@@ -76,87 +63,28 @@ abstract contract RoycoDuskKernel is IRoycoDuskKernel, RoycoDawnKernel {
     }
 
     /// @inheritdoc IRoycoDuskKernel
-    function convertInternalSTSharesToSTAssets(uint256 _internalSTShares) public view override(IRoycoDuskKernel) returns (TRANCHE_UNIT stAssets) {
-        return
-            _getRoycoDawnKernelStorage().stOwnedYieldBearingAssets
-                .mulDiv(_internalSTShares, IRoycoVaultTranche(SENIOR_TRANCHE).totalSupply(), Math.Rounding.Floor);
-    }
-
-    /// @inheritdoc IRoycoDuskKernel
-    function jtConvertTrancheUnitsToLPClaims(TRANCHE_UNIT _jtAssets) public view virtual override(IRoycoDuskKernel) returns (LiquidityPositionClaims memory);
-
-    /// @inheritdoc IRoycoDuskKernel
     function lpConvertQuoteAssetsToNAVUnits(QUOTE_UNIT _quoteAssets) public view virtual override(IRoycoDuskKernel) returns (NAV_UNIT);
 
     // =============================
     // Internal Utility Functions
     // =============================
 
-    /// @inheritdoc RoycoDawnKernel
-    /// @dev Reconciles the ST assets owned by the effective supply of ST shares (excluding JT owned ST shares) and converts them to NAV units
-    function _getSeniorTrancheRawNAV() internal view virtual override(RoycoDawnKernel) returns (NAV_UNIT stRawNAV) {
-        RoycoDawnKernelState storage $ = _getRoycoDawnKernelStorage();
-        // Retrieve the senior tranche shares currently owned by the junior tranche
-        uint256 jtOwnedSTShares = jtConvertTrancheUnitsToLPClaims($.jtOwnedYieldBearingAssets).stShares;
-        // Get the total supply of senior tranche shares
-        uint256 stSharesTotalSupply = IRoycoVaultTranche(SENIOR_TRANCHE).totalSupply();
-        // Compute the effective supply of senior tranche shares (excludes JT owned ST shares)
-        uint256 stSharesEffectiveSupply = stSharesTotalSupply - jtOwnedSTShares;
-        if (stSharesEffectiveSupply == 0) return ZERO_NAV_UNITS;
-        // Convert the yield bearing assets owned by the effective senior tranche shares supply to NAV units via the configured quoter
-        return stConvertTrancheUnitsToNAVUnits($.stOwnedYieldBearingAssets.mulDiv(stSharesEffectiveSupply, stSharesTotalSupply, Math.Rounding.Floor));
-    }
-
-    /// @inheritdoc RoycoDawnKernel
-    function _getJuniorTrancheRawNAV() internal view virtual override(RoycoDawnKernel) returns (NAV_UNIT jtRawNAV) {
-        return jtConvertTrancheUnitsToNAVUnits(_getRoycoDawnKernelStorage().jtOwnedYieldBearingAssets);
-    }
-
     /**
      * @inheritdoc RoycoDawnKernel
      * @dev Remits any ST yield bearing assets in the claims directly to the receiver
-     * @dev Unwraps the liquidity position tied to the specified JT assets (LP tokens) and remits the internal ST shares withdrawn to this kernel and quote assets withdrawn to the receiver
-     * @dev Burns any internal ST shares withdrawn and remits their proportional claim on ST assets to the specified receiver
+     * @dev TODO: rewire the JT leg to unwrap the liquidity position via `_jtUnwrapLiquidityPosition` once the Dusk redemption flow is finalized
      */
-    function _withdrawAssets(AssetClaims memory _claims, address _receiver) internal virtual override(RoycoDawnKernel) {
-        // Cache the individual claims
-        TRANCHE_UNIT stAssetsToClaim = _claims.stAssets;
-        TRANCHE_UNIT jtAssetsToClaim = _claims.jtAssets;
-
-        // Credit the assets being withdrawn to the receiver
-        // Do one batch withdrawal if they are the same asset, else do two separate transfers
-        if (jtAssetsToClaim != ZERO_TRANCHE_UNITS) {
-            // Unwrap the liquidity position: the internal ST shares withdrawn must be in the kernel and the quote assets withdrawn must have been remitted to the specified receiver
-            uint256 internalSTSharesWithdrawn = _jtUnwrapLiquidityPosition(jtAssetsToClaim, _receiver);
-            // If their were no internal ST shares withdrawn, the JT assets claims have been withdrawn
-            if (internalSTSharesWithdrawn != 0) {
-                // Convert the internal ST shares withdrawn to their claims on ST assets
-                TRANCHE_UNIT internalSTAssetsToWithdraw = convertInternalSTSharesToSTAssets(internalSTSharesWithdrawn);
-                // Burn the internal ST shares this kernel received
-                IRoycoVaultTranche(SENIOR_TRANCHE).burn(internalSTSharesWithdrawn);
-                // Credit the ST assets being withdrawn
-                stAssetsToClaim = stAssetsToClaim + internalSTAssetsToWithdraw;
-            }
-        }
-
-        // Debit the ST and JT assets being withdrawn from each tranche if non-zero
-        RoycoDawnKernelState storage $ = _getRoycoDawnKernelStorage();
-        if (stAssetsToClaim != ZERO_TRANCHE_UNITS) $.stOwnedYieldBearingAssets = $.stOwnedYieldBearingAssets - stAssetsToClaim;
-        if (jtAssetsToClaim != ZERO_TRANCHE_UNITS) $.jtOwnedYieldBearingAssets = $.jtOwnedYieldBearingAssets - jtAssetsToClaim;
-
-        // Remit the ST assets directly to the specified receiver
-        IERC20(ST_ASSET).safeTransfer(_receiver, toUint256(stAssetsToClaim));
-    }
+    function _withdrawAssets(AssetClaims memory _claims, address _receiver) internal virtual override(RoycoDawnKernel) { }
 
     /**
      * @notice Unwraps the specified amount of junior tranche assets out of the junior tranche's underlying liquidity position
      * @dev The inheriting junior tranche liquidity position quoter must implement this function
-     * @dev The quote asset portion of the unwrap must be remitted directly to the receiver, the internal senior tranche shares released must be credited back to this kernel so that `_jtWithdrawAssets` can burn them against the senior tranche and remit the underlying senior assets to the receiver
+     * @dev The quote asset portion of the unwrap must be remitted directly to the receiver; the senior tranche shares released are credited back to this kernel, and their handling is wired by the Dusk redemption flow
      * @param _jtAssets The junior tranche assets (units of the underlying liquidity position) to unwrap
      * @param _receiver The recipient of the quote asset portion of the unwrap
-     * @return internalSTSharesWithdrawn The senior tranche shares withdrawn back to this kernel by the unwrap: they are burnt and remitted as the underlying senior asset to the receiver by `_jtWithdrawAssets`
+     * @return stSharesWithdrawn The senior tranche shares withdrawn back to this kernel by the unwrap
      */
-    function _jtUnwrapLiquidityPosition(TRANCHE_UNIT _jtAssets, address _receiver) internal virtual returns (uint256 internalSTSharesWithdrawn);
+    function _jtUnwrapLiquidityPosition(TRANCHE_UNIT _jtAssets, address _receiver) internal virtual returns (uint256 stSharesWithdrawn);
 
     // =============================
     // Internal Quoter Cache Functions

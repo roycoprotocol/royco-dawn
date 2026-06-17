@@ -17,7 +17,7 @@ import { NAV_UNIT, UnitsMathLib, toInt256, toNAVUnits, toUint256 } from "../../U
  * @author Waymont, Balancer Labs
  * @notice Conservatively values a Dusk junior tranche's Balancer pool token (BPT) at a candidate senior tranche rate
  * @dev The junior collateral is a Gyro E-CLP position pairing the senior tranche share against a quote asset. Valuing it needs the senior rate, which is itself the unknown the sync resolves: the senior tranche's claim depends on the junior collateral's value, which in turn depends on the senior rate. The sync resolves it by trying candidate senior NAVs and re-valuing the collateral at each, and this library supplies that per-candidate value
- * @dev The pool inputs are read from the Vault once per solve and frozen into a params struct; each candidate is then valued from that struct alone, with no further reads. Reading once makes the valuation a fixed function across the solve and immune to pool manipulation mid-sync. Either token ordering is handled, since the caller supplies the senior share's pool index
+ * @dev The pool inputs are read from the Vault once per solve and frozen into a params struct. Each candidate is then valued from that struct alone, with no further reads. Reading once makes the valuation a fixed function across the solve and immune to pool manipulation mid-sync. Either token ordering is handled, since the caller supplies the senior share's pool index
  * @dev The raw pool value is Balancer's `EclpLPOracle` valuation, ported verbatim with its `GyroECLPMath` primitives (see the porting note below), so it inherits the oracle's audited arithmetic and rounding. A demand cap and senior-favoring rounding keep the mark conservative, never overstating the junior collateral. NAV quantities are typed as `NAV_UNIT` and unwrapped to integers only at the Balancer call boundary
  */
 library EclpBPTValuationLib {
@@ -38,13 +38,13 @@ library EclpBPTValuationLib {
      * @param derivedParams The off-chain derived E-CLP parameters (tauAlpha, tauBeta, u, v, w, z, dSq)
      * @param invariant The pool's liquidity invariant, rounded down. The valuation derives the pool composition from this frozen invariant rather than the live balances, so trades during the sync cannot move the mark
      * @param stSharePoolIndex The senior tranche share's index in the pool's token registration order (0 or 1)
-     * @param quoteAssetRate The quote asset's NAV value per pool scaled-18 unit, held constant across the solve. Net of the pool's own rate scaling, which the frozen invariant already applies, so the rate is not double counted; yield-bearing quotes carry their own rate
+     * @param quoteAssetRate The quote asset's NAV value per pool scaled-18 unit, held constant across the solve. Net of the pool's own rate scaling, which the frozen invariant already applies, so the rate is not double counted. Yield-bearing quotes carry their own rate
      * @param stShareSupply The senior tranche share total supply (18 decimals)
      * @param stShareRate The senior share rate the pool's live senior balance was scaled by at solve start (its NAV per share). The frozen invariant is denominated in these units, so candidate rates are expressed relative to it
      * @param jtOwnedBPT The BPT amount the junior tranche owns
-     * @param bptTotalSupply The pool's total BPT supply; the junior claim is the fraction `jtOwnedBPT / bptTotalSupply` of the pool value
-     * @param isSupplyCapped True when the pool's curve would imply holding more senior shares than the supply at some price, so the value is capped at low senior NAVs; false means the value equals the raw pool value everywhere
-     * @param maxCappedSTEffectiveNAV The largest candidate senior NAV still in the capped region; at or below it the value is capped, above it it is the raw pool value
+     * @param bptTotalSupply The pool's total BPT supply. The junior claim is the fraction `jtOwnedBPT / bptTotalSupply` of the pool value
+     * @param isSupplyCapped True when the pool's curve would imply holding more senior shares than the supply at some price, so the value is capped at low senior NAVs. False means the value equals the raw pool value everywhere
+     * @param maxCappedSTEffectiveNAV The largest candidate senior NAV still in the capped region. At or below it the value is capped, above it the value is the raw pool value
      * @param capContinuityOffset The gap between the raw pool value and the capped value at the threshold, subtracted from the raw pool value above the threshold so the capped and raw pieces meet with no jump
      */
     struct FixedEclpBPTValuationParams {
@@ -70,7 +70,7 @@ library EclpBPTValuationLib {
      * @notice Reads and freezes every input for one solve from the Balancer Vault and pool
      * @dev Reads the pool parameters, live balances, and invariant, then precomputes the demand cap. After this returns, valuing a candidate touches no storage and makes no external calls
      * @param _vault The Balancer V3 Vault custodying the pool
-     * @param _pool The Gyro E-CLP pool backing the junior tranche; its two tokens are the senior tranche share and the quote asset
+     * @param _pool The Gyro E-CLP pool backing the junior tranche. Its two tokens are the senior tranche share and the quote asset
      * @param _stSharePoolIndex The senior tranche share's index in the pool's token registration order (0 or 1), resolved and validated by the caller at deployment
      * @param _quoteAssetRate The quote asset's NAV value per pool scaled-18 unit (net of the pool's own rate scaling)
      * @param _stShareSupply The senior tranche share total supply
@@ -91,7 +91,6 @@ library EclpBPTValuationLib {
         view
         returns (FixedEclpBPTValuationParams memory state)
     {
-        IGyroECLPPool pool = IGyroECLPPool(_pool);
         state.stSharePoolIndex = _stSharePoolIndex;
 
         // The total BPT supply backing the junior's pro-rata claim, read from the Vault (its internal accounting is the source of truth, and cheaper than the pool's ERC20 facade, which just forwards to the Vault)
@@ -105,11 +104,12 @@ library EclpBPTValuationLib {
         );
 
         // The E-CLP parameters: a single staticcall returning the pool's immutables
-        (state.params, state.derivedParams) = pool.getECLPParams();
+        (state.params, state.derivedParams) = IGyroECLPPool(_pool).getECLPParams();
 
         // The frozen invariant, computed exactly as the oracle does: from live rate-scaled balances, rounded DOWN so the mark never overstates the pool (senior-favoring)
+        // `getCurrentLiveBalances` already scales the senior leg by the rate provider's solve-start rate, so that rate is baked into the invariant here once. Candidates are then re-priced relative to it (see `_computeSTShareScaledPrice`) rather than by re-scaling the balances, which is what keeps the invariant static for the whole solve
         uint256[] memory balancesLiveScaled18 = _vault.getCurrentLiveBalances(_pool);
-        state.invariant = pool.computeInvariant(balancesLiveScaled18, Rounding.ROUND_DOWN);
+        state.invariant = IGyroECLPPool(_pool).computeInvariant(balancesLiveScaled18, Rounding.ROUND_DOWN);
 
         state.quoteAssetRate = _quoteAssetRate;
         state.stShareSupply = _stShareSupply;
@@ -166,7 +166,7 @@ library EclpBPTValuationLib {
             )
         );
 
-        // Uncapped region: the implied holding is below the supply, so the value is not capped to that NAV. Lower the raw value by the continuity offset that stitches it onto the capped region; the offset never exceeds the raw value, so the result stays in [0, raw]
+        // Uncapped region: the implied holding is below the supply, so the value is not capped to that NAV. Lower the raw value by the continuity offset that stitches it onto the capped region. The offset never exceeds the raw value, so the result stays in [0, raw]
         return _state.isSupplyCapped ? rawPoolNAV - _state.capContinuityOffset : rawPoolNAV;
     }
 
@@ -189,7 +189,7 @@ library EclpBPTValuationLib {
 
     /**
      * @notice The pool-scaled senior price for a senior NAV: its implied per-share rate relative to the frozen rate
-     * @dev The pool's senior balance is already scaled by the senior rate, so the frozen invariant is in rate-scaled units. To re-price at a senior NAV, the curve is fed that NAV's per-share rate divided by the frozen rate (1.0 at the frozen rate), which avoids double counting the rate: concretely NAV * WAD^2 / (supply * frozen rate). Computed straight from the NAV at full precision and rounded down (senior-favoring); forming the per-share rate first would quantize it and make the mark jump in coarse steps the solve cannot follow
+     * @dev The pool's senior balance is already scaled by the senior rate, so the frozen invariant is in rate-scaled units. To re-price at a senior NAV, the curve is fed that NAV's per-share rate divided by the frozen rate (1.0 at the frozen rate), which avoids double counting the rate: concretely NAV * WAD^2 / (supply * frozen rate). Computed straight from the NAV at full precision and rounded down (senior-favoring). Forming the per-share rate first would quantize it and make the mark jump in coarse steps the solve cannot follow
      * @param _state The frozen valuation params
      * @param _stEffectiveNAV The senior tranche effective NAV to price
      * @return The pool-scaled senior price (WAD)
@@ -200,21 +200,16 @@ library EclpBPTValuationLib {
 
     /**
      * @notice Precomputes the demand cap so the mark never counts senior shares that do not exist
-     * @dev At each senior price the curve implies a senior-share holding. At low prices that holding can exceed the supply: the pool could only hold that many if more senior shares existed, and counting holdings beyond the supply would credit the senior tranche coverage the junior cannot deliver, so the counted holding is capped at the supply. The implied holding falls as the senior price rises, so it crosses the supply at a single price, found here by a one-off bisection. At or below the corresponding candidate NAV the value is capped to that NAV; above it the value is the raw pool value minus a fixed offset chosen so the two regions meet with no jump. If the implied holding never reaches the supply anywhere, the value is the raw pool value directly
+     * @dev At each senior price the curve implies a senior-share holding. At low prices that holding can exceed the supply: the pool could only hold that many if more senior shares existed, and counting holdings beyond the supply would credit the senior tranche coverage the junior cannot deliver, so the counted holding is capped at the supply. The implied holding falls as the senior price rises, so it crosses the supply at a single price. That crossing is found in closed form by inverting the frozen curve at the supply (the reserve inversion Balancer uses for swaps) and reading the marginal price off the resulting composition. At or below the corresponding candidate NAV the value is capped to that NAV. Above it the value is the raw pool value minus a fixed offset chosen so the two regions meet with no jump. If the implied holding never reaches the supply anywhere, the value is the raw pool value directly
      * @param _state The frozen valuation params, mutated in place to set the cap fields
      */
     function _precomputeDemandCap(FixedEclpBPTValuationParams memory _state) private pure {
         bool seniorIsToken0 = _state.stSharePoolIndex == 0;
 
-        // Hoist the senior leg's corner reserve coefficient once: the x leg (from tauBeta) for senior token0, the y leg (from tauAlpha) for senior token1
-        int256 seniorCorner = seniorIsToken0
-            ? _removePrecision(GyroECLPMath.mulAinv(_state.params, _state.derivedParams.tauBeta).x)
-            : _removePrecision(GyroECLPMath.mulAinv(_state.params, _state.derivedParams.tauAlpha).y);
-
         // The cap threshold in the pool's scaled-18 senior units: the senior supply valued at the frozen rate
         uint256 stSupplyScaled = _state.stShareSupply.mulDown(toUint256(_state.stShareRate));
 
-        // Demand peaks at the senior-rich corner: the all-token0 extent for senior token0, the all-token1 extent for senior token1
+        // The senior reserve peaks at the senior-rich corner: the all-token0 extent for senior token0, the all-token1 extent for senior token1
         int256 peakCoeff = seniorIsToken0
             ? _removePrecision(
                 GyroECLPMath.mulAinv(_state.params, _state.derivedParams.tauBeta).x - GyroECLPMath.mulAinv(_state.params, _state.derivedParams.tauAlpha).x
@@ -231,25 +226,30 @@ library EclpBPTValuationLib {
         }
         _state.isSupplyCapped = true;
 
-        // Find the price ratio in [alpha, beta] where the senior reserve crosses the supply. The reserve decreases in the ratio when
-        // the senior is token0 (peak at alpha) and increases when it is token1 (peak at beta), so orient the bisection by the index
-        int256 ratioLow = _state.params.alpha;
-        int256 ratioHigh = _state.params.beta;
-        while (ratioHigh - ratioLow > 1) {
-            int256 midRatio = (ratioLow + ratioHigh) / 2;
-            // A reserve at or above the supply sits on the high-reserve side of the crossing; keep the half-interval still straddling it
-            if ((_computeSeniorReserveScaledAtRatio(_state, midRatio, seniorCorner) >= stSupplyScaled) == seniorIsToken0) {
-                ratioLow = midRatio;
-            } else {
-                ratioHigh = midRatio;
-            }
+        // Locate the crossing price in closed form: pin the senior reserve at the supply, invert the frozen curve for the paired quote
+        // reserve, and read the marginal price off that composition. The fast path above returned unless the supply sits strictly below
+        // the senior-rich corner extent, so this reserve is strictly interior to the curve: the inversion lands on a real point whose
+        // price is strictly inside [alpha, beta], and the supply (being under that extent) is also within the int256 cast's range
+        int256 invariantSigned = _state.invariant.toInt256();
+        IGyroECLPPool.Vector2 memory invariantVector = IGyroECLPPool.Vector2(invariantSigned, invariantSigned);
+        uint256[] memory thresholdBalances = new uint256[](2);
+        thresholdBalances[_state.stSharePoolIndex] = stSupplyScaled;
+        // `a` and `b` are the curve's virtual offsets, returned by the inversion and reused for the spot price
+        int256 quoteReserve;
+        int256 a;
+        int256 b;
+        if (seniorIsToken0) {
+            (quoteReserve, a, b) = GyroECLPMath.calcYGivenX(stSupplyScaled.toInt256(), _state.params, _state.derivedParams, invariantVector);
+        } else {
+            (quoteReserve, a, b) = GyroECLPMath.calcXGivenY(stSupplyScaled.toInt256(), _state.params, _state.derivedParams, invariantVector);
         }
-        int256 thresholdRatio = (ratioLow + ratioHigh) / 2;
+        thresholdBalances[1 - _state.stSharePoolIndex] = uint256(quoteReserve);
+        uint256 pxIny = GyroECLPMath.computePrice(thresholdBalances, _state.params, a, b);
 
-        // Map the crossing ratio back to a senior scaled price, then to the candidate senior NAV the per-candidate path compares against.
-        // The ratio is senior/quote for senior token0 (invert by multiplying) and quote/senior for senior token1 (invert by dividing)
-        int256 quoteRate = toInt256(_state.quoteAssetRate);
-        uint256 thresholdPrice = seniorIsToken0 ? uint256(thresholdRatio.mulDownMag(quoteRate)) : uint256(quoteRate.divDownMag(thresholdRatio));
+        // Map the crossing price back to a senior scaled price, then to the candidate senior NAV the per-candidate path compares against.
+        // pxIny is the token0-in-token1 price: senior over quote for senior token0 (invert by multiplying), quote over senior for senior token1 (invert by dividing)
+        uint256 quoteRate = toUint256(_state.quoteAssetRate);
+        uint256 thresholdPrice = seniorIsToken0 ? pxIny.mulDown(quoteRate) : quoteRate.divDown(pxIny);
         NAV_UNIT thresholdNAV = toNAVUnits(thresholdPrice.mulDiv(_state.stShareSupply * toUint256(_state.stShareRate), (WAD ** 2)));
         _state.maxCappedSTEffectiveNAV = thresholdNAV;
 
@@ -259,21 +259,6 @@ library EclpBPTValuationLib {
             _state.params, _state.derivedParams, _state.invariant, _computeOrderedPriceVector(_state, _computeSTShareScaledPrice(_state, thresholdNAV))
         );
         _state.capContinuityOffset = rawAtThreshold > toUint256(thresholdNAV) ? toNAVUnits(rawAtThreshold - toUint256(thresholdNAV)) : toNAVUnits(uint256(0));
-    }
-
-    /**
-     * @notice The senior-share holding the curve implies at a price ratio, in scaled-18 senior units
-     * @dev Used only while locating the cap threshold. Reconstructs the senior leg's fair-point reserve (the x leg for senior token0, the y leg for senior token1) the same way the ported in-band branch does
-     * @param _state The frozen valuation params
-     * @param _pxIny The price ratio (token0 price over token1 price) inside the band
-     * @param _seniorCorner The senior leg's corner reserve coefficient, hoisted by the caller
-     * @return The implied senior holding at the fair point
-     */
-    function _computeSeniorReserveScaledAtRatio(FixedEclpBPTValuationParams memory _state, int256 _pxIny, int256 _seniorCorner) private pure returns (uint256) {
-        IGyroECLPPool.Vector2 memory vec = GyroECLPMath.mulAinv(_state.params, GyroECLPMath.tau(_state.params, _pxIny));
-        int256 reserveAtRatio = _state.stSharePoolIndex == 0 ? vec.x : vec.y;
-        int256 coeff = _seniorCorner - reserveAtRatio;
-        return coeff <= 0 ? 0 : uint256(coeff).mulDown(_state.invariant);
     }
 
     // =====================================================================================

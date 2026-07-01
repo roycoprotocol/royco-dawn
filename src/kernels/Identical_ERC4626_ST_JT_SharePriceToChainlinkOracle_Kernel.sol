@@ -22,12 +22,16 @@ contract Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel is RoycoKern
      * @param _initialConversionRateWAD The initial ERC4626 base asset to NAV unit conversion rate, scaled to WAD precision (should be set to 0 unless oracle rate should be overridden)
      * @param _baseAssetToNavAssetOracle The ERC4626 base asset to NAV accounting asset oracle
      * @param _stalenessThresholdSeconds The staleness threshold in seconds
+     * @param _sequencerUptimeFeed The L2 sequencer uptime feed to check before trusting the price (set to the null address to disable the check)
+     * @param _gracePeriodSeconds The grace period in seconds that must elapse after the L2 sequencer is restored before trusting the price
      */
     function initialize(
         IRoycoKernel.RoycoKernelInitParams calldata _params,
         uint256 _initialConversionRateWAD,
         address _baseAssetToNavAssetOracle,
-        uint48 _stalenessThresholdSeconds
+        uint48 _stalenessThresholdSeconds,
+        address _sequencerUptimeFeed,
+        uint48 _gracePeriodSeconds
     )
         external
         initializer
@@ -35,6 +39,8 @@ contract Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel is RoycoKern
         // Initialize the base kernel state
         __RoycoKernel_init(_params);
         // Initialize the identical ERC4626 shares to Chainlink (compatible) oracle quoter
-        __IdenticalERC4626SharesToChainlinkOracleQuoter_init(_initialConversionRateWAD, _baseAssetToNavAssetOracle, _stalenessThresholdSeconds);
+        __IdenticalERC4626SharesToChainlinkOracleQuoter_init(
+            _initialConversionRateWAD, _baseAssetToNavAssetOracle, _stalenessThresholdSeconds, _sequencerUptimeFeed, _gracePeriodSeconds
+        );
     }
 }

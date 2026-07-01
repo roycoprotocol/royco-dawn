@@ -80,7 +80,11 @@ contract stcUSD_stcUSD_Test is FundamentalStablecoinPeg_ERC4626_ChainlinkOracle_
 
         marketConfig.kernelSpecificParams = abi.encode(
             DeployScript.IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
-                initialConversionRateWAD: 0, baseAssetToNavAssetOracle: cUSDOracle, stalenessThresholdSeconds: 86_400
+                initialConversionRateWAD: 0,
+                baseAssetToNavAssetOracle: cUSDOracle,
+                stalenessThresholdSeconds: 86_400,
+                sequencerUptimeFeed: address(0),
+                gracePeriodSeconds: 0
             })
         );
 

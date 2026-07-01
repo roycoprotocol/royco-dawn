@@ -111,6 +111,8 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         uint256 initialConversionRateWAD;
         address trancheAssetToReferenceAssetOracle;
         uint48 stalenessThresholdSeconds;
+        address sequencerUptimeFeed;
+        uint48 gracePeriodSeconds;
     }
 
     /// @notice Deployment parameters for Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel
@@ -123,6 +125,8 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         uint256 initialConversionRateWAD;
         address baseAssetToNavAssetOracle;
         uint48 stalenessThresholdSeconds;
+        address sequencerUptimeFeed;
+        uint48 gracePeriodSeconds;
     }
 
     /// @notice Deployment parameters for kernels that employ the IdenticalAssetsAdminOracleQuoter
@@ -137,6 +141,8 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         uint256 initialConversionRateWAD;
         address iUSDToNavAssetOracle;
         uint48 stalenessThresholdSeconds;
+        address sequencerUptimeFeed;
+        uint48 gracePeriodSeconds;
     }
 
     /// @notice Deployment parameters for StaticCurveYDM
@@ -459,8 +465,8 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
     /// @param _kernel The address of the kernel contract
     /// @return The roles configuration for the kernel contract
     function _buildKernelRolesConfig(address _kernel) private pure returns (IRoycoFactory.RolesTargetConfiguration memory) {
-        bytes4[] memory selectors = new bytes4[](11);
-        uint64[] memory roleValues = new uint64[](11);
+        bytes4[] memory selectors = new bytes4[](12);
+        uint64[] memory roleValues = new uint64[](12);
 
         selectors[0] = IRoycoKernel.setProtocolFeeRecipient.selector;
         roleValues[0] = ADMIN_KERNEL_ROLE;
@@ -484,6 +490,8 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         roleValues[9] = TRANSFER_AGENT_ROLE;
         selectors[10] = IRoycoKernel.setBlacklistStatus.selector;
         roleValues[10] = TRANSFER_AGENT_ROLE;
+        selectors[11] = IdenticalAssetsChainlinkOracleQuoter.setSequencerUptimeFeed.selector;
+        roleValues[11] = ADMIN_ORACLE_QUOTER_ROLE;
 
         return IRoycoFactory.RolesTargetConfiguration({ target: _kernel, selectors: selectors, roles: roleValues });
     }
@@ -1068,7 +1076,9 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
                     kernelParams,
                     kernelParams2.initialConversionRateWAD,
                     kernelParams2.trancheAssetToReferenceAssetOracle,
-                    kernelParams2.stalenessThresholdSeconds
+                    kernelParams2.stalenessThresholdSeconds,
+                    kernelParams2.sequencerUptimeFeed,
+                    kernelParams2.gracePeriodSeconds
                 )
             );
         } else if (_kernelType == KernelType.Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel) {
@@ -1080,7 +1090,14 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
                 abi.decode(_kernelSpecificParams, (IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams));
             return abi.encodeCall(
                 Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.initialize,
-                (kernelParams, kernelParams2.initialConversionRateWAD, kernelParams2.baseAssetToNavAssetOracle, kernelParams2.stalenessThresholdSeconds)
+                (
+                    kernelParams,
+                    kernelParams2.initialConversionRateWAD,
+                    kernelParams2.baseAssetToNavAssetOracle,
+                    kernelParams2.stalenessThresholdSeconds,
+                    kernelParams2.sequencerUptimeFeed,
+                    kernelParams2.gracePeriodSeconds
+                )
             );
         } else if (_kernelType == KernelType.IdleCdoAA_ST_IdleCdoAA_JT) {
             return abi.encodeCall(Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel.initialize, (kernelParams));
@@ -1093,7 +1110,9 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
                     kernelParams,
                     kernelParams2.initialConversionRateWAD,
                     kernelParams2.trancheAssetToReferenceAssetOracle,
-                    kernelParams2.stalenessThresholdSeconds
+                    kernelParams2.stalenessThresholdSeconds,
+                    kernelParams2.sequencerUptimeFeed,
+                    kernelParams2.gracePeriodSeconds
                 )
             );
         } else if (_kernelType == KernelType.Identical_Makina_ST_JT_MachineToAdminOracle_Kernel) {
@@ -1108,7 +1127,14 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
                 abi.decode(_kernelSpecificParams, (IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams));
             return abi.encodeCall(
                 Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.initialize,
-                (kernelParams, kernelParams2.initialConversionRateWAD, kernelParams2.baseAssetToNavAssetOracle, kernelParams2.stalenessThresholdSeconds)
+                (
+                    kernelParams,
+                    kernelParams2.initialConversionRateWAD,
+                    kernelParams2.baseAssetToNavAssetOracle,
+                    kernelParams2.stalenessThresholdSeconds,
+                    kernelParams2.sequencerUptimeFeed,
+                    kernelParams2.gracePeriodSeconds
+                )
             );
         } else if (_kernelType == KernelType.apyUSD_ST_JT_SharePriceToChainlinkOracle_Kernel) {
             IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams memory kernelParams2 =
@@ -1116,20 +1142,41 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
             // apyUSD kernel inherits initialize from Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
             return abi.encodeCall(
                 Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.initialize,
-                (kernelParams, kernelParams2.initialConversionRateWAD, kernelParams2.baseAssetToNavAssetOracle, kernelParams2.stalenessThresholdSeconds)
+                (
+                    kernelParams,
+                    kernelParams2.initialConversionRateWAD,
+                    kernelParams2.baseAssetToNavAssetOracle,
+                    kernelParams2.stalenessThresholdSeconds,
+                    kernelParams2.sequencerUptimeFeed,
+                    kernelParams2.gracePeriodSeconds
+                )
             );
         } else if (_kernelType == KernelType.Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle_Kernel) {
             LockedIUSDKernelParams memory kernelParams2 = abi.decode(_kernelSpecificParams, (LockedIUSDKernelParams));
             return abi.encodeCall(
                 Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle.initialize,
-                (kernelParams, kernelParams2.initialConversionRateWAD, kernelParams2.iUSDToNavAssetOracle, kernelParams2.stalenessThresholdSeconds)
+                (
+                    kernelParams,
+                    kernelParams2.initialConversionRateWAD,
+                    kernelParams2.iUSDToNavAssetOracle,
+                    kernelParams2.stalenessThresholdSeconds,
+                    kernelParams2.sequencerUptimeFeed,
+                    kernelParams2.gracePeriodSeconds
+                )
             );
         } else if (_kernelType == KernelType.sUSDat_ST_JT_SharePriceToChainlinkOracle_Kernel) {
             IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams memory kernelParams2 =
                 abi.decode(_kernelSpecificParams, (IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams));
             return abi.encodeCall(
                 Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.initialize,
-                (kernelParams, kernelParams2.initialConversionRateWAD, kernelParams2.baseAssetToNavAssetOracle, kernelParams2.stalenessThresholdSeconds)
+                (
+                    kernelParams,
+                    kernelParams2.initialConversionRateWAD,
+                    kernelParams2.baseAssetToNavAssetOracle,
+                    kernelParams2.stalenessThresholdSeconds,
+                    kernelParams2.sequencerUptimeFeed,
+                    kernelParams2.gracePeriodSeconds
+                )
             );
         } else {
             revert UnsupportedKernelType(_kernelType);

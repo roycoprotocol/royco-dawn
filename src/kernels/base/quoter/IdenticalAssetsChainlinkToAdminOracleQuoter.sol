@@ -16,17 +16,23 @@ abstract contract IdenticalAssetsChainlinkToAdminOracleQuoter is IdenticalAssets
      * @param _initialConversionRateWAD The initial conversion rate as defined by the oracle, scaled to WAD precision
      * @param _trancheAssetToReferenceAssetOracle The tranche asset to reference asset oracle
      * @param _stalenessThresholdSeconds The staleness threshold in seconds
+     * @param _sequencerUptimeFeed The L2 sequencer uptime feed to check before trusting the price (set to the null address to disable the check)
+     * @param _gracePeriodSeconds The grace period in seconds that must elapse after the L2 sequencer is restored before trusting the price
      */
     function __IdenticalAssetsChainlinkToAdminOracleQuoter_init(
         uint256 _initialConversionRateWAD,
         address _trancheAssetToReferenceAssetOracle,
-        uint48 _stalenessThresholdSeconds
+        uint48 _stalenessThresholdSeconds,
+        address _sequencerUptimeFeed,
+        uint48 _gracePeriodSeconds
     )
         internal
         onlyInitializing
     {
         __IdenticalAssetsAdminOracleQuoter_init(_initialConversionRateWAD);
-        __IdenticalAssetsChainlinkOracleQuoter_init_unchained(_trancheAssetToReferenceAssetOracle, _stalenessThresholdSeconds);
+        __IdenticalAssetsChainlinkOracleQuoter_init_unchained(
+            _trancheAssetToReferenceAssetOracle, _stalenessThresholdSeconds, _sequencerUptimeFeed, _gracePeriodSeconds
+        );
     }
 
     /// @inheritdoc IdenticalAssetsAdminOracleQuoter

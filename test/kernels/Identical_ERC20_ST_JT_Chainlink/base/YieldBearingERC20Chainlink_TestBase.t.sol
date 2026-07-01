@@ -9,6 +9,7 @@ import { Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel } from "../../../..
 import { IdenticalAssetsChainlinkOracleQuoter } from "../../../../src/kernels/base/quoter/base/IdenticalAssetsChainlinkOracleQuoter.sol";
 import { WAD } from "../../../../src/libraries/Constants.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits, toUint256 } from "../../../../src/libraries/Units.sol";
+import { MockSequencerUptimeFeed } from "../../../mock/MockSequencerUptimeFeed.sol";
 import { AbstractKernelTestSuite } from "../../abstract/AbstractKernelTestSuite.t.sol";
 
 /// @title YieldBearingERC20Chainlink_TestBase
@@ -30,6 +31,23 @@ abstract contract YieldBearingERC20Chainlink_TestBase is AbstractKernelTestSuite
 
     /// @notice The staleness threshold for the chainlink oracle
     uint48 internal constant DEFAULT_STALENESS_THRESHOLD = 1 days;
+
+    /// @notice The mock L2 sequencer uptime feed wired into the kernel so the suite exercises the sequencer-gated price path
+    MockSequencerUptimeFeed internal sequencerUptimeFeed;
+
+    /// @notice The grace period configured for the mock L2 sequencer uptime feed
+    uint48 internal constant SEQUENCER_UPTIME_GRACE_PERIOD = 1 hours;
+
+    /// @notice Wires a mock L2 sequencer uptime feed into the kernel after deployment so the entire inherited suite exercises
+    ///         the sequencer-gated price path at high fidelity, as it would on a real L2 deployment
+    /// @dev A deployed mock is used (rather than vm.mockCall) so it survives the vm.clearMockedCalls() that some tests perform.
+    ///      It defaults to "up" and restored at timestamp 1, so the grace period is always satisfied for normal tests.
+    function setUp() public virtual override {
+        super.setUp();
+        sequencerUptimeFeed = new MockSequencerUptimeFeed(0, 1);
+        vm.prank(ORACLE_QUOTER_ADMIN_ADDRESS);
+        Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(address(KERNEL)).setSequencerUptimeFeed(address(sequencerUptimeFeed), SEQUENCER_UPTIME_GRACE_PERIOD);
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONFIGURATION (To be overridden by protocol-specific implementations)
@@ -573,6 +591,109 @@ abstract contract YieldBearingERC20Chainlink_TestBase is AbstractKernelTestSuite
         // Should not revert
         uint256 rate = Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(address(KERNEL)).getTrancheUnitToNAVUnitConversionRateWAD();
         assertGt(rate, 0, "Conversion rate should be positive");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // L2 SEQUENCER UPTIME FEED TESTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @notice Tests that setting a sequencer uptime feed with a valid grace period updates the configuration
+    function test_setSequencerUptimeFeed_success() external {
+        address newFeed = makeAddr("newSequencerUptimeFeed");
+        uint48 gracePeriod = 2 hours;
+
+        vm.prank(ORACLE_QUOTER_ADMIN_ADDRESS);
+        Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(address(KERNEL)).setSequencerUptimeFeed(newFeed, gracePeriod);
+
+        IdenticalAssetsChainlinkOracleQuoter.IdenticalAssetsChainlinkOracleQuoterState memory config =
+            Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(address(KERNEL)).getChainlinkOracleConfiguration();
+        assertEq(config.sequencerUptimeFeed, newFeed, "Sequencer uptime feed should be updated");
+        assertEq(config.gracePeriodSeconds, gracePeriod, "Grace period should be updated");
+    }
+
+    /// @notice Tests that setting a sequencer uptime feed with a zero grace period reverts
+    function test_setSequencerUptimeFeed_revertsOnZeroGracePeriod() external {
+        vm.prank(ORACLE_QUOTER_ADMIN_ADDRESS);
+        vm.expectRevert(IdenticalAssetsChainlinkOracleQuoter.INVALID_GRACE_PERIOD_SECONDS.selector);
+        Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(address(KERNEL)).setSequencerUptimeFeed(makeAddr("feedZeroGrace"), 0);
+    }
+
+    /// @notice Tests that disabling the sequencer uptime feed (null address) is allowed and stops the sequencer check
+    function test_setSequencerUptimeFeed_allowsNullFeedWithZeroGracePeriod() external {
+        vm.prank(ORACLE_QUOTER_ADMIN_ADDRESS);
+        Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(address(KERNEL)).setSequencerUptimeFeed(address(0), 0);
+
+        IdenticalAssetsChainlinkOracleQuoter.IdenticalAssetsChainlinkOracleQuoterState memory config =
+            Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(address(KERNEL)).getChainlinkOracleConfiguration();
+        assertEq(config.sequencerUptimeFeed, address(0), "Sequencer uptime feed should be disabled");
+        assertEq(config.gracePeriodSeconds, 0, "Grace period should be zero");
+
+        // With the feed disabled the price query no longer consults the sequencer, even though the mock reports it down
+        sequencerUptimeFeed.setStatus(1, vm.getBlockTimestamp());
+        uint256 rate = Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(address(KERNEL)).getTrancheUnitToNAVUnitConversionRateWAD();
+        assertGt(rate, 0, "Price query should succeed when the sequencer check is disabled");
+    }
+
+    /// @notice Tests that a non-admin cannot set the sequencer uptime feed
+    function test_setSequencerUptimeFeed_revertsOnUnauthorized() external {
+        vm.prank(ALICE_ADDRESS);
+        vm.expectRevert(); // AccessManagerUnauthorizedAccount
+        Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(address(KERNEL)).setSequencerUptimeFeed(makeAddr("feed"), 1 hours);
+    }
+
+    /// @notice Tests that price queries revert when the L2 sequencer is down (status == 1)
+    function test_sequencerUptimeFeed_revertsWhenSequencerDown() external {
+        // The base wires an up feed; flip the mock to down
+        sequencerUptimeFeed.setStatus(1, vm.getBlockTimestamp());
+
+        vm.expectRevert(IdenticalAssetsChainlinkOracleQuoter.SEQUENCER_DOWN.selector);
+        Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(address(KERNEL)).getTrancheUnitToNAVUnitConversionRateWAD();
+    }
+
+    /// @notice Tests that price queries revert when the sequencer's grace period has not elapsed since it was restored
+    function test_sequencerUptimeFeed_revertsWhenGracePeriodNotOver() external {
+        // The sequencer is up but was just restored, so the grace period has not elapsed
+        sequencerUptimeFeed.setStatus(0, vm.getBlockTimestamp());
+
+        vm.expectRevert(IdenticalAssetsChainlinkOracleQuoter.GRACE_PERIOD_NOT_OVER.selector);
+        Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(address(KERNEL)).getTrancheUnitToNAVUnitConversionRateWAD();
+    }
+
+    /// @notice Tests that price queries revert at exactly the grace-period boundary (delta == gracePeriodSeconds), pinning the strict inequality
+    function test_sequencerUptimeFeed_revertsAtExactGraceBoundary() external {
+        // Restored exactly `gracePeriod` seconds ago: block.timestamp - startedAt == gracePeriod must still revert
+        sequencerUptimeFeed.setStatus(0, vm.getBlockTimestamp() - SEQUENCER_UPTIME_GRACE_PERIOD);
+
+        vm.expectRevert(IdenticalAssetsChainlinkOracleQuoter.GRACE_PERIOD_NOT_OVER.selector);
+        Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(address(KERNEL)).getTrancheUnitToNAVUnitConversionRateWAD();
+    }
+
+    /// @notice Tests that an uninitialized sequencer round (startedAt == 0) fails closed rather than passing
+    function test_sequencerUptimeFeed_revertsWhenStartedAtZero() external {
+        // startedAt == 0 indicates an uninitialized L2 uptime feed; the grace check must fail closed
+        sequencerUptimeFeed.setStatus(0, 0);
+
+        vm.expectRevert(IdenticalAssetsChainlinkOracleQuoter.GRACE_PERIOD_NOT_OVER.selector);
+        Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(address(KERNEL)).getTrancheUnitToNAVUnitConversionRateWAD();
+    }
+
+    /// @notice Tests that price queries succeed once the sequencer is up and the grace period has fully elapsed
+    function test_sequencerUptimeFeed_passesAfterGracePeriodElapses() external {
+        uint256 restoredAt = vm.getBlockTimestamp();
+        // The sequencer was just restored, so queries revert until the grace period elapses
+        sequencerUptimeFeed.setStatus(0, restoredAt);
+
+        // Warp just beyond the grace period and ensure the price feed returns fresh, valid data at the new timestamp
+        vm.warp(restoredAt + SEQUENCER_UPTIME_GRACE_PERIOD + 1);
+        vm.mockCall(_getChainlinkOracle(), abi.encodeWithSelector(AggregatorV3Interface.decimals.selector), abi.encode(uint8(18)));
+        vm.mockCall(
+            _getChainlinkOracle(),
+            abi.encodeWithSelector(AggregatorV3Interface.latestRoundData.selector),
+            abi.encode(uint80(1), int256(1e18), vm.getBlockTimestamp(), vm.getBlockTimestamp(), uint80(1))
+        );
+
+        uint256 rate = Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel(address(KERNEL)).getTrancheUnitToNAVUnitConversionRateWAD();
+        assertGt(rate, 0, "Conversion rate should be positive when the sequencer is up and the grace period has elapsed");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

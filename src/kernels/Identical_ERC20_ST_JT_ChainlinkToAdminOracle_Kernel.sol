@@ -22,12 +22,16 @@ contract Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel is RoycoKernel, Ide
      * @param _initialConversionRateWAD The initial reference asset to NAV unit conversion rate, scaled to WAD precision
      * @param _trancheAssetToReferenceAssetOracle The tranche asset to reference asset oracle
      * @param _stalenessThresholdSeconds The staleness threshold in seconds
+     * @param _sequencerUptimeFeed The L2 sequencer uptime feed to check before trusting the price (set to the null address to disable the check)
+     * @param _gracePeriodSeconds The grace period in seconds that must elapse after the L2 sequencer is restored before trusting the price
      */
     function initialize(
         IRoycoKernel.RoycoKernelInitParams calldata _params,
         uint256 _initialConversionRateWAD,
         address _trancheAssetToReferenceAssetOracle,
-        uint48 _stalenessThresholdSeconds
+        uint48 _stalenessThresholdSeconds,
+        address _sequencerUptimeFeed,
+        uint48 _gracePeriodSeconds
     )
         external
         initializer
@@ -35,6 +39,8 @@ contract Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel is RoycoKernel, Ide
         // Initialize the base kernel state
         __RoycoKernel_init(_params);
         // Initialize the identical assets chainlink to admin oracle quoter
-        __IdenticalAssetsChainlinkToAdminOracleQuoter_init(_initialConversionRateWAD, _trancheAssetToReferenceAssetOracle, _stalenessThresholdSeconds);
+        __IdenticalAssetsChainlinkToAdminOracleQuoter_init(
+            _initialConversionRateWAD, _trancheAssetToReferenceAssetOracle, _stalenessThresholdSeconds, _sequencerUptimeFeed, _gracePeriodSeconds
+        );
     }
 }

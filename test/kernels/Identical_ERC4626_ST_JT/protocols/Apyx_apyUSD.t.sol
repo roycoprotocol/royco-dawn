@@ -73,7 +73,11 @@ contract apyUSD_apyUSD_Test is YieldBearingERC4626_ChainlinkOracle_TestBase {
         // suite can read the live oracle without tripping STALE_PRICE.
         marketConfig.kernelSpecificParams = abi.encode(
             DeployScript.IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
-                initialConversionRateWAD: 0, baseAssetToNavAssetOracle: 0x2037a5Eb67aa9B2FBF50042B724D8c4dB80F23b4, stalenessThresholdSeconds: 365 days
+                initialConversionRateWAD: 0,
+                baseAssetToNavAssetOracle: 0x2037a5Eb67aa9B2FBF50042B724D8c4dB80F23b4,
+                stalenessThresholdSeconds: 365 days,
+                sequencerUptimeFeed: address(0),
+                gracePeriodSeconds: 0
             })
         );
 

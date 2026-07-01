@@ -18,6 +18,15 @@ abstract contract MarketDeploymentConfig {
     uint256 internal constant BASE = 8453;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // L2 SEQUENCER UPTIME FEEDS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Chainlink L2 sequencer uptime feed proxy addresses (https://docs.chain.link/data-feeds/l2-sequencer-feeds).
+    // L1 chains (e.g. MAINNET, AVALANCHE) have no sequencer and therefore no uptime feed.
+    address internal constant ARBITRUM_SEQUENCER_UPTIME_FEED = 0xFdB631F5EE196F0ed6FAa767959853A9F217697D;
+    address internal constant BASE_SEQUENCER_UPTIME_FEED = 0xBCF85224fc0756B9Fa45aA7892530B47e10b6433;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // CONTROLLING MULTISIG ADDRESSES
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -157,6 +166,15 @@ abstract contract MarketDeploymentConfig {
         });
     }
 
+    /// @notice Returns the Chainlink L2 sequencer uptime feed for a chain, or the null address if the chain has no sequencer (e.g. L1 chains)
+    /// @param _chainId The chain id to look up the L2 sequencer uptime feed for
+    /// @return sequencerUptimeFeed The chain's L2 sequencer uptime feed, or the null address if there is none
+    function getSequencerUptimeFeed(uint256 _chainId) public pure returns (address sequencerUptimeFeed) {
+        if (_chainId == ARBITRUM) return ARBITRUM_SEQUENCER_UPTIME_FEED;
+        if (_chainId == BASE) return BASE_SEQUENCER_UPTIME_FEED;
+        return address(0);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // MARKET CONFIG GETTER
     // ═══════════════════════════════════════════════════════════════════════════
@@ -196,7 +214,9 @@ abstract contract MarketDeploymentConfig {
                         // https://app.redstone.finance/push-feeds/cUSD_FUNDAMENTAL/ethereumMultiFeed
                         baseAssetToNavAssetOracle: 0x9A5a3c3Ed0361505cC1D4e824B3854De5724434A,
                         // 48 hours
-                        stalenessThresholdSeconds: 48 hours
+                        stalenessThresholdSeconds: 48 hours,
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
                     })
             ),
             enforceVaultSharesTransferWhitelist: false,
@@ -236,7 +256,9 @@ abstract contract MarketDeploymentConfig {
                         // https://app.redstone.finance/app/feeds/ethereum-mainnet/nusd_fundamental/
                         baseAssetToNavAssetOracle: 0x5e7281f74e74D76347f0b8f4a36Fd3cb29c19d95,
                         // Updates to this oracle are pushed every 12 hours, so we set the staleness threshold to 48 hours for safety
-                        stalenessThresholdSeconds: 48 hours
+                        stalenessThresholdSeconds: 48 hours,
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
                     })
             ),
             enforceVaultSharesTransferWhitelist: false,
@@ -279,7 +301,9 @@ abstract contract MarketDeploymentConfig {
                         // https://data.chain.link/feeds/ethereum/mainnet/apxusd-usd-exchange-rate
                         baseAssetToNavAssetOracle: 0x651b101f72F82630cf59c68E6EE4305aFBd3B1F5,
                         // Mirror sNUSD: updates pushed every 12 hours, staleness threshold set to 48 hours for safety
-                        stalenessThresholdSeconds: 48 hours
+                        stalenessThresholdSeconds: 48 hours,
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
                     })
             ),
             enforceVaultSharesTransferWhitelist: false,
@@ -319,7 +343,9 @@ abstract contract MarketDeploymentConfig {
                         // Filler oracle address since the Oracle Leg is disabled
                         baseAssetToNavAssetOracle: address(1),
                         // Filler staleness threshold since the Oracle Leg is disabled
-                        stalenessThresholdSeconds: 86_400
+                        stalenessThresholdSeconds: 86_400,
+                        sequencerUptimeFeed: getSequencerUptimeFeed(AVALANCHE),
+                        gracePeriodSeconds: 0
                     })
             ),
             enforceVaultSharesTransferWhitelist: false,
@@ -362,7 +388,9 @@ abstract contract MarketDeploymentConfig {
                         // Filler oracle address since the Oracle Leg is disabled
                         baseAssetToNavAssetOracle: address(1),
                         // Filler staleness threshold since the Oracle Leg is disabled
-                        stalenessThresholdSeconds: 86_400
+                        stalenessThresholdSeconds: 86_400,
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
                     })
             ),
             enforceVaultSharesTransferWhitelist: false,
@@ -402,7 +430,9 @@ abstract contract MarketDeploymentConfig {
                 DeployScript.IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams({
                         initialConversionRateWAD: 1e18,
                         trancheAssetToReferenceAssetOracle: 0x8D51DBC85cEef637c97D02bdaAbb5E274850e68C,
-                        stalenessThresholdSeconds: 1800 // TODO
+                        stalenessThresholdSeconds: 1800, // TODO
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
                     })
             ),
             enforceVaultSharesTransferWhitelist: false,
@@ -443,7 +473,9 @@ abstract contract MarketDeploymentConfig {
                 DeployScript.IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams({
                         initialConversionRateWAD: 1e18,
                         trancheAssetToReferenceAssetOracle: 0x6DA10958c691454BE7eb5f3e3B91b5713e542b17,
-                        stalenessThresholdSeconds: 1800
+                        stalenessThresholdSeconds: 1800,
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
                     })
             ),
             enforceVaultSharesTransferWhitelist: false,
@@ -557,7 +589,9 @@ abstract contract MarketDeploymentConfig {
                         // Filler oracle address since the Oracle Leg is disabled
                         baseAssetToNavAssetOracle: address(1),
                         // Filler staleness threshold since the Oracle Leg is disabled
-                        stalenessThresholdSeconds: 86_400
+                        stalenessThresholdSeconds: 86_400,
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
                     })
             ),
             enforceVaultSharesTransferWhitelist: false,
@@ -598,7 +632,9 @@ abstract contract MarketDeploymentConfig {
                         // Disable the Oracle Leg by setting the initial conversion rate to 1e18
                         initialConversionRateWAD: 1e18,
                         baseAssetToNavAssetOracle: address(1),
-                        stalenessThresholdSeconds: 86_400
+                        stalenessThresholdSeconds: 86_400,
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
                     })
             ),
             enforceVaultSharesTransferWhitelist: false,
@@ -643,7 +679,9 @@ abstract contract MarketDeploymentConfig {
                     // https://app.redstone.finance/app/feeds/ethereum-mainnet/acred_fundamental/
                     trancheAssetToReferenceAssetOracle: 0xD6BcbbC87bFb6c8964dDc73DC3EaE6d08865d51C,
                     // This oracle is updated semi regularly, approximately once or twice every day. So we set the staleness threshold to 48 hours
-                    stalenessThresholdSeconds: 48 hours
+                    stalenessThresholdSeconds: 48 hours,
+                    sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                    gracePeriodSeconds: 0
                 })
             ),
             stSelfLiquidationBonusWAD: 0.01e18,
@@ -758,7 +796,9 @@ abstract contract MarketDeploymentConfig {
                         // Disable the Oracle Leg by setting the initial conversion rate to 1e18
                         initialConversionRateWAD: 1e18,
                         baseAssetToNavAssetOracle: address(1),
-                        stalenessThresholdSeconds: 86_400
+                        stalenessThresholdSeconds: 86_400,
+                        sequencerUptimeFeed: getSequencerUptimeFeed(BASE),
+                        gracePeriodSeconds: 1 hours
                     })
             ),
             enforceVaultSharesTransferWhitelist: false,
@@ -800,7 +840,9 @@ abstract contract MarketDeploymentConfig {
                         // Disable the Oracle Leg by setting the initial conversion rate to 1e18
                         initialConversionRateWAD: 1e18,
                         baseAssetToNavAssetOracle: address(1),
-                        stalenessThresholdSeconds: 86_400
+                        stalenessThresholdSeconds: 86_400,
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
                     })
             ),
             enforceVaultSharesTransferWhitelist: false,
@@ -843,7 +885,9 @@ abstract contract MarketDeploymentConfig {
                         // Filler oracle address since the Oracle Leg is disabled
                         baseAssetToNavAssetOracle: address(1),
                         // Filler staleness threshold since the Oracle Leg is disabled
-                        stalenessThresholdSeconds: 86_400
+                        stalenessThresholdSeconds: 86_400,
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
                     })
             ),
             enforceVaultSharesTransferWhitelist: false,
@@ -888,7 +932,9 @@ abstract contract MarketDeploymentConfig {
                         // Filler oracle address since the Oracle Leg is disabled
                         baseAssetToNavAssetOracle: address(1),
                         // Filler staleness threshold since the Oracle Leg is disabled
-                        stalenessThresholdSeconds: 86_400
+                        stalenessThresholdSeconds: 86_400,
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
                     })
             ),
             enforceVaultSharesTransferWhitelist: false,
@@ -929,7 +975,9 @@ abstract contract MarketDeploymentConfig {
                     initialConversionRateWAD: 0,
                     // iUSD/USD Chainlink oracle
                     iUSDToNavAssetOracle: 0xF81Aa28A4F68124683AfadA81e8EBBf6e2867067,
-                    stalenessThresholdSeconds: 86_400
+                    stalenessThresholdSeconds: 86_400,
+                    sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                    gracePeriodSeconds: 0
                 })
             ),
             enforceVaultSharesTransferWhitelist: false,

@@ -18,17 +18,21 @@ abstract contract IdenticalERC4626SharesToChainlinkOracleQuoter is IdenticalERC4
      * @param _initialConversionRateWAD The initial conversion rate as defined by the oracle, scaled to WAD precision
      * @param _baseAssetToNavAssetOracle The ERC4626 base asset to NAV accounting asset oracle
      * @param _stalenessThresholdSeconds The staleness threshold in seconds
+     * @param _sequencerUptimeFeed The L2 sequencer uptime feed to check before trusting the price (set to the null address to disable the check)
+     * @param _gracePeriodSeconds The grace period in seconds that must elapse after the L2 sequencer is restored before trusting the price
      */
     function __IdenticalERC4626SharesToChainlinkOracleQuoter_init(
         uint256 _initialConversionRateWAD,
         address _baseAssetToNavAssetOracle,
-        uint48 _stalenessThresholdSeconds
+        uint48 _stalenessThresholdSeconds,
+        address _sequencerUptimeFeed,
+        uint48 _gracePeriodSeconds
     )
         internal
         onlyInitializing
     {
         __IdenticalAssetsOracleQuoter_init_unchained(_initialConversionRateWAD);
-        __IdenticalAssetsChainlinkOracleQuoter_init_unchained(_baseAssetToNavAssetOracle, _stalenessThresholdSeconds);
+        __IdenticalAssetsChainlinkOracleQuoter_init_unchained(_baseAssetToNavAssetOracle, _stalenessThresholdSeconds, _sequencerUptimeFeed, _gracePeriodSeconds);
     }
 
     /**

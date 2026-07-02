@@ -301,7 +301,7 @@ contract ACRED_ComplianceTest is Identical_ERC20_ST_JT_Chainlink_SBT_TestBase {
 
         // BOB tries to redeem ST normally — should revert
         vm.startPrank(BOB_ADDRESS);
-        vm.expectRevert(IRoycoKernel.ST_REDEEM_DISABLED_IN_FIXED_TERM_STATE.selector);
+        vm.expectRevert(IRoycoKernel.DISABLED_IN_FIXED_TERM_STATE.selector);
         ST.redeem(stShares, BOB_ADDRESS, BOB_ADDRESS);
         vm.stopPrank();
     }

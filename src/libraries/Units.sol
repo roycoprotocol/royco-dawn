@@ -87,8 +87,9 @@ function toUint256(NAV_UNIT _units) pure returns (uint256) {
     return NAV_UNIT.unwrap(_units);
 }
 
-function toInt256(NAV_UNIT _units) pure returns (int256) {
-    return int256(NAV_UNIT.unwrap(_units));
+function toInt256(NAV_UNIT _units) pure returns (int256 assets) {
+    // Ensure there was no overflow in the cast
+    require((assets = int256(NAV_UNIT.unwrap(_units))) >= 0, ASSETS_MUST_BE_NON_NEGATIVE());
 }
 
 function addNAVUnits(NAV_UNIT _a, NAV_UNIT _b) pure returns (NAV_UNIT) {

@@ -193,16 +193,6 @@ contract RoycoTrancheChainlinkOracleTest is Test {
         assertEq(answer, 0);
     }
 
-    function test_latestRoundData_int256CastWrapsOnOverflow() public {
-        // Documents the toInt256 cast: NAV exceeding int256.max wraps unchecked.
-        // For nav == type(uint256).max, the cast yields -1.
-        AssetClaims memory overflowingClaims = AssetClaims({ stAssets: toTrancheUnits(0), jtAssets: toTrancheUnits(0), nav: toNAVUnits(type(uint256).max) });
-        vm.mockCall(address(seniorTranche), abi.encodeWithSelector(IRoycoVaultTranche.convertToAssets.selector, WAD), abi.encode(overflowingClaims));
-
-        (, int256 answer,,,) = stOracle.latestRoundData();
-        assertEq(answer, int256(-1));
-    }
-
     function test_latestRoundData_int256CastBoundary() public {
         // At exactly int256.max, the cast is lossless and the oracle returns the max signed value.
         uint256 boundary = uint256(type(int256).max);

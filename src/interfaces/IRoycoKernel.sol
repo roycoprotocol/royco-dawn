@@ -110,11 +110,8 @@ interface IRoycoKernel {
     /// @notice Thrown when a ST LP is attempting to deposit when ST impermanent loss exists
     error ST_DEPOSIT_DISABLED_IN_LOSS();
 
-    /// @notice Thrown when a ST LP is attempting to redeem in a fixed term market state
-    error ST_REDEEM_DISABLED_IN_FIXED_TERM_STATE();
-
-    /// @notice Thrown when a JT LP is attempting to deposit in a fixed term market state
-    error JT_DEPOSIT_DISABLED_IN_FIXED_TERM_STATE();
+    /// @notice Thrown when an LP is attempting to deposit into or redeem from the market while it is in a fixed term state
+    error DISABLED_IN_FIXED_TERM_STATE();
 
     /// @notice Thrown when the caller of a permissioned function isn't the market's senior or junior tranche
     error ONLY_TRANCHE();

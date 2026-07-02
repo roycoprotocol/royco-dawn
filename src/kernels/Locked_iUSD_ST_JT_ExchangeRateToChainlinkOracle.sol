@@ -53,12 +53,16 @@ contract Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle is IdenticalAssetsChain
      * @param _initialIUSDToNAVUnitsConversionRateWAD The initial iUSD to NAV units (USD) conversion rate, scaled to WAD precision
      * @param _iUSDToNAVUnitsOracle The oracle to fetch the price of iUSD in NAV units (USD)
      * @param _stalenessThresholdSeconds The staleness threshold in seconds for the oracle
+     * @param _sequencerUptimeFeed The L2 sequencer uptime feed to check before trusting the price (set to the null address to disable the check)
+     * @param _gracePeriodSeconds The grace period in seconds that must elapse after the L2 sequencer is restored before trusting the price
      */
     function initialize(
         IRoycoKernel.RoycoKernelInitParams calldata _params,
         uint256 _initialIUSDToNAVUnitsConversionRateWAD,
         address _iUSDToNAVUnitsOracle,
-        uint48 _stalenessThresholdSeconds
+        uint48 _stalenessThresholdSeconds,
+        address _sequencerUptimeFeed,
+        uint48 _gracePeriodSeconds
     )
         external
         initializer
@@ -68,7 +72,7 @@ contract Locked_iUSD_ST_JT_ExchangeRateToChainlinkOracle is IdenticalAssetsChain
         // Initialize the identical assets oracle quoter
         __IdenticalAssetsOracleQuoter_init_unchained(_initialIUSDToNAVUnitsConversionRateWAD);
         // Initialize the identical assets chainlink oracle quoter
-        __IdenticalAssetsChainlinkOracleQuoter_init_unchained(_iUSDToNAVUnitsOracle, _stalenessThresholdSeconds);
+        __IdenticalAssetsChainlinkOracleQuoter_init_unchained(_iUSDToNAVUnitsOracle, _stalenessThresholdSeconds, _sequencerUptimeFeed, _gracePeriodSeconds);
     }
 
     /**

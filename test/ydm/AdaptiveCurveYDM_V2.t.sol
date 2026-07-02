@@ -688,15 +688,16 @@ contract AdaptiveCurveYDM_V2Test is BaseTest {
         NAV_UNIT stRawNAV = ZERO_NAV_UNITS;
         NAV_UNIT jtRawNAV = toNAVUnits(uint256(1e18));
         NAV_UNIT jtEffectiveNAV = toNAVUnits(uint256(1e18));
-        uint256 betaWAD = WAD;
         uint256 coverageWAD = WAD;
 
-        // UtilsLib.computeUtilization returns 0 when stRawNAV is 0 (no senior capital to protect)
-        // So utilization = 0, and yield share = Y_0 = DEFAULT_Y0 (10%)
-        uint256 yieldShare = ydm.previewJTYieldShare(MarketState.PERPETUAL, stRawNAV, jtRawNAV, betaWAD, coverageWAD, jtEffectiveNAV);
+        // A wiped senior raw NAV does NOT imply zero utilization. When the junior tranche carries beta-correlated exposure (beta > 0),
+        // the covered exposure (beta * jtRawNAV) is non-zero, so UtilsLib.computeUtilization reports real utilization and the curve responds to it.
+        uint256 yieldShareCorrelated = ydm.previewJTYieldShare(MarketState.PERPETUAL, stRawNAV, jtRawNAV, WAD, coverageWAD, jtEffectiveNAV);
+        assertGt(yieldShareCorrelated, DEFAULT_Y0, "Zero ST with beta-correlated JT exposure must produce non-zero utilization");
 
-        // With no senior capital, utilization is 0, so yield is at Y_0
-        assertEq(yieldShare, DEFAULT_Y0, "Zero ST means zero utilization regardless of JT");
+        // Only when there is genuinely no covered exposure (beta = 0, so beta * jtRawNAV = 0) does utilization fall to zero and yield to Y_0.
+        uint256 yieldShareUncorrelated = ydm.previewJTYieldShare(MarketState.PERPETUAL, stRawNAV, jtRawNAV, 0, coverageWAD, jtEffectiveNAV);
+        assertEq(yieldShareUncorrelated, DEFAULT_Y0, "Zero ST with zero beta has no covered exposure, so utilization is zero");
     }
 
     function test_edgeCase_zeroBeta() public view {

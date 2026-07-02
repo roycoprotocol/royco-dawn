@@ -21,6 +21,7 @@ abstract contract SyncerDeploymentConfig {
 
     /// @dev Deployed using CREATE2 on each chain
     address internal constant ROYCO_FACTORY = 0x7cC6fB28eC7b5e7afC3cB3986141797ffc27253C;
+    address internal constant ROYCO_FACTORY_BASE = 0x568c9709DaA2f7B7cc66AbC3E41DA0f0A339551A;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SYNCER NAMES
@@ -29,6 +30,7 @@ abstract contract SyncerDeploymentConfig {
     string public constant MAINNET_SYNCER = "MAINNET_SYNCER";
     string public constant AVALANCHE_SYNCER = "AVALANCHE_SYNCER";
     string public constant ARBITRUM_SYNCER = "ARBITRUM_SYNCER";
+    string public constant BASE_SYNCER = "BASE_SYNCER";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SYNCER CONFIG STRUCT
@@ -139,6 +141,18 @@ abstract contract SyncerDeploymentConfig {
         // Market kernels to add to the syncer:
         // - Metastreet sUSDai
         config.marketKernels.push(0xFdb17E53eA5d342124b8473188BCB9F05F1949CA);
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // BASE SYNCER CONFIG
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        config = _syncerConfigs[BASE_SYNCER];
+        config.chainId = BASE;
+        config.roycoFactory = ROYCO_FACTORY_BASE;
+
+        // Market kernels to add to the syncer:
+        // - Noon sUSN
+        config.marketKernels.push(0x3FBC599C113923439Ca6878B7A9b5433Cc3F4116); // sUSN
     }
 
     /// @notice Combines two address arrays into one

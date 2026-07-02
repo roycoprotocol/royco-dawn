@@ -152,8 +152,8 @@ contract DeployEntryPointScript is EntryPointDeploymentConfig, AccessManagerConf
         //   - grant ADMIN_ENTRY_POINT_ROLE to ROOT_MULTISIG (Standard) and WCE_MULTISIG (Immediate)
         //   - grant ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE to ROOT_MULTISIG (Immediate)
         //   - grant ST_LP_ROLE / JT_LP_ROLE / BURNER_ROLE to the entry point itself
-        RoleConfig memory entryPointAdminConfig = getRoleConfig(ADMIN_ENTRY_POINT_ROLE);
-        RoleConfig memory entryPointClaimFeeConfig = getRoleConfig(ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE);
+        // RoleConfig memory entryPointAdminConfig = getRoleConfig(ADMIN_ENTRY_POINT_ROLE);
+        // RoleConfig memory entryPointClaimFeeConfig = getRoleConfig(ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE);
         transactions = new SafeTransaction[](12);
         transactions[0] = buildSetTargetFunctionRole(_factory, _entryPoint, lpSelectors, PUBLIC_ROLE);
         transactions[1] = buildSetTargetFunctionRole(_factory, _entryPoint, adminSelectors, ADMIN_ENTRY_POINT_ROLE);
@@ -162,9 +162,9 @@ contract DeployEntryPointScript is EntryPointDeploymentConfig, AccessManagerConf
         transactions[4] = buildSetTargetFunctionRole(_factory, _entryPoint, unpauseSelectors, ADMIN_UNPAUSER_ROLE);
         transactions[5] = buildSetTargetFunctionRole(_factory, _entryPoint, upgraderSelectors, ADMIN_UPGRADER_ROLE);
         // Grant ADMIN_ENTRY_POINT_ROLE to ROOT_MULTISIG with the configured Standard delay
-        transactions[6] = buildGrantRole(_factory, ADMIN_ENTRY_POINT_ROLE, ROOT_MULTISIG, entryPointAdminConfig.executionDelay);
+        transactions[6] = buildGrantRole(_factory, ADMIN_ENTRY_POINT_ROLE, ROOT_MULTISIG, 24 hours);
         // Grant ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE to ROOT_MULTISIG (Immediate)
-        transactions[7] = buildGrantRole(_factory, ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE, ROOT_MULTISIG, entryPointClaimFeeConfig.executionDelay);
+        transactions[7] = buildGrantRole(_factory, ADMIN_ENTRY_POINT_ROLE_CLAIM_FEE, ROOT_MULTISIG, 0);
         // Grant ADMIN_ENTRY_POINT_ROLE to WCE_MULTISIG with immediate delay
         transactions[8] = buildGrantRole(_factory, ADMIN_ENTRY_POINT_ROLE, WCE_MULTISIG, 0);
         // The entry point itself needs LP roles to call tranche.deposit/redeem and BURNER_ROLE for yield forfeiture
@@ -369,5 +369,13 @@ contract DeployEntryPointScript is EntryPointDeploymentConfig, AccessManagerConf
         // sUSDai
         _addTrancheWithDefaultDelays(arbitrum, 0x90465aad4e426948A4ea342AC49A1A38200B7017);
         _addTrancheWithDefaultDelays(arbitrum, 0xeB60a64039289a4c07879147073A1Ec5AEA91553);
+
+        // ── Base ─────────────────────────────────────────────────────────────
+        EntryPointConfig storage base = _entryPointConfigs[BASE];
+        base.chainId = BASE;
+        base.roycoFactory = ROYCO_FACTORY_BASE;
+        // sUSN
+        _addTrancheWithDefaultDelays(base, 0x98d55707B60793AC8cadAB3C456dA156671F138a); // ST
+        _addTrancheWithDefaultDelays(base, 0xeEEd721C62e8b2d2d5AdA18FE82014C6c08D18A5); // JT
     }
 }

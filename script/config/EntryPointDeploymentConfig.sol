@@ -25,7 +25,8 @@ abstract contract EntryPointDeploymentConfig {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// @dev Deployed using CREATE2 - same address on every chain
-    address internal constant ROYCO_FACTORY = 0x7cC6fB28eC7b5e7afC3cB3986141797ffc27253C;
+    address internal constant ROYCO_FACTORY = 0x7cC6fB28eC7b5e7afC3cB3986141797ffc27253C; // Ethereum, Avalanche, Arbitrum
+    address internal constant ROYCO_FACTORY_BASE = 0x568c9709DaA2f7B7cc66AbC3E41DA0f0A339551A; // Base
 
     // ═══════════════════════════════════════════════════════════════════════════
     // MULTISIG ADDRESSES

@@ -1081,7 +1081,7 @@ abstract contract MarketDeploymentConfig {
                     jtYieldShareAtZeroUtilWAD: 0.11e18, // Y_0 = 11%
                     jtYieldShareAtTargetUtilWAD: 0.11e18, // target = 11%
                     jtYieldShareAtFullUtilWAD: 0.31e18, // Y_100 = 31%
-                    maxAdaptationSpeedWAD: 0 // we set the adaptation speed to 0 intially for new markets
+                    maxAdaptationSpeedWAD: uint64(40e18 / uint256(365 days)) // Adaptation Speed = 40
                 })
             ),
             transferAgentAddress: address(0)

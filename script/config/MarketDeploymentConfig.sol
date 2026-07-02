@@ -1052,16 +1052,16 @@ abstract contract MarketDeploymentConfig {
             // sUSN token (Noon staked USN) is both the senior and junior asset
             seniorAsset: 0x34a2798D47b238A7CbA9D87D49618DEE6C4D999F,
             juniorAsset: 0x34a2798D47b238A7CbA9D87D49618DEE6C4D999F,
-            stDustTolerance: 5,
-            jtDustTolerance: 5,
+            stDustTolerance: 5 * 10 ** 10,
+            jtDustTolerance: 5 * 10 ** 10,
             kernelType: DeployScript.KernelType.Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel,
             kernelSpecificParams: abi.encode(
                 DeployScript.IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams({
                         // Reference asset (USD) to NAV unit conversion rate is 1e18 (USD == USD NAV)
                         initialConversionRateWAD: 1e18,
                         // Composite sUSN/USD oracle (sUSN/USN x USN/USD); gives sUSN/USD directly
-                        trancheAssetToReferenceAssetOracle: 0xA40B3Ab581dccB773B150994acfA0834CaCE0b81,
-                        stalenessThresholdSeconds: 86_400, // Appears to update every hour
+                        trancheAssetToReferenceAssetOracle: 0x92B7E06b2C78Ac1dB619980D9a1448428112a376,
+                        stalenessThresholdSeconds: 1, // this oracle returns timestamps in nanoseconds, making any check effectively useless
                         sequencerUptimeFeed: getSequencerUptimeFeed(BASE),
                         gracePeriodSeconds: 3600 // Industry standard
                     })

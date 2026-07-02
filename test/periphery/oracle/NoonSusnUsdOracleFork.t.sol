@@ -48,7 +48,7 @@ contract NoonSusnUsdOracleForkTest is Test {
     string internal constant EXPECTED_DESCRIPTION = "snUSD / USD price feed";
 
     /// @dev The deployed MultiplicativePriceFeed on Base (8-decimal output). Override with env SUSN_USD_ORACLE.
-    address internal constant DEPLOYED_ORACLE = 0xA40B3Ab581dccB773B150994acfA0834CaCE0b81;
+    address internal constant DEPLOYED_ORACLE = 0x92B7E06b2C78Ac1dB619980D9a1448428112a376;
 
     /// @dev Fork block pinned at/after the oracle's deployment block (feeds live and fresh here).
     uint256 internal constant PINNED_FORK_BLOCK = 48_106_000;

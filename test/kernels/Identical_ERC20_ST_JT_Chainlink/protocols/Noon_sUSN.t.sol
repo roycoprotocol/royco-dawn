@@ -36,7 +36,7 @@ contract Noon_sUSN_Test is YieldBearingERC20Chainlink_TestBase {
     address internal constant USN_USD_FEED = 0x0e658Ea83d19e540a5b4cf6BC2A6093a55525561;
 
     /// @notice The deployed composite sUSN/USD oracle (MultiplicativePriceFeed, 8-decimal output)
-    address internal constant SUSN_USD_ORACLE = 0xA40B3Ab581dccB773B150994acfA0834CaCE0b81;
+    address internal constant SUSN_USD_ORACLE = 0x92B7E06b2C78Ac1dB619980D9a1448428112a376;
 
     /// @notice Output precision of the deployed composite oracle
     uint8 internal constant ORACLE_DECIMALS = 8;

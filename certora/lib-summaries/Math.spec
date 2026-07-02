@@ -1,3 +1,5 @@
+definition WAD() returns mathint = 10^18;
+
 function mulDivDownSummary(uint256 x, uint256 y, uint256 denominator) returns uint256 {
     mathint result;
     if (denominator == 0) revert();

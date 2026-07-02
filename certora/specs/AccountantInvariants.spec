@@ -22,6 +22,7 @@
  */
 
 import "../lib-summaries/OpenZeppelin/OZ_Math.spec";
+import "../summaries/summaries-Timestamp.spec";
 
 using RoycoAccountant as roycoAccountant;
 
@@ -33,26 +34,10 @@ methods {
     function _.jtYieldShare(RoycoAccountant.MarketState,RoycoAccountant.NAV_UNIT,RoycoAccountant.NAV_UNIT,uint256,uint256,RoycoAccountant.NAV_UNIT) external => NONDET;
 }
 
-definition WAD() returns mathint = 10^18;
-definition MIN_COVERAGE_WAD() returns mathint = 10^16;   // 1 %
-definition MAX_COVERAGE_WAD() returns mathint = 10^18-1; // 99.9999999999999999 %
-
-// Ghost variable that tracks the last timestamp.
-ghost mathint lastTimestamp;
-
-// The maximum timestamp the protocol supports
-definition MAX_TIMESTAMP() returns mathint = max_uint32 - 86400 * 365;
-
-hook TIMESTAMP uint256 time {
-    require to_mathint(time) < MAX_TIMESTAMP(), "timestamp below protocol end date";
-    require to_mathint(time) >= lastTimestamp, "timestamp is monotone";
-    lastTimestamp = time;
-}
-
 definition excludeUpgradeAndCall(method f) returns bool =
-    f.selector != sig:upgradeToAndCall(address,bytes).selector;
+    f.selector != sig:roycoAccountant.upgradeToAndCall(address,bytes).selector;
 definition excludeInitialize(method f) returns bool =
-    f.selector != sig:initialize(IRoycoAccountant.RoycoAccountantInitParams, address).selector;
+    f.selector != sig:roycoAccountant.initialize(IRoycoAccountant.RoycoAccountantInitParams, address).selector;
 
 /**
  * @title JT+ST effective NAV equals JT+ST raw NAV
@@ -218,3 +203,20 @@ invariant coverageLessEqualMax()
 invariant betaLessEqualOne()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.betaWAD <= WAD()
     filtered { f -> excludeUpgradeAndCall(f) }
+
+function requireAllInvariants_Accountant()
+{
+    requireInvariant sumEffectiveEqualsRaw();
+    requireInvariant jtLossImpliesFixedTerm();
+    requireInvariant noJTLossImpliesPerpetual();
+    requireInvariant stLossImpliesPerpetual();
+    requireInvariant stLossImpliesNoJTLoss();
+    requireInvariant stLossImpliesJTEffectivelyZero();
+    requireInvariant termDurationZeroAlwaysPerpetual();
+    requireInvariant fixedTermIsBounded();
+    requireInvariant liquidationGreaterThanOne();
+    requireInvariant coverageBetaLessThanOne();
+    requireInvariant coverageGreaterEqualMin();
+    requireInvariant coverageLessEqualMax();
+    requireInvariant betaLessEqualOne();
+}

@@ -22,13 +22,21 @@ abstract contract IdenticalAssetsChainlinkOracleQuoter is IdenticalAssetsOracleQ
     struct IdenticalAssetsChainlinkOracleQuoterState {
         address oracle;
         uint48 stalenessThresholdSeconds;
+        address sequencerUptimeFeed;
+        uint48 gracePeriodSeconds;
     }
 
     /// @notice Emitted when the identical assets chainlink oracle is updated
     event ChainlinkOracleUpdated(address indexed oracle, uint48 stalenessThresholdSeconds);
 
+    /// @notice Emitted when the L2 sequencer uptime feed is updated
+    event SequencerUptimeFeedUpdated(address indexed sequencerUptimeFeed, uint48 gracePeriodSeconds);
+
     /// @notice Thrown when the staleness threshold seconds is zero
     error INVALID_STALENESS_THRESHOLD_SECONDS();
+
+    /// @notice Thrown when the grace period seconds is zero while an L2 sequencer uptime feed is set
+    error INVALID_GRACE_PERIOD_SECONDS();
 
     /// @notice Thrown when the price is stale
     error STALE_PRICE();
@@ -39,13 +47,30 @@ abstract contract IdenticalAssetsChainlinkOracleQuoter is IdenticalAssetsOracleQ
     /// @notice Thrown when the price is incomplete
     error INCOMPLETE_PRICE();
 
+    /// @notice Thrown when the L2 sequencer is down
+    error SEQUENCER_DOWN();
+
+    /// @notice Thrown when the L2 sequencer's grace period has not elapsed since it was last restored
+    error GRACE_PERIOD_NOT_OVER();
+
     /**
      * @notice Initializes the identical assets chainlink oracle quoter
      * @param _oracle The chainlink (compatible) oracle used to price an asset
      * @param _stalenessThresholdSeconds The staleness threshold in seconds
+     * @param _sequencerUptimeFeed The L2 sequencer uptime feed to check before trusting the price (set to the null address to disable the check)
+     * @param _gracePeriodSeconds The grace period in seconds that must elapse after the L2 sequencer is restored before trusting the price
      */
-    function __IdenticalAssetsChainlinkOracleQuoter_init_unchained(address _oracle, uint48 _stalenessThresholdSeconds) internal onlyInitializing {
+    function __IdenticalAssetsChainlinkOracleQuoter_init_unchained(
+        address _oracle,
+        uint48 _stalenessThresholdSeconds,
+        address _sequencerUptimeFeed,
+        uint48 _gracePeriodSeconds
+    )
+        internal
+        onlyInitializing
+    {
         _setChainlinkOracle(_oracle, _stalenessThresholdSeconds);
+        _setSequencerUptimeFeed(_sequencerUptimeFeed, _gracePeriodSeconds);
     }
 
     /**
@@ -88,6 +113,16 @@ abstract contract IdenticalAssetsChainlinkOracleQuoter is IdenticalAssetsOracleQ
         _preOpSyncTrancheAccounting();
     }
 
+    /**
+     * @notice Sets the L2 sequencer uptime feed and grace period used to gate price queries
+     * @dev The sequencer uptime feed and grace period do not affect the conversion rate, so no accounting sync is performed
+     * @param _sequencerUptimeFeed The new L2 sequencer uptime feed (set to the null address to disable the check)
+     * @param _gracePeriodSeconds The new grace period in seconds that must elapse after the L2 sequencer is restored before trusting the price
+     */
+    function setSequencerUptimeFeed(address _sequencerUptimeFeed, uint48 _gracePeriodSeconds) external restricted {
+        _setSequencerUptimeFeed(_sequencerUptimeFeed, _gracePeriodSeconds);
+    }
+
     /// @dev Returns the chainlink oracle configuration for this quoter
     function getChainlinkOracleConfiguration() external pure returns (IdenticalAssetsChainlinkOracleQuoterState memory) {
         return _getIdenticalAssetsChainlinkOracleQuoterStorage();
@@ -100,8 +135,20 @@ abstract contract IdenticalAssetsChainlinkOracleQuoter is IdenticalAssetsOracleQ
      * @return precision The precision of the price
      */
     function _queryChainlinkOracle() internal view returns (uint256 price, uint256 precision) {
-        // Fetch the price of the asset
         IdenticalAssetsChainlinkOracleQuoterState storage $ = _getIdenticalAssetsChainlinkOracleQuoterStorage();
+
+        // If a sequencer uptime feed is set, ensure the L2 sequencer is up and its grace period has elapsed before trusting the price
+        address sequencerUptimeFeed = $.sequencerUptimeFeed;
+        if (sequencerUptimeFeed != address(0)) {
+            (, int256 sequencerStatus, uint256 sequencerStartedAt,,) = AggregatorV3Interface(sequencerUptimeFeed).latestRoundData();
+            // A sequencer status of 0 indicates that the sequencer is up, and 1 indicates that it is down
+            require(sequencerStatus == 0, SEQUENCER_DOWN());
+            // Ensure the round is initialized (startedAt is 0 only for an uninitialized uptime feed) and that the grace
+            // period has fully elapsed since the sequencer was last restored
+            require(sequencerStartedAt != 0 && (block.timestamp - sequencerStartedAt) > $.gracePeriodSeconds, GRACE_PERIOD_NOT_OVER());
+        }
+
+        // Fetch the price of the asset
         AggregatorV3Interface oracle = AggregatorV3Interface($.oracle);
         (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) = oracle.latestRoundData();
 
@@ -129,6 +176,23 @@ abstract contract IdenticalAssetsChainlinkOracleQuoter is IdenticalAssetsOracleQ
         $.stalenessThresholdSeconds = _stalenessThresholdSeconds;
 
         emit ChainlinkOracleUpdated(_oracle, _stalenessThresholdSeconds);
+    }
+
+    /**
+     * @notice Sets the new L2 sequencer uptime feed and grace period
+     * @dev A null sequencer uptime feed disables the L2 sequencer check; when a feed is set, the grace period must be a positive
+     *      duration (mirroring the treatment of the staleness threshold for the price feed)
+     * @param _sequencerUptimeFeed The new L2 sequencer uptime feed (set to the null address to disable the check)
+     * @param _gracePeriodSeconds The new grace period seconds
+     */
+    function _setSequencerUptimeFeed(address _sequencerUptimeFeed, uint48 _gracePeriodSeconds) internal {
+        require(_sequencerUptimeFeed == address(0) || _gracePeriodSeconds > 0, INVALID_GRACE_PERIOD_SECONDS());
+
+        IdenticalAssetsChainlinkOracleQuoterState storage $ = _getIdenticalAssetsChainlinkOracleQuoterStorage();
+        $.sequencerUptimeFeed = _sequencerUptimeFeed;
+        $.gracePeriodSeconds = _gracePeriodSeconds;
+
+        emit SequencerUptimeFeedUpdated(_sequencerUptimeFeed, _gracePeriodSeconds);
     }
 
     /**

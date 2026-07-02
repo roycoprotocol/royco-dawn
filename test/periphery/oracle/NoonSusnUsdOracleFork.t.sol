@@ -42,16 +42,16 @@ contract NoonSusnUsdOracleForkTest is Test {
     address internal constant SUSN_USN_FEED = 0x907fb22C2DA56642F89702b0970a03ed13EbF136; // expected priceFeedA
     address internal constant USN_USD_FEED = 0x0e658Ea83d19e540a5b4cf6BC2A6093a55525561; // expected priceFeedB
 
-    /// @dev The underlying feeds are 18-decimal; the deployed composite outputs 8 decimals.
+    /// @dev The underlying feeds are 18-decimal; the deployed composite outputs 18 decimals.
     uint8 internal constant FEED_DECIMALS = 18;
-    uint8 internal constant EXPECTED_DECIMALS = 8;
+    uint8 internal constant EXPECTED_DECIMALS = 18;
     string internal constant EXPECTED_DESCRIPTION = "snUSD / USD price feed";
 
-    /// @dev The deployed MultiplicativePriceFeed on Base (8-decimal output). Override with env SUSN_USD_ORACLE.
+    /// @dev The deployed MultiplicativePriceFeed on Base (18-decimal output). Override with env SUSN_USD_ORACLE.
     address internal constant DEPLOYED_ORACLE = 0x92B7E06b2C78Ac1dB619980D9a1448428112a376;
 
-    /// @dev Fork block pinned at/after the oracle's deployment block (feeds live and fresh here).
-    uint256 internal constant PINNED_FORK_BLOCK = 48_106_000;
+    /// @dev Fork block pinned at/after the oracle's deployment block 48_110_006 (feeds live and fresh here).
+    uint256 internal constant PINNED_FORK_BLOCK = 48_110_500;
 
     IMultiplicativePriceFeed internal oracle;
     address internal feedA;
@@ -88,9 +88,9 @@ contract NoonSusnUsdOracleForkTest is Test {
         assertEq(oracle.description(), EXPECTED_DESCRIPTION, "description");
         assertEq(feedA, SUSN_USN_FEED, "priceFeedA = sUSN/USN");
         assertEq(feedB, USN_USD_FEED, "priceFeedB = USN/USD");
-        // Both legs are 18-decimal => combinedScale 1e36; output 8 => priceFeedScale 1e8.
+        // Both legs are 18-decimal => combinedScale 1e36; output 18 => priceFeedScale 1e18.
         assertEq(combinedScale, int256(10 ** uint256(FEED_DECIMALS + FEED_DECIMALS)), "combinedScale = 1e36");
-        assertEq(priceFeedScale, int256(10 ** uint256(EXPECTED_DECIMALS)), "priceFeedScale = 1e8");
+        assertEq(priceFeedScale, int256(10 ** uint256(EXPECTED_DECIMALS)), "priceFeedScale = 1e18");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

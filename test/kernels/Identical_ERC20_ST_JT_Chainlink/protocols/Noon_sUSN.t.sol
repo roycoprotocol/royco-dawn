@@ -35,14 +35,14 @@ contract Noon_sUSN_Test is YieldBearingERC20Chainlink_TestBase {
     /// @notice USN / USD feed on Base (18 decimals, Stork-powered Chainlink aggregator port)
     address internal constant USN_USD_FEED = 0x0e658Ea83d19e540a5b4cf6BC2A6093a55525561;
 
-    /// @notice The deployed composite sUSN/USD oracle (MultiplicativePriceFeed, 8-decimal output)
+    /// @notice The deployed composite sUSN/USD oracle (MultiplicativePriceFeed, 18-decimal output)
     address internal constant SUSN_USD_ORACLE = 0x92B7E06b2C78Ac1dB619980D9a1448428112a376;
 
     /// @notice Output precision of the deployed composite oracle
-    uint8 internal constant ORACLE_DECIMALS = 8;
+    uint8 internal constant ORACLE_DECIMALS = 18;
 
-    /// @notice Fork block for deterministic testing (>= the oracle's deployment block; feeds live and fresh)
-    uint256 internal constant FORK_BLOCK = 48_106_000;
+    /// @notice Fork block for deterministic testing (>= the oracle's deployment block 48_110_006; feeds live and fresh)
+    uint256 internal constant FORK_BLOCK = 48_110_500;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PROTOCOL CONFIGURATION
@@ -145,20 +145,20 @@ contract Noon_sUSN_Test is YieldBearingERC20Chainlink_TestBase {
 
     /// @notice Verifies the deployed oracle is wired to the two expected feeds and equals their scaled product
     function test_susn_compositeOracleComposition() external view {
-        assertEq(AggregatorV3Interface(SUSN_USD_ORACLE).decimals(), ORACLE_DECIMALS, "oracle should have 8 decimals");
+        assertEq(AggregatorV3Interface(SUSN_USD_ORACLE).decimals(), ORACLE_DECIMALS, "oracle should have 18 decimals");
 
         (, int256 susnUsn,,,) = AggregatorV3Interface(SUSN_USN_FEED).latestRoundData();
         (, int256 usnUsd,,,) = AggregatorV3Interface(USN_USD_FEED).latestRoundData();
 
         (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) = AggregatorV3Interface(SUSN_USD_ORACLE).latestRoundData();
 
-        // Both feeds are 18 decimals, output is 8 decimals => combinedScale 1e36, priceFeedScale 1e8.
-        int256 expected = susnUsn * usnUsd * 1e8 / 1e36;
-        assertEq(answer, expected, "composite == sUSN/USN * USN/USD, scaled to 8 decimals");
+        // Both feeds are 18 decimals, output is 18 decimals => combinedScale 1e36, priceFeedScale 1e18.
+        int256 expected = susnUsn * usnUsd * 1e18 / 1e36;
+        assertEq(answer, expected, "composite == sUSN/USN * USN/USD, scaled to 18 decimals");
 
-        // sUSN is a yield-bearing wrapper of USN (~$1), so sUSN/USD (8 decimals) should be comfortably above $1.
-        assertGt(answer, 1e8, "sUSN/USD should exceed $1");
-        assertLt(answer, 3e8, "sUSN/USD implausibly high");
+        // sUSN is a yield-bearing wrapper of USN (~$1), so sUSN/USD (18 decimals) should be comfortably above $1.
+        assertGt(answer, 1e18, "sUSN/USD should exceed $1");
+        assertLt(answer, 3e18, "sUSN/USD implausibly high");
 
         assertGt(updatedAt, 0, "oracle should have a valid updatedAt");
         assertGe(answeredInRound, roundId, "answeredInRound should be >= roundId");

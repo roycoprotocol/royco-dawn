@@ -59,6 +59,7 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
     bytes32 constant YDM_SALT = keccak256("ROYCO_YDM_IMPLEMENTATION_V2");
     bytes32 constant FACTORY_SALT_BASE = keccak256("ROYCO_FACTORY_IMPLEMENTATION_V2");
     bytes32 constant MARKET_DEPLOYMENT_SALT = keccak256("ROYCO_MARKET_DEPLOYMENT_V2");
+    uint64 internal constant PUBLIC_ROLE = type(uint64).max;
 
     // Whether to print deployment parameters
     bool ENABLE_LOGGING = false;
@@ -426,7 +427,7 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
     }
 
     /// @notice Builds selector-to-role mappings for a tranche contract.
-    /// @dev Maps deposit/redeem to the LP role, pause to ADMIN_PAUSER_ROLE, unpause to
+    /// @dev Maps deposit to the PUBLIC_ROLE (open to all), redeem to the LP role, pause to ADMIN_PAUSER_ROLE, unpause to
     ///      ADMIN_UNPAUSER_ROLE, upgradeToAndCall to ADMIN_UPGRADER_ROLE, and seize functions
     ///      to TRANSFER_AGENT_ROLE.
     /// @param _tranche The address of the tranche contract
@@ -436,8 +437,9 @@ contract DeployScript is Script, Create2DeployUtils, RolesConfiguration, MarketD
         bytes4[] memory selectors = new bytes4[](9);
         uint64[] memory roleValues = new uint64[](9);
 
+        // Deposits are open to everyone: grant the deposit selector OZ AccessManager's PUBLIC_ROLE.
         selectors[0] = IRoycoVaultTranche.deposit.selector;
-        roleValues[0] = _lpRole;
+        roleValues[0] = PUBLIC_ROLE;
         selectors[1] = IRoycoVaultTranche.redeem.selector;
         roleValues[1] = _lpRole;
         selectors[2] = IRoycoAuth.pause.selector;

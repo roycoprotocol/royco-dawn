@@ -59,6 +59,11 @@ abstract contract MarketDeploymentConfig {
     string public constant SUSDAT = "sUSDat";
     string public constant EEARN = "eEARN";
     string public constant MAKINA_MGLOBAL = "DMG";
+    string public constant SNUSN = "sNUSN";
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MARKET-SPECIFIC ADDRESSES
+    // ═══════════════════════════════════════════════════════════════════════════
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CHAIN-SPECIFIC CONFIG (defined once per chain)
@@ -1032,6 +1037,51 @@ abstract contract MarketDeploymentConfig {
             ydmSpecificParams: abi.encode(
                 DeployScript.AdaptiveCurveYDM_V2_Params({
                     jtYieldShareAtZeroUtilWAD: 0.2e18, jtYieldShareAtTargetUtilWAD: 0.2e18, jtYieldShareAtFullUtilWAD: 0.4e18, maxAdaptationSpeedWAD: 0
+                })
+            ),
+            transferAgentAddress: address(0)
+        });
+
+        _marketConfigs[SNUSN] = MarketConfig({
+            marketName: SNUSN,
+            chainId: BASE,
+            seniorTrancheName: _seniorTrancheName(SNUSN),
+            seniorTrancheSymbol: _seniorTrancheSymbol(SNUSN),
+            juniorTrancheName: _juniorTrancheName(SNUSN),
+            juniorTrancheSymbol: _juniorTrancheSymbol(SNUSN),
+            // sUSN token (Noon staked USN) is both the senior and junior asset
+            seniorAsset: 0x34a2798D47b238A7CbA9D87D49618DEE6C4D999F,
+            juniorAsset: 0x34a2798D47b238A7CbA9D87D49618DEE6C4D999F,
+            stDustTolerance: 5,
+            jtDustTolerance: 5,
+            kernelType: DeployScript.KernelType.Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel,
+            kernelSpecificParams: abi.encode(
+                DeployScript.IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams({
+                        // Reference asset (USD) to NAV unit conversion rate is 1e18 (USD == USD NAV)
+                        initialConversionRateWAD: 1e18,
+                        // Composite sUSN/USD oracle (sUSN/USN x USN/USD); gives sUSN/USD directly
+                        trancheAssetToReferenceAssetOracle: 0xA40B3Ab581dccB773B150994acfA0834CaCE0b81,
+                        stalenessThresholdSeconds: 86_400, // Appears to update every hour
+                        sequencerUptimeFeed: getSequencerUptimeFeed(BASE),
+                        gracePeriodSeconds: 3600 // Industry standard
+                    })
+            ),
+            enforceVaultSharesTransferWhitelist: false,
+            stSelfLiquidationBonusWAD: 0.01e18,
+            stProtocolFeeWAD: 0,
+            jtProtocolFeeWAD: 0,
+            jtYieldShareProtocolFeeWAD: 0,
+            coverageWAD: 0.1e18,
+            betaWAD: 1e18,
+            liquidationUtilizationWAD: 1.0090909e18,
+            fixedTermDurationSeconds: 0,
+            ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
+            ydmSpecificParams: abi.encode(
+                DeployScript.AdaptiveCurveYDM_V2_Params({
+                    jtYieldShareAtZeroUtilWAD: 0.11e18, // Y_0 = 11%
+                    jtYieldShareAtTargetUtilWAD: 0.11e18, // target = 11%
+                    jtYieldShareAtFullUtilWAD: 0.31e18, // Y_100 = 31%
+                    maxAdaptationSpeedWAD: 0 // we set the adaptation speed to 0 intially for new markets
                 })
             ),
             transferAgentAddress: address(0)

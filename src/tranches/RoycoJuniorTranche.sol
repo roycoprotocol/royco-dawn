@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { TrancheType } from "src/libraries/Types.sol";
-import { RoycoVaultTranche } from "src/tranches/base/RoycoVaultTranche.sol";
+import { TrancheType } from "../libraries/Types.sol";
+import { RoycoVaultTranche } from "./base/RoycoVaultTranche.sol";
 
 /**
  * @title RoycoJuniorTranche

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { FixedPointMathLib } from "lib/solady/src/utils/FixedPointMathLib.sol";
-import { IYDM, MarketState } from "src/interfaces/IYDM.sol";
-import { TARGET_UTILIZATION_WAD, TARGET_UTILIZATION_WAD_INT, WAD, WAD_INT } from "src/libraries/Constants.sol";
-import { NAV_UNIT } from "src/libraries/Units.sol";
-import { UtilsLib } from "src/libraries/UtilsLib.sol";
+import { FixedPointMathLib } from "../../lib/solady/src/utils/FixedPointMathLib.sol";
+import { IYDM, MarketState } from "../interfaces/IYDM.sol";
+import { TARGET_UTILIZATION_WAD, TARGET_UTILIZATION_WAD_INT, WAD, WAD_INT } from "../libraries/Constants.sol";
+import { NAV_UNIT } from "../libraries/Units.sol";
+import { UtilsLib } from "../libraries/UtilsLib.sol";
 
 /**
  * @title AdaptiveCurveYDM_V2

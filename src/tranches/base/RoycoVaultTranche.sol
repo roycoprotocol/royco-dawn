@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { ERC20Upgradeable, IERC20, IERC20Metadata } from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import { ERC20BurnableUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
-import { ERC20PausableUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
-import { ERC20PermitUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
-import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import { Math } from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
-import { RoycoBase } from "src/base/RoycoBase.sol";
-import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
-import { IRoycoVaultTranche } from "src/interfaces/IRoycoVaultTranche.sol";
-import { WAD_DECIMALS, ZERO_NAV_UNITS } from "src/libraries/Constants.sol";
-import { AssetClaims, SyncedAccountingState, TrancheType } from "src/libraries/Types.sol";
-import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "src/libraries/Units.sol";
-import { UtilsLib } from "src/libraries/UtilsLib.sol";
+import { ERC20Upgradeable, IERC20, IERC20Metadata } from "../../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import { ERC20BurnableUpgradeable } from "../../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
+import { ERC20PausableUpgradeable } from "../../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
+import { ERC20PermitUpgradeable } from "../../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import { SafeERC20 } from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Math } from "../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import { RoycoBase } from "../../base/RoycoBase.sol";
+import { IRoycoKernel } from "../../interfaces/IRoycoKernel.sol";
+import { IRoycoVaultTranche } from "../../interfaces/IRoycoVaultTranche.sol";
+import { WAD_DECIMALS, ZERO_NAV_UNITS } from "../../libraries/Constants.sol";
+import { AssetClaims, SyncedAccountingState, TrancheType } from "../../libraries/Types.sol";
+import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "../../libraries/Units.sol";
+import { UtilsLib } from "../../libraries/UtilsLib.sol";
 
 /**
  * @title RoycoVaultTranche

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { EnumerableSet } from "lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
-import { RoycoBase } from "src/base/RoycoBase.sol";
-import { IRoycoFactory } from "src/interfaces/IRoycoFactory.sol";
-import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
-import { IRoycoVaultTranche } from "src/interfaces/IRoycoVaultTranche.sol";
+import { EnumerableSet } from "../../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import { RoycoBase } from "../base/RoycoBase.sol";
+import { IRoycoFactory } from "../interfaces/IRoycoFactory.sol";
+import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+import { IRoycoVaultTranche } from "../interfaces/IRoycoVaultTranche.sol";
 
 /**
  * @title RoycoMarketSyncer

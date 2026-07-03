@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IAccessManager } from "lib/openzeppelin-contracts/contracts/access/manager/IAccessManager.sol";
-import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import { ReentrancyGuardTransient } from "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuardTransient.sol";
-import { RoycoBase } from "src/base/RoycoBase.sol";
-import { IRoycoAccountant } from "src/interfaces/IRoycoAccountant.sol";
-import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
-import { IRoycoVaultTranche } from "src/interfaces/IRoycoVaultTranche.sol";
-import { MAX_TRANCHE_UNITS, WAD, ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "src/libraries/Constants.sol";
-import { AssetClaims, MarketState, Operation, SyncedAccountingState, TrancheType } from "src/libraries/Types.sol";
-import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toUint256 } from "src/libraries/Units.sol";
-import { UtilsLib } from "src/libraries/UtilsLib.sol";
+import { IAccessManager } from "../../../lib/openzeppelin-contracts/contracts/access/manager/IAccessManager.sol";
+import { IERC20 } from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import { ReentrancyGuardTransient } from "../../../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuardTransient.sol";
+import { RoycoBase } from "../../base/RoycoBase.sol";
+import { IRoycoAccountant } from "../../interfaces/IRoycoAccountant.sol";
+import { IRoycoKernel } from "../../interfaces/IRoycoKernel.sol";
+import { IRoycoVaultTranche } from "../../interfaces/IRoycoVaultTranche.sol";
+import { MAX_TRANCHE_UNITS, WAD, ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "../../libraries/Constants.sol";
+import { AssetClaims, MarketState, Operation, SyncedAccountingState, TrancheType } from "../../libraries/Types.sol";
+import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toUint256 } from "../../libraries/Units.sol";
+import { UtilsLib } from "../../libraries/UtilsLib.sol";
 
 /**
  * @title RoycoKernel

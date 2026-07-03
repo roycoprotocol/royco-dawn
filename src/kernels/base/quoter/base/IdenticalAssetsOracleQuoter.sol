@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IERC20Metadata } from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
-import { RoycoKernel } from "src/kernels/base/RoycoKernel.sol";
-import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "src/libraries/Units.sol";
+import { IERC20Metadata } from "../../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
+import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "../../../../libraries/Units.sol";
+import { RoycoKernel } from "../../RoycoKernel.sol";
 
 /**
  * @title IdenticalAssetsOracleQuoter

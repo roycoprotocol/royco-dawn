@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { AccessManagedUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/access/manager/AccessManagedUpgradeable.sol";
-import { AccessManagerUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/access/manager/AccessManagerUpgradeable.sol";
-import { UUPSUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
-import { ERC1967Proxy } from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { CREATE3 } from "lib/solady/src/utils/CREATE3.sol";
-import { RolesConfiguration } from "src/factory/RolesConfiguration.sol";
-import { IRoycoAccountant } from "src/interfaces/IRoycoAccountant.sol";
-import { IRoycoFactory } from "src/interfaces/IRoycoFactory.sol";
-import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
-import { IRoycoVaultTranche, TrancheType } from "src/interfaces/IRoycoVaultTranche.sol";
+import { AccessManagedUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/contracts/access/manager/AccessManagedUpgradeable.sol";
+import { AccessManagerUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/contracts/access/manager/AccessManagerUpgradeable.sol";
+import { UUPSUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { CREATE3 } from "../../lib/solady/src/utils/CREATE3.sol";
+import { IRoycoAccountant } from "../interfaces/IRoycoAccountant.sol";
+import { IRoycoFactory } from "../interfaces/IRoycoFactory.sol";
+import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+import { IRoycoVaultTranche, TrancheType } from "../interfaces/IRoycoVaultTranche.sol";
+import { RolesConfiguration } from "./RolesConfiguration.sol";
 
 /**
  * @title RoycoFactory

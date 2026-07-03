@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { AssetClaims, SyncedAccountingState, TrancheType } from "src/libraries/Types.sol";
-import { NAV_UNIT, TRANCHE_UNIT } from "src/libraries/Units.sol";
+import { AssetClaims, SyncedAccountingState, TrancheType } from "../libraries/Types.sol";
+import { NAV_UNIT, TRANCHE_UNIT } from "../libraries/Units.sol";
 
 /**
  * @title IRoycoKernel

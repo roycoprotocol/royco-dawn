@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
-import { RoycoKernel } from "src/kernels/base/RoycoKernel.sol";
-import { IdenticalMakinaSharesToAdminOracleQuoter } from "src/kernels/base/quoter/IdenticalMakinaSharesToAdminOracleQuoter.sol";
+import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+import { RoycoKernel } from "./base/RoycoKernel.sol";
+import { IdenticalMakinaSharesToAdminOracleQuoter } from "./base/quoter/IdenticalMakinaSharesToAdminOracleQuoter.sol";
 
 /**
  * @title Identical_Makina_ST_JT_MachineToAdminOracle_Kernel

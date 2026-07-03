@@ -127,8 +127,6 @@ ghost jtYieldShareCVL(RoycoAccountant.NAV_UNIT, RoycoAccountant.NAV_UNIT, uint25
  * @title JT share value does not decrease across any operation
  * @description The ratio jtEffectiveNAV / jtTotalSupply must not decrease after any operation (excluding upgradeToAndCall and mintProtocolFeeShares). The self-liquidation bonus is excluded when utilization is below 100%.
  * @link_property KER08
- * @status VIOLATED
- * @report https://prover.certora.com/output/74728/7566c62243434039878c6bd5d4ff47e2/?anonymousKey=ce49a3dafdf490f07ddcc50a55523b7b59b43ee1
  */
 rule jtTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -> excludeUpgradeAndCall(f) && excludeMintFee(f) }
 {
@@ -176,8 +174,6 @@ rule jtTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -
  * @title ST share value does not decrease across any operation
  * @description The ratio stEffectiveNAV / stTotalSupply must not decrease after any operation (excluding upgradeToAndCall and mintProtocolFeeShares).
  * @link_property KER07
- * @status VIOLATED
- * @report https://prover.certora.com/output/74728/7566c62243434039878c6bd5d4ff47e2/?anonymousKey=ce49a3dafdf490f07ddcc50a55523b7b59b43ee1
  */
 rule stTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -> excludeUpgradeAndCall(f) && excludeMintFee(f) }
 {
@@ -221,8 +217,6 @@ rule stTokenValueDoesNotWorsen(method f, env e, calldataarg args) filtered { f -
  * @title JT share value does not decrease across any operation
  * @description The ratio jtEffectiveNAV / jtTotalSupply must not decrease after any operation (excluding upgradeToAndCall and mintProtocolFeeShares). The self-liquidation bonus is excluded when utilization is below 100%.
  * @link_property KER08
- * @status TIMEOUT
- * @report https://prover.certora.com/output/74728/9258b8fbab9e438ab0eb5d03b07cc20b/?anonymousKey=49bba5acf84f129180d3c9f0f3034abc58ebf614
  */
 rule jtTokenValueDoesNotWorsenTooMuch(method f, env e, calldataarg args) filtered { f -> excludeUpgradeAndCall(f) && excludeMintFee(f) }
 {
@@ -271,8 +265,6 @@ rule jtTokenValueDoesNotWorsenTooMuch(method f, env e, calldataarg args) filtere
  * @title ST share value does not decrease across any operation
  * @description The ratio stEffectiveNAV / stTotalSupply must not decrease after any operation (excluding upgradeToAndCall and mintProtocolFeeShares).
  * @link_property KER07
- * @status TIMEOUT
- * @report https://prover.certora.com/output/74728/cca556b753d640d386e02a89f9bbf951/?anonymousKey=9d75d067a28cb95b1de4b32fd0d461ea2ade4d44
  */
 rule stTokenValueDoesNotWorsenTooMuch(method f, env e, calldataarg args) filtered { f -> excludeUpgradeAndCall(f) && excludeMintFee(f) }
 {

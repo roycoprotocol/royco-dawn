@@ -93,7 +93,6 @@ ghost jtYieldShareCVL(RoycoAccountant.NAV_UNIT, RoycoAccountant.NAV_UNIT, uint25
  * @title deposit(maxDeposit()) for ST does not revert
  * @description If maxDeposit() returns a positive amount, depositing exactly that amount must succeed; the max deposit function must return a tight and accurate upper bound.
  * @link_property KER10
- * @status WIP
  */
 rule stDepositMaxDoesNotRevert(env e) {
     uint256 someAmount;
@@ -127,7 +126,6 @@ rule stDepositMaxDoesNotRevert(env e) {
  * @title deposit(maxDeposit()) for JT does not revert
  * @description If maxDeposit() returns a positive amount for JT, depositing exactly that amount must succeed; the max deposit function must return a tight and accurate upper bound.
  * @link_property KER10
- * @status WIP
  */
 rule jtDepositMaxDoesNotRevert(env e) {
     uint256 someAmount;
@@ -160,7 +158,6 @@ rule jtDepositMaxDoesNotRevert(env e) {
  * @title redeem(maxRedeem()) for ST does not revert
  * @description If maxRedeem() returns a positive amount for ST, redeeming exactly that amount (with sufficient allowance) must succeed; the max redeem function must return a tight and accurate upper bound.
  * @link_property KER09
- * @status WIP
  */
 rule stRedeemMaxDoesNotRevert(env e) {
     uint256 someAmount;
@@ -188,7 +185,6 @@ rule stRedeemMaxDoesNotRevert(env e) {
  * @title redeem(maxRedeem()) for JT does not revert
  * @description If maxRedeem() returns a positive amount for JT, redeeming exactly that amount (with sufficient allowance) must succeed; the max redeem function must return a tight and accurate upper bound.
  * @link_property KER09
- * @status WIP
  */
 rule jtRedeemMaxDoesNotRevert(env e) {
     uint256 someAmount;

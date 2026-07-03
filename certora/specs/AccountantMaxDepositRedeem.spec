@@ -81,8 +81,6 @@ rule maxStDepositCorrect {
  * @title maxJTWithdrawalGivenCoverage is a correct upper bound for JT redeem
  * @description Redeeming any amount strictly less than the maximum returned by maxJTWithdrawalGivenCoverage must leave utilization at or below 100% (WAD); the function must not return an over-estimate that would allow a violating redeem.
  * @link_property KER09
- * @status VIOLATED
- * @report https://prover.certora.com/output/74728/db6809f28e2048f1aeff64eaa0bdf10b/?anonymousKey=fac4435cc3ab31bf6690564bec11d5f142e2f9d2
  */
 rule maxJtRedeemCorrect {
     env e;

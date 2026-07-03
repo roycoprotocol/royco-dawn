@@ -75,7 +75,6 @@ ghost jtYieldShareCVL(RoycoAccountant.NAV_UNIT, RoycoAccountant.NAV_UNIT, uint25
  * @description The preview function must always succeed (not revert) so that maxRedeem() can read the current state without risk of reversion.
  * @link_property KER09
  * @ignore this is tricky because of code complexity. There are possible overflows in previewJTYieldShare.
- * @status WIP
  */
 rule previewSyncTrancheAccountingNeverReverts(env e) {
     RoycoKernel.TrancheType trancheType;
@@ -112,8 +111,6 @@ rule previewSyncTrancheAccountingNeverReverts(env e) {
  * @title ST redeem (self-liquidation) decreases or preserves utilization
  * @description Any stRedeem call must not increase utilization; the self-liquidation mechanism ensures that redeeming when over-utilized is always beneficial to the pool.
  * @link_property UTI02
- * @status TIMEOUT
- * @report https://prover.certora.com/output/74728/d80c4046daa44edd8e2c38c545a19856/?anonymousKey=a2915aebd31080778bf247799a11154742a79e2d
  */
 rule selfLiquidationDecreasesUtilization(env e) {
     uint256 shares;

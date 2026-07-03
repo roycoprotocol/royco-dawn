@@ -365,7 +365,6 @@ rule StNAVIncreasesUnlessJTIsZero() {
  *   Formally: |newJtEffectiveNAV * oldStRawNAV - oldJtEffectiveNAV * newStRawNAV|
  *             ≤ 2 * oldStRawNAV
  * @link_property PreSyncProportionalPriceIncrease
- * @status TIMEOUT
  */
 rule preSyncProportionalPriceIncreasePreservesJTEffectiveCase1()
 {
@@ -424,7 +423,6 @@ rule preSyncProportionalPriceIncreasePreservesJTEffectiveCase1()
  *   Formally: |newJtEffectiveNAV * oldStRawNAV - oldJtEffectiveNAV * newStRawNAV|
  *             ≤ 2 * oldStRawNAV
  * @link_property PreSyncProportionalPriceIncrease
- * @status TIMEOUT
  */
 rule preSyncProportionalPriceIncreasePreservesJTEffectiveCase2()
 {

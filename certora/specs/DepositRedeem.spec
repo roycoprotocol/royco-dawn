@@ -65,8 +65,6 @@ methods {
  * @title JT deposit then immediate redeem is not profitable
  * @description Depositing into the JT tranche and immediately redeeming the received shares must yield at most the deposited amount.
  * @link_property KER04
- * @status VIOLATED
- * @report https://prover.certora.com/output/74728/88045fbffcdc4451b9cdab6dcdbf454f/?anonymousKey=194ebcaf6179d4fa2cd4123bba952c6260617913
  */
 rule depositRedeemJunior(env e) {
     // Depositing and Redeeming immediately should not be profitable.
@@ -85,8 +83,6 @@ rule depositRedeemJunior(env e) {
  * @title JT redeem then immediate redeposit is not profitable
  * @description Redeeming JT shares and immediately redepositing the received assets must yield at most the original share amount.
  * @link_property KER03
- * @status VIOLATED
- * @report https://prover.certora.com/output/74728/b425864acf9b411097ff4e68b2f21b68/?anonymousKey=01b5fbc928d6b1613e6d6fd8ad389beced47c6d7
  */
 rule redeemDepositJunior(env e) {
     // Depositing and Redeeming immediately should not be profitable.
@@ -106,8 +102,6 @@ rule redeemDepositJunior(env e) {
  * @title ST deposit then immediate redeem is not profitable
  * @description Depositing into the ST tranche and immediately redeeming the received shares must yield at most the deposited amount.
  * @link_property KER04
- * @status VIOLATED
- * @report https://prover.certora.com/output/74728/1e2b197b3c2c4c12a75baca307a7321f/?anonymousKey=59396ca19f697e2351a9b656a37afd8b4b506fe3
  */
 rule depositRedeemSenior(env e) {
     // Depositing and Redeeming immediately should not be profitable.
@@ -126,8 +120,6 @@ rule depositRedeemSenior(env e) {
  * @title ST redeem then immediate redeposit is not profitable
  * @description Redeeming ST shares and immediately redepositing the received assets must yield at most the original share amount.
  * @link_property KER03
- * @status VIOLATED
- * @report https://prover.certora.com/output/74728/88045fbffcdc4451b9cdab6dcdbf454f/?anonymousKey=194ebcaf6179d4fa2cd4123bba952c6260617913
  */
 rule redeemDepositSenior(env e) {
     // Depositing and Redeeming immediately should not be profitable.
@@ -147,7 +139,6 @@ rule redeemDepositSenior(env e) {
  * @title JT split deposit is not more profitable than a single deposit
  * @description Depositing amount1 and amount2 separately must yield no more shares than depositing amount1+amount2 in a single call.
  * @link_property KER05
- * @status TIMEOUT
  */
 rule depositSplitJunior(env e) {
     storage init = lastStorage;
@@ -168,7 +159,6 @@ rule depositSplitJunior(env e) {
  * @title JT split redeem is not more profitable than a single redeem
  * @description Redeeming amount1 and amount2 separately must yield no more assets than redeeming amount1+amount2 in a single call.
  * @link_property KER05
- * @status TIMEOUT
  */
 rule redeemSplitJunior(env e) {
     storage init = lastStorage;
@@ -195,8 +185,6 @@ rule redeemSplitJunior(env e) {
  * @title ST split deposit is not more profitable than a single deposit
  * @description Depositing amount1 and amount2 separately into ST must yield no more shares than depositing amount1+amount2 in a single call.
  * @link_property KER05
- * @status VIOLATED
- * @report https://prover.certora.com/output/74728/5c1cb81e42f64404bdb773d1d3b86ca9/?anonymousKey=491a04be76e1f453b4f31da7621abc88c2e180bf
  */
 rule depositSplitSenior(env e) {
     storage init = lastStorage;
@@ -217,8 +205,6 @@ rule depositSplitSenior(env e) {
  * @title ST split redeem is not more profitable than a single redeem
  * @description Redeeming amount1 and amount2 separately from ST must yield no more assets than redeeming amount1+amount2 in a single call.
  * @link_property KER05
- * @status VIOLATED
- * @report https://prover.certora.com/output/74728/da8701a5cfb2485d8ace077ccc4f3934/?anonymousKey=d55ad06583186c2aca7414d67ccd0feec45c72fc
  */
 rule redeemSplitSenior(env e) {
     storage init = lastStorage;
@@ -245,8 +231,6 @@ rule redeemSplitSenior(env e) {
  * @title Consecutive JT deposits of the same amount yield the same shares
  * @description Two consecutive JT deposits of the same amount must receive the same number of shares, confirming that a deposit does not change the exchange rate.
  * @link_property KER05
- * @status VIOLATED
- * @report https://prover.certora.com/output/74728/88045fbffcdc4451b9cdab6dcdbf454f/?anonymousKey=194ebcaf6179d4fa2cd4123bba952c6260617913
  */
 
 // this is work in progress, many requires are actually unsafe
@@ -380,8 +364,6 @@ rule depositSharesConservative_st(env e) {
  * @title Consecutive JT redeems of the same amount yield the same assets
  * @description Two consecutive JT redeems of the same share amount must receive identical assets, confirming that a redeem does not change the exchange rate.
  * @link_property KER05
- * @status VIOLATED
- * @report https://prover.certora.com/output/74728/eed83915b75e4bfeab851a1a135d50e8/?anonymousKey=f93444426415acfadb61187a0b14b7360a442da1
  */
 rule redeemSameJunior(env e) {
     uint256 amount;
@@ -402,8 +384,6 @@ rule redeemSameJunior(env e) {
  * @title Consecutive ST deposits of the same amount yield the same shares
  * @description Two consecutive ST deposits of the same amount must receive the same number of shares, confirming that a deposit does not change the exchange rate.
  * @link_property KER05
- * @status VIOLATED
- * @report https://prover.certora.com/output/74728/da8701a5cfb2485d8ace077ccc4f3934/?anonymousKey=d55ad06583186c2aca7414d67ccd0feec45c72fc
  */
 rule depositSameSenior(env e) {
     uint256 amount;
@@ -453,7 +433,6 @@ rule depositSameSenior(env e) {
  * @title Consecutive ST redeems of the same amount yield the same assets
  * @description Two consecutive ST redeems of the same share amount must receive identical assets, confirming that a redeem does not change the exchange rate.
  * @link_property KER05
- * @status TIMEOUT
  */
 rule redeemSameSenior(env e) {
     uint256 amount;

@@ -59,9 +59,7 @@ invariant sumEffectiveEqualsRaw()
  * @description If jtImpermanentLoss exceeds the dust tolerance, the market must be in FIXED_TERM state. JT losses only arise when a fixed-term market settles below par.
  * Violated by setDustTolerance, which temporarily creates an inconsistent states.
  * @link_property INV02
- * @status VIOLATED
  * @assumption initialize and upgradeAndCall are excluded.
- * @report https://prover.certora.com/output/74728/8424974adf7d4bb1bb083e5fbb0c368d?anonymousKey=3d7421d2b19b0f945e54967f4d552b66d9939303
  */
 invariant jtLossImpliesFixedTerm()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTImpermanentLoss > 
@@ -75,8 +73,6 @@ invariant jtLossImpliesFixedTerm()
  * @description When jtImpermanentLoss = 0, the market must be in PERPETUAL state; there is no ongoing fixed-term settlement with unrecovered losses.
  * Violated temporarily when nearly all JT tokens are redeemed: the market does not switch to PERPETUAL immediately.
  * @link_property INV03
- * @status VIOLATED
- * @report https://prover.certora.com/output/74728/8424974adf7d4bb1bb083e5fbb0c368d?anonymousKey=3d7421d2b19b0f945e54967f4d552b66d9939303
  */
 invariant noJTLossImpliesPerpetual()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastJTImpermanentLoss == 0
@@ -112,8 +108,6 @@ invariant stLossImpliesNoJTLoss()
  * @description This would mean JT has no value while ST is in deficit. Violated by design: jtDeposit increases jtEffectiveNAV even when stImpermanentLoss > 0, as new JT deposits do not first repay ST losses.
  * @link_property INV05
  * @ignore Violated by jtDeposit by design — new JT liquidity does not retroactively cover ST losses
- * @status VIOLATED
- * @report https://prover.certora.com/output/74728/8424974adf7d4bb1bb083e5fbb0c368d?anonymousKey=3d7421d2b19b0f945e54967f4d552b66d9939303
  */
 invariant stLossImpliesJTEffectivelyZero()
     roycoAccountant.ext_Royco_storage_RoycoAccountantState.lastSTImpermanentLoss > 0

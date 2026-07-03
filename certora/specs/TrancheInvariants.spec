@@ -340,7 +340,6 @@ invariant kernelTokenJtBalances()
  * @description Every non-reverting call to any tranche or kernel function must have been authorized via canCall(msg.sender, target, selector); unauthorized calls must revert.
  * Violation due to linking problems in upgradeAndCall.
  * @link_property AUTH04
- * @status WIP
  */
 rule checkRestricted(method f, env e, calldataarg args) 
 filtered { f -> !f.isView && !isERC20Public(f) 

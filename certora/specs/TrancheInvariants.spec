@@ -72,7 +72,7 @@ methods {
 
 ghost conversionRateCVL() returns uint256;
 
-// definition WAD() returns mathint = 10^18;
+
 
 ghost bool canCallWasCalled;
 

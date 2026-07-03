@@ -58,7 +58,7 @@ methods {
     function RoycoAccountant.postOpSyncTrancheAccounting(RoycoAccountant.Operation op, RoycoAccountant.NAV_UNIT stRawNAV, RoycoAccountant.NAV_UNIT jtRawNAV, RoycoAccountant.NAV_UNIT stSelfLiquidationBonusNAV) internal returns (RoycoAccountant.SyncedAccountingState memory) => postOpUsageCheck(op, stRawNAV, jtRawNAV, stSelfLiquidationBonusNAV);
 }
 
-definition WAD() returns mathint = 10^18;
+// definition WAD() returns mathint = 10^18;
 
 function postOpUsageCheck(RoycoAccountant.Operation op, RoycoAccountant.NAV_UNIT stRawNAV, RoycoAccountant.NAV_UNIT jtRawNAV, RoycoAccountant.NAV_UNIT stSelfLiquidationBonusNAV) returns (RoycoAccountant.SyncedAccountingState) {
     RoycoAccountant.SyncedAccountingState state;

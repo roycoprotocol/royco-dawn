@@ -68,7 +68,7 @@ ghost jtYieldShareCVL(RoycoAccountant.NAV_UNIT, RoycoAccountant.NAV_UNIT, uint25
         jtYieldShareCVL(stRawNAV, jtRawNAV, beta, coverage, jtEffectiveNAV) < WAD());
 }
 
-definition WAD() returns mathint = 10^18;
+// definition WAD() returns mathint = 10^18;
 
 /**
  * @title previewSyncTrancheAccounting never reverts

@@ -1,4 +1,5 @@
 #!/bin/sh
+# certora/scripts/munge.sh
 
 certoraRun certora/confs/AccountantInvariants.conf --msg AccountantInvariants
 certoraRun certora/confs/AccountantMaxDepositRedeem.conf --msg AccountantMaxDepositRedeem
@@ -35,3 +36,4 @@ certoraRun certora/confs/DepositRedeem.conf --msg redeemSameSenior --rule redeem
 certoraRun certora/confs/DepositRedeem.conf --msg redeemSplitJunior --rule redeemSplitJunior
 certoraRun certora/confs/DepositRedeem.conf --msg redeemSplitSenior --rule redeemSplitSenior
 
+# certora/scripts/unmunge.sh

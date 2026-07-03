@@ -42,22 +42,6 @@ index ebcd69a..ae1ea9f 100644
  
      /// @dev The cached tranche unit to NAV unit conversion rate
      uint256 internal transient cachedTrancheUnitToNAVUnitConversionRateWAD;
-diff --git a/src/libraries/Units.sol b/src/libraries/Units.sol
-index 2d5fe36..0bbbf2f 100644
---- a/src/libraries/Units.sol
-+++ b/src/libraries/Units.sol
-@@ -88,7 +88,10 @@ function toUint256(NAV_UNIT _units) pure returns (uint256) {
- }
- 
- function toInt256(NAV_UNIT _units) pure returns (int256) {
--    return int256(NAV_UNIT.unwrap(_units));
-+    int256 assets = int256(NAV_UNIT.unwrap(_units));
-+    // check for signed overflow
-+    require(assets >= 0, ASSETS_MUST_BE_NON_NEGATIVE());
-+    return int256(assets);
- }
- 
- function addNAVUnits(NAV_UNIT _a, NAV_UNIT _b) pure returns (NAV_UNIT) {
 diff --git a/src/tranches/base/RoycoVaultTranche.sol b/src/tranches/base/RoycoVaultTranche.sol
 index bd06759..2c15fcd 100644
 --- a/src/tranches/base/RoycoVaultTranche.sol

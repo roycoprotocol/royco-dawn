@@ -34,7 +34,7 @@ methods {
     function _.jtYieldShare(RoycoAccountant.MarketState,RoycoAccountant.NAV_UNIT,RoycoAccountant.NAV_UNIT,uint256,uint256,RoycoAccountant.NAV_UNIT) external => NONDET;
 }
 
-definition WAD() returns mathint = 10^18;
+// definition WAD() returns mathint = 10^18;
 definition MIN_COVERAGE_WAD() returns mathint = 10^16;   // 1 %
 definition MAX_COVERAGE_WAD() returns mathint = 10^18-1; // 99.9999999999999999 %
 

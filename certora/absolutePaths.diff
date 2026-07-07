@@ -1,0 +1,732 @@
+diff --git a/src/accountant/RoycoAccountant.sol b/src/accountant/RoycoAccountant.sol
+index 4bbb996..cd9ea22 100644
+--- a/src/accountant/RoycoAccountant.sol
++++ b/src/accountant/RoycoAccountant.sol
+@@ -1,14 +1,14 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { RoycoBase } from "../base/RoycoBase.sol";
+-import { IRoycoAccountant } from "../interfaces/IRoycoAccountant.sol";
+-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+-import { IYDM } from "../interfaces/IYDM.sol";
+-import { MAX_COVERAGE_WAD, MAX_PROTOCOL_FEE_WAD, MIN_COVERAGE_WAD, WAD, ZERO_NAV_UNITS } from "../libraries/Constants.sol";
+-import { MarketState, NAV_UNIT, Operation, SyncedAccountingState } from "../libraries/Types.sol";
+-import { UnitsMathLib, toNAVUnits, toUint256 } from "../libraries/Units.sol";
+-import { Math, UtilsLib } from "../libraries/UtilsLib.sol";
++import { RoycoBase } from "src/base/RoycoBase.sol";
++import { IRoycoAccountant } from "src/interfaces/IRoycoAccountant.sol";
++import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
++import { IYDM } from "src/interfaces/IYDM.sol";
++import { MAX_COVERAGE_WAD, MAX_PROTOCOL_FEE_WAD, MIN_COVERAGE_WAD, WAD, ZERO_NAV_UNITS } from "src/libraries/Constants.sol";
++import { MarketState, NAV_UNIT, Operation, SyncedAccountingState } from "src/libraries/Types.sol";
++import { UnitsMathLib, toNAVUnits, toUint256 } from "src/libraries/Units.sol";
++import { Math, UtilsLib } from "src/libraries/UtilsLib.sol";
+ 
+ /**
+  * @title RoycoAccountant
+diff --git a/src/auth/RoycoAuth.sol b/src/auth/RoycoAuth.sol
+index 4a38fec..833c0a8 100644
+--- a/src/auth/RoycoAuth.sol
++++ b/src/auth/RoycoAuth.sol
+@@ -1,9 +1,9 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { AccessManagedUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/contracts/access/manager/AccessManagedUpgradeable.sol";
+-import { PausableUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
+-import { IRoycoAuth } from "../interfaces/IRoycoAuth.sol";
++import { AccessManagedUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/access/manager/AccessManagedUpgradeable.sol";
++import { PausableUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
++import { IRoycoAuth } from "src/interfaces/IRoycoAuth.sol";
+ 
+ /**
+  * @title RoycoAuth
+diff --git a/src/base/RoycoBase.sol b/src/base/RoycoBase.sol
+index 42f0c59..869d619 100644
+--- a/src/base/RoycoBase.sol
++++ b/src/base/RoycoBase.sol
+@@ -1,8 +1,8 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { UUPSUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+-import { RoycoAuth } from "../auth/RoycoAuth.sol";
++import { UUPSUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
++import { RoycoAuth } from "src/auth/RoycoAuth.sol";
+ 
+ /**
+  * @title RoycoBase
+diff --git a/src/factory/RoycoFactory.sol b/src/factory/RoycoFactory.sol
+index f23e368..e4153a2 100644
+--- a/src/factory/RoycoFactory.sol
++++ b/src/factory/RoycoFactory.sol
+@@ -1,16 +1,16 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { AccessManagedUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/contracts/access/manager/AccessManagedUpgradeable.sol";
+-import { AccessManagerUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/contracts/access/manager/AccessManagerUpgradeable.sol";
+-import { UUPSUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+-import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+-import { CREATE3 } from "../../lib/solady/src/utils/CREATE3.sol";
+-import { IRoycoAccountant } from "../interfaces/IRoycoAccountant.sol";
+-import { IRoycoFactory } from "../interfaces/IRoycoFactory.sol";
+-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+-import { IRoycoVaultTranche, TrancheType } from "../interfaces/IRoycoVaultTranche.sol";
+-import { RolesConfiguration } from "./RolesConfiguration.sol";
++import { AccessManagedUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/access/manager/AccessManagedUpgradeable.sol";
++import { AccessManagerUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/access/manager/AccessManagerUpgradeable.sol";
++import { UUPSUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
++import { ERC1967Proxy } from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
++import { CREATE3 } from "lib/solady/src/utils/CREATE3.sol";
++import { RolesConfiguration } from "src/factory/RolesConfiguration.sol";
++import { IRoycoAccountant } from "src/interfaces/IRoycoAccountant.sol";
++import { IRoycoFactory } from "src/interfaces/IRoycoFactory.sol";
++import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
++import { IRoycoVaultTranche, TrancheType } from "src/interfaces/IRoycoVaultTranche.sol";
+ 
+ /**
+  * @title RoycoFactory
+diff --git a/src/interfaces/IRoycoAccountant.sol b/src/interfaces/IRoycoAccountant.sol
+index ab082a6..2d99adf 100644
+--- a/src/interfaces/IRoycoAccountant.sol
++++ b/src/interfaces/IRoycoAccountant.sol
+@@ -1,8 +1,8 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { MarketState, Operation, SyncedAccountingState } from "../libraries/Types.sol";
+-import { NAV_UNIT } from "../libraries/Units.sol";
++import { MarketState, Operation, SyncedAccountingState } from "src/libraries/Types.sol";
++import { NAV_UNIT } from "src/libraries/Units.sol";
+ 
+ /**
+  * @title IRoycoAccountant
+diff --git a/src/interfaces/IRoycoFactory.sol b/src/interfaces/IRoycoFactory.sol
+index ed407b2..e45244b 100644
+--- a/src/interfaces/IRoycoFactory.sol
++++ b/src/interfaces/IRoycoFactory.sol
+@@ -1,9 +1,9 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IRoycoAccountant } from "./IRoycoAccountant.sol";
+-import { IRoycoKernel } from "./IRoycoKernel.sol";
+-import { IRoycoVaultTranche } from "./IRoycoVaultTranche.sol";
++import { IRoycoAccountant } from "src/interfaces/IRoycoAccountant.sol";
++import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
++import { IRoycoVaultTranche } from "src/interfaces/IRoycoVaultTranche.sol";
+ 
+ /// @title IRoycoFactory
+ /// @notice Interface for the RoycoFactory contract that deploys Royco markets
+diff --git a/src/interfaces/IRoycoKernel.sol b/src/interfaces/IRoycoKernel.sol
+index 770f904..f2c7ea9 100644
+--- a/src/interfaces/IRoycoKernel.sol
++++ b/src/interfaces/IRoycoKernel.sol
+@@ -1,8 +1,8 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { AssetClaims, SyncedAccountingState, TrancheType } from "../libraries/Types.sol";
+-import { NAV_UNIT, TRANCHE_UNIT } from "../libraries/Units.sol";
++import { AssetClaims, SyncedAccountingState, TrancheType } from "src/libraries/Types.sol";
++import { NAV_UNIT, TRANCHE_UNIT } from "src/libraries/Units.sol";
+ 
+ /**
+  * @title IRoycoKernel
+diff --git a/src/interfaces/IRoycoVaultTranche.sol b/src/interfaces/IRoycoVaultTranche.sol
+index d8ea083..40a3be5 100644
+--- a/src/interfaces/IRoycoVaultTranche.sol
++++ b/src/interfaces/IRoycoVaultTranche.sol
+@@ -1,9 +1,9 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IERC20Metadata } from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+-import { AssetClaims, TrancheType } from "../libraries/Types.sol";
+-import { NAV_UNIT, TRANCHE_UNIT } from "../libraries/Units.sol";
++import { IERC20Metadata } from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
++import { AssetClaims, TrancheType } from "src/libraries/Types.sol";
++import { NAV_UNIT, TRANCHE_UNIT } from "src/libraries/Units.sol";
+ 
+ /**
+  * @title IRoycoVaultTranche
+diff --git a/src/interfaces/IYDM.sol b/src/interfaces/IYDM.sol
+index 42e0781..6bc8e8a 100644
+--- a/src/interfaces/IYDM.sol
++++ b/src/interfaces/IYDM.sol
+@@ -1,7 +1,7 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { MarketState, NAV_UNIT } from "../libraries/Types.sol";
++import { MarketState, NAV_UNIT } from "src/libraries/Types.sol";
+ 
+ /**
+  * @title IYDM - Yield Distribution Model Interface
+diff --git a/src/kernels/Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel.sol b/src/kernels/Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel.sol
+index 7a62581..da604f5 100644
+--- a/src/kernels/Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel.sol
++++ b/src/kernels/Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel.sol
+@@ -1,12 +1,12 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IERC20Metadata } from "../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+-import { IIdleCDO } from "../interfaces/external/idle-finance/IIdleCDO.sol";
+-import { WAD_DECIMALS } from "../libraries/Constants.sol";
+-import { RoycoKernel } from "./base/RoycoKernel.sol";
+-import { IdenticalAssetsOracleQuoter } from "./base/quoter/base/IdenticalAssetsOracleQuoter.sol";
++import { IERC20Metadata } from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
++import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
++import { IIdleCDO } from "src/interfaces/external/idle-finance/IIdleCDO.sol";
++import { RoycoKernel } from "src/kernels/base/RoycoKernel.sol";
++import { IdenticalAssetsOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol";
++import { WAD_DECIMALS } from "src/libraries/Constants.sol";
+ 
+ /**
+  * @title Identical_AA_IdleCDO_ST_JT_VirtualPriceOracle_Kernel
+diff --git a/src/kernels/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel.sol b/src/kernels/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel.sol
+index 8bf12a4..c7e2cf7 100644
+--- a/src/kernels/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel.sol
++++ b/src/kernels/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel.sol
+@@ -1,9 +1,9 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+-import { RoycoKernel } from "./base/RoycoKernel.sol";
+-import { IdenticalAssetsChainlinkToAdminOracleQuoter } from "./base/quoter/IdenticalAssetsChainlinkToAdminOracleQuoter.sol";
++import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
++import { RoycoKernel } from "src/kernels/base/RoycoKernel.sol";
++import { IdenticalAssetsChainlinkToAdminOracleQuoter } from "src/kernels/base/quoter/IdenticalAssetsChainlinkToAdminOracleQuoter.sol";
+ 
+ /**
+  * @title Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel
+diff --git a/src/kernels/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_SoulBoundTrancheShares_Kernel.sol b/src/kernels/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_SoulBoundTrancheShares_Kernel.sol
+index 1777fe3..250bbca 100644
+--- a/src/kernels/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_SoulBoundTrancheShares_Kernel.sol
++++ b/src/kernels/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_SoulBoundTrancheShares_Kernel.sol
+@@ -1,7 +1,7 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel, RoycoKernel } from "./Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel.sol";
++import { Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel, RoycoKernel } from "src/kernels/Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel.sol";
+ 
+ /**
+  * @title Identical_ERC20_ST_JT_ChainlinkToAdminOracle_SoulBoundTrancheShares_Kernel
+diff --git a/src/kernels/Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel.sol b/src/kernels/Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel.sol
+index bd5bf33..b9b513f 100644
+--- a/src/kernels/Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel.sol
++++ b/src/kernels/Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel.sol
+@@ -1,9 +1,9 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+-import { RoycoKernel } from "./base/RoycoKernel.sol";
+-import { IdenticalERC4626SharesToAdminOracleQuoter } from "./base/quoter/IdenticalERC4626SharesToAdminOracleQuoter.sol";
++import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
++import { RoycoKernel } from "src/kernels/base/RoycoKernel.sol";
++import { IdenticalERC4626SharesToAdminOracleQuoter } from "src/kernels/base/quoter/IdenticalERC4626SharesToAdminOracleQuoter.sol";
+ 
+ /**
+  * @title Identical_ERC4626_ST_JT_SharePriceToAdminOracle_Kernel
+diff --git a/src/kernels/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol b/src/kernels/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol
+index 6e832b9..56a7bb0 100644
+--- a/src/kernels/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol
++++ b/src/kernels/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol
+@@ -1,9 +1,9 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+-import { RoycoKernel } from "./base/RoycoKernel.sol";
+-import { IdenticalERC4626SharesToChainlinkOracleQuoter } from "./base/quoter/IdenticalERC4626SharesToChainlinkOracleQuoter.sol";
++import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
++import { RoycoKernel } from "src/kernels/base/RoycoKernel.sol";
++import { IdenticalERC4626SharesToChainlinkOracleQuoter } from "src/kernels/base/quoter/IdenticalERC4626SharesToChainlinkOracleQuoter.sol";
+ 
+ /**
+  * @title Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
+diff --git a/src/kernels/Identical_Makina_ST_JT_MachineToAdminOracle_Kernel.sol b/src/kernels/Identical_Makina_ST_JT_MachineToAdminOracle_Kernel.sol
+index 866070f..77c85c8 100644
+--- a/src/kernels/Identical_Makina_ST_JT_MachineToAdminOracle_Kernel.sol
++++ b/src/kernels/Identical_Makina_ST_JT_MachineToAdminOracle_Kernel.sol
+@@ -1,9 +1,9 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+-import { RoycoKernel } from "./base/RoycoKernel.sol";
+-import { IdenticalMakinaSharesToAdminOracleQuoter } from "./base/quoter/IdenticalMakinaSharesToAdminOracleQuoter.sol";
++import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
++import { RoycoKernel } from "src/kernels/base/RoycoKernel.sol";
++import { IdenticalMakinaSharesToAdminOracleQuoter } from "src/kernels/base/quoter/IdenticalMakinaSharesToAdminOracleQuoter.sol";
+ 
+ /**
+  * @title Identical_Makina_ST_JT_MachineToAdminOracle_Kernel
+diff --git a/src/kernels/MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel.sol b/src/kernels/MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel.sol
+index 9e1becb..b11b300 100644
+--- a/src/kernels/MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel.sol
++++ b/src/kernels/MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel.sol
+@@ -1,18 +1,18 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+-import { IMapleGlobals } from "../interfaces/external/maple/IMapleGlobals.sol";
+-import { IMaplePool } from "../interfaces/external/maple/IMaplePool.sol";
+-import { IMaplePoolManager } from "../interfaces/external/maple/IMaplePoolManager.sol";
+-import { IMaplePoolPermissionManager } from "../interfaces/external/maple/IMaplePoolPermissionManager.sol";
+-import { WAD } from "../libraries/Constants.sol";
+-import { TRANCHE_UNIT } from "../libraries/Units.sol";
+ import {
+     IdenticalERC4626SharesToChainlinkOracleQuoter,
+     Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
+ } from "./Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
+-import { AssetClaims, IRoycoVaultTranche, Math, RoycoKernel } from "./base/RoycoKernel.sol";
++import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
++import { IMapleGlobals } from "src/interfaces/external/maple/IMapleGlobals.sol";
++import { IMaplePool } from "src/interfaces/external/maple/IMaplePool.sol";
++import { IMaplePoolManager } from "src/interfaces/external/maple/IMaplePoolManager.sol";
++import { IMaplePoolPermissionManager } from "src/interfaces/external/maple/IMaplePoolPermissionManager.sol";
++import { AssetClaims, IRoycoVaultTranche, Math, RoycoKernel } from "src/kernels/base/RoycoKernel.sol";
++import { WAD } from "src/libraries/Constants.sol";
++import { TRANCHE_UNIT } from "src/libraries/Units.sol";
+ 
+ /**
+  * @title MaplePoolV2_ST_JT_ExitSharePriceToChainlinkOracle_Kernel
+diff --git a/src/kernels/ReUSD_ST_JT_ICLOracle_Kernel.sol b/src/kernels/ReUSD_ST_JT_ICLOracle_Kernel.sol
+index 8a1966f..272a163 100644
+--- a/src/kernels/ReUSD_ST_JT_ICLOracle_Kernel.sol
++++ b/src/kernels/ReUSD_ST_JT_ICLOracle_Kernel.sol
+@@ -1,12 +1,12 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IERC20Metadata } from "../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+-import { IInsuranceCapitalLayer } from "../interfaces/external/reUSD/IInsuranceCapitalLayer.sol";
+-import { WAD_DECIMALS } from "../libraries/Constants.sol";
+-import { RoycoKernel } from "./base/RoycoKernel.sol";
+-import { IdenticalAssetsOracleQuoter } from "./base/quoter/base/IdenticalAssetsOracleQuoter.sol";
++import { IERC20Metadata } from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
++import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
++import { IInsuranceCapitalLayer } from "src/interfaces/external/reUSD/IInsuranceCapitalLayer.sol";
++import { RoycoKernel } from "src/kernels/base/RoycoKernel.sol";
++import { IdenticalAssetsOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol";
++import { WAD_DECIMALS } from "src/libraries/Constants.sol";
+ 
+ /**
+  * @title ReUSD_ST_JT_ICLOracle_Kernel
+diff --git a/src/kernels/base/RoycoKernel.sol b/src/kernels/base/RoycoKernel.sol
+index 231dbf2..0005d3e 100644
+--- a/src/kernels/base/RoycoKernel.sol
++++ b/src/kernels/base/RoycoKernel.sol
+@@ -1,18 +1,18 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IAccessManager } from "../../../lib/openzeppelin-contracts/contracts/access/manager/IAccessManager.sol";
+-import { IERC20 } from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+-import { SafeERC20 } from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+-import { ReentrancyGuardTransient } from "../../../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuardTransient.sol";
+-import { RoycoBase } from "../../base/RoycoBase.sol";
+-import { IRoycoAccountant } from "../../interfaces/IRoycoAccountant.sol";
+-import { IRoycoKernel } from "../../interfaces/IRoycoKernel.sol";
+-import { IRoycoVaultTranche } from "../../interfaces/IRoycoVaultTranche.sol";
+-import { MAX_TRANCHE_UNITS, WAD, ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "../../libraries/Constants.sol";
+-import { AssetClaims, MarketState, Operation, SyncedAccountingState, TrancheType } from "../../libraries/Types.sol";
+-import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toUint256 } from "../../libraries/Units.sol";
+-import { UtilsLib } from "../../libraries/UtilsLib.sol";
++import { IAccessManager } from "lib/openzeppelin-contracts/contracts/access/manager/IAccessManager.sol";
++import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
++import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
++import { ReentrancyGuardTransient } from "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuardTransient.sol";
++import { RoycoBase } from "src/base/RoycoBase.sol";
++import { IRoycoAccountant } from "src/interfaces/IRoycoAccountant.sol";
++import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
++import { IRoycoVaultTranche } from "src/interfaces/IRoycoVaultTranche.sol";
++import { MAX_TRANCHE_UNITS, WAD, ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "src/libraries/Constants.sol";
++import { AssetClaims, MarketState, Operation, SyncedAccountingState, TrancheType } from "src/libraries/Types.sol";
++import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toUint256 } from "src/libraries/Units.sol";
++import { UtilsLib } from "src/libraries/UtilsLib.sol";
+ 
+ /**
+  * @title RoycoKernel
+diff --git a/src/kernels/base/quoter/IdenticalAssetsChainlinkToAdminOracleQuoter.sol b/src/kernels/base/quoter/IdenticalAssetsChainlinkToAdminOracleQuoter.sol
+index e8038ee..929fb81 100644
+--- a/src/kernels/base/quoter/IdenticalAssetsChainlinkToAdminOracleQuoter.sol
++++ b/src/kernels/base/quoter/IdenticalAssetsChainlinkToAdminOracleQuoter.sol
+@@ -1,9 +1,9 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IdenticalAssetsAdminOracleQuoter } from "./base/IdenticalAssetsAdminOracleQuoter.sol";
+-import { IdenticalAssetsChainlinkOracleQuoter } from "./base/IdenticalAssetsChainlinkOracleQuoter.sol";
+-import { IdenticalAssetsOracleQuoter } from "./base/IdenticalAssetsOracleQuoter.sol";
++import { IdenticalAssetsAdminOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsAdminOracleQuoter.sol";
++import { IdenticalAssetsChainlinkOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsChainlinkOracleQuoter.sol";
++import { IdenticalAssetsOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol";
+ 
+ /**
+  * @title IdenticalAssetsChainlinkToAdminOracleQuoter
+diff --git a/src/kernels/base/quoter/IdenticalERC4626SharesToAdminOracleQuoter.sol b/src/kernels/base/quoter/IdenticalERC4626SharesToAdminOracleQuoter.sol
+index dd13cec..48a3290 100644
+--- a/src/kernels/base/quoter/IdenticalERC4626SharesToAdminOracleQuoter.sol
++++ b/src/kernels/base/quoter/IdenticalERC4626SharesToAdminOracleQuoter.sol
+@@ -1,9 +1,9 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IdenticalAssetsAdminOracleQuoter } from "./base/IdenticalAssetsAdminOracleQuoter.sol";
+-import { IdenticalAssetsOracleQuoter } from "./base/IdenticalAssetsOracleQuoter.sol";
+-import { IdenticalERC4626SharesOracleQuoter } from "./base/IdenticalERC4626SharesOracleQuoter.sol";
++import { IdenticalAssetsAdminOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsAdminOracleQuoter.sol";
++import { IdenticalAssetsOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol";
++import { IdenticalERC4626SharesOracleQuoter } from "src/kernels/base/quoter/base/IdenticalERC4626SharesOracleQuoter.sol";
+ 
+ /**
+  * @title IdenticalERC4626SharesToAdminOracleQuoter
+diff --git a/src/kernels/base/quoter/IdenticalERC4626SharesToChainlinkOracleQuoter.sol b/src/kernels/base/quoter/IdenticalERC4626SharesToChainlinkOracleQuoter.sol
+index 3d8485b..da6c40d 100644
+--- a/src/kernels/base/quoter/IdenticalERC4626SharesToChainlinkOracleQuoter.sol
++++ b/src/kernels/base/quoter/IdenticalERC4626SharesToChainlinkOracleQuoter.sol
+@@ -1,9 +1,9 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IdenticalAssetsChainlinkOracleQuoter } from "./base/IdenticalAssetsChainlinkOracleQuoter.sol";
+-import { IdenticalAssetsOracleQuoter } from "./base/IdenticalAssetsOracleQuoter.sol";
+-import { IdenticalERC4626SharesOracleQuoter, Math, WAD } from "./base/IdenticalERC4626SharesOracleQuoter.sol";
++import { IdenticalAssetsChainlinkOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsChainlinkOracleQuoter.sol";
++import { IdenticalAssetsOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol";
++import { IdenticalERC4626SharesOracleQuoter, Math, WAD } from "src/kernels/base/quoter/base/IdenticalERC4626SharesOracleQuoter.sol";
+ 
+ /**
+  * @title IdenticalERC4626SharesToChainlinkOracleQuoter
+diff --git a/src/kernels/base/quoter/IdenticalMakinaSharesToAdminOracleQuoter.sol b/src/kernels/base/quoter/IdenticalMakinaSharesToAdminOracleQuoter.sol
+index 4f4bfbf..7bd7a66 100644
+--- a/src/kernels/base/quoter/IdenticalMakinaSharesToAdminOracleQuoter.sol
++++ b/src/kernels/base/quoter/IdenticalMakinaSharesToAdminOracleQuoter.sol
+@@ -1,11 +1,11 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IERC20Metadata } from "../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
+-import { Math } from "../../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+-import { IMachine } from "../../../interfaces/external/makina/IMachine.sol";
+-import { WAD, WAD_DECIMALS } from "../../../libraries/Constants.sol";
+-import { IdenticalAssetsAdminOracleQuoter, IdenticalAssetsOracleQuoter } from "./base/IdenticalAssetsAdminOracleQuoter.sol";
++import { IERC20Metadata } from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
++import { Math } from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
++import { IMachine } from "src/interfaces/external/makina/IMachine.sol";
++import { IdenticalAssetsAdminOracleQuoter, IdenticalAssetsOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsAdminOracleQuoter.sol";
++import { WAD, WAD_DECIMALS } from "src/libraries/Constants.sol";
+ 
+ /**
+  * @title IdenticalMakinaSharesToAdminOracleQuoter
+diff --git a/src/kernels/base/quoter/base/IdenticalAssetsAdminOracleQuoter.sol b/src/kernels/base/quoter/base/IdenticalAssetsAdminOracleQuoter.sol
+index e71c9ee..3c20e57 100644
+--- a/src/kernels/base/quoter/base/IdenticalAssetsAdminOracleQuoter.sol
++++ b/src/kernels/base/quoter/base/IdenticalAssetsAdminOracleQuoter.sol
+@@ -1,7 +1,7 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IdenticalAssetsOracleQuoter } from "./IdenticalAssetsOracleQuoter.sol";
++import { IdenticalAssetsOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol";
+ 
+ /**
+  * @title IdenticalAssetsAdminOracleQuoter
+diff --git a/src/kernels/base/quoter/base/IdenticalAssetsChainlinkOracleQuoter.sol b/src/kernels/base/quoter/base/IdenticalAssetsChainlinkOracleQuoter.sol
+index ef4d5ff..622b503 100644
+--- a/src/kernels/base/quoter/base/IdenticalAssetsChainlinkOracleQuoter.sol
++++ b/src/kernels/base/quoter/base/IdenticalAssetsChainlinkOracleQuoter.sol
+@@ -1,9 +1,9 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { Math } from "../../../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+-import { AggregatorV3Interface } from "../../../../interfaces/external/chainlink/AggregatorV3Interface.sol";
+-import { IdenticalAssetsOracleQuoter } from "./IdenticalAssetsOracleQuoter.sol";
++import { Math } from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
++import { AggregatorV3Interface } from "src/interfaces/external/chainlink/AggregatorV3Interface.sol";
++import { IdenticalAssetsOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol";
+ 
+ /**
+  * @title IdenticalAssetsChainlinkOracleQuoter
+diff --git a/src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol b/src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol
+index 4cd7fd2..ebcd69a 100644
+--- a/src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol
++++ b/src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol
+@@ -1,9 +1,9 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IERC20Metadata } from "../../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
+-import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "../../../../libraries/Units.sol";
+-import { RoycoKernel } from "../../RoycoKernel.sol";
++import { IERC20Metadata } from "lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
++import { RoycoKernel } from "src/kernels/base/RoycoKernel.sol";
++import { Math, NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "src/libraries/Units.sol";
+ 
+ /**
+  * @title IdenticalAssetsOracleQuoter
+diff --git a/src/kernels/base/quoter/base/IdenticalERC4626SharesOracleQuoter.sol b/src/kernels/base/quoter/base/IdenticalERC4626SharesOracleQuoter.sol
+index c4a637a..8ea2fc7 100644
+--- a/src/kernels/base/quoter/base/IdenticalERC4626SharesOracleQuoter.sol
++++ b/src/kernels/base/quoter/base/IdenticalERC4626SharesOracleQuoter.sol
+@@ -1,10 +1,10 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IERC20Metadata, IERC4626 } from "../../../../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+-import { Math } from "../../../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+-import { WAD, WAD_DECIMALS } from "../../../../libraries/Constants.sol";
+-import { IdenticalAssetsOracleQuoter } from "./IdenticalAssetsOracleQuoter.sol";
++import { IERC20Metadata, IERC4626 } from "lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
++import { Math } from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
++import { IdenticalAssetsOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsOracleQuoter.sol";
++import { WAD, WAD_DECIMALS } from "src/libraries/Constants.sol";
+ 
+ /**
+  * @title IdenticalERC4626SharesOracleQuoter
+diff --git a/src/kernels/sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel.sol b/src/kernels/sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel.sol
+index 274afba..81b0162 100644
+--- a/src/kernels/sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel.sol
++++ b/src/kernels/sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel.sol
+@@ -1,13 +1,13 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+-import { IStakedUSDai } from "../interfaces/external/usdai/IStakedUSDai.sol";
+-import { IUSDai } from "../interfaces/external/usdai/IUSDai.sol";
+-import { WAD } from "../libraries/Constants.sol";
+-import { Math } from "../libraries/Units.sol";
+-import { RoycoKernel } from "./base/RoycoKernel.sol";
+-import { IdenticalAssetsAdminOracleQuoter, IdenticalAssetsOracleQuoter } from "./base/quoter/base/IdenticalAssetsAdminOracleQuoter.sol";
++import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
++import { IStakedUSDai } from "src/interfaces/external/usdai/IStakedUSDai.sol";
++import { IUSDai } from "src/interfaces/external/usdai/IUSDai.sol";
++import { RoycoKernel } from "src/kernels/base/RoycoKernel.sol";
++import { IdenticalAssetsAdminOracleQuoter, IdenticalAssetsOracleQuoter } from "src/kernels/base/quoter/base/IdenticalAssetsAdminOracleQuoter.sol";
++import { WAD } from "src/libraries/Constants.sol";
++import { Math } from "src/libraries/Units.sol";
+ 
+ /**
+  * @title sUSDai_ST_JT_RedemptionSharePriceToAdminOracle_Kernel
+diff --git a/src/libraries/Constants.sol b/src/libraries/Constants.sol
+index 36782d6..a208313 100644
+--- a/src/libraries/Constants.sol
++++ b/src/libraries/Constants.sol
+@@ -1,7 +1,7 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { NAV_UNIT, TRANCHE_UNIT } from "./Units.sol";
++import { NAV_UNIT, TRANCHE_UNIT } from "src/libraries/Units.sol";
+ 
+ /// @dev Constant for 0 NAV units
+ NAV_UNIT constant ZERO_NAV_UNITS = NAV_UNIT.wrap(0);
+diff --git a/src/libraries/Types.sol b/src/libraries/Types.sol
+index 694c00c..6829a38 100644
+--- a/src/libraries/Types.sol
++++ b/src/libraries/Types.sol
+@@ -1,7 +1,7 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { NAV_UNIT, TRANCHE_UNIT } from "./Units.sol";
++import { NAV_UNIT, TRANCHE_UNIT } from "src/libraries/Units.sol";
+ 
+ /**
+  * @title MarketState
+diff --git a/src/libraries/Units.sol b/src/libraries/Units.sol
+index 8d8ad00..716f7dd 100644
+--- a/src/libraries/Units.sol
++++ b/src/libraries/Units.sol
+@@ -1,7 +1,7 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
++import { Math } from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+ 
+ /// @notice Common unit of account for Royco NAV values (e.g., USD, BTC) used consistently across a market's tranches
+ /// @dev `NAV_UNIT` must be expressed in the same underlying unit and precision for both ST and JT within a market
+diff --git a/src/libraries/UtilsLib.sol b/src/libraries/UtilsLib.sol
+index 2980ec5..1c589a1 100644
+--- a/src/libraries/UtilsLib.sol
++++ b/src/libraries/UtilsLib.sol
+@@ -1,10 +1,10 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+-import { WAD, ZERO_NAV_UNITS } from "./Constants.sol";
+-import { AssetClaims } from "./Types.sol";
+-import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib } from "./Units.sol";
++import { Math } from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
++import { WAD, ZERO_NAV_UNITS } from "src/libraries/Constants.sol";
++import { AssetClaims } from "src/libraries/Types.sol";
++import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib } from "src/libraries/Units.sol";
+ 
+ /**
+  * @title UtilsLib
+diff --git a/src/periphery/RoycoMarketSyncer.sol b/src/periphery/RoycoMarketSyncer.sol
+index 1914637..af62758 100644
+--- a/src/periphery/RoycoMarketSyncer.sol
++++ b/src/periphery/RoycoMarketSyncer.sol
+@@ -1,11 +1,11 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { EnumerableSet } from "../../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+-import { RoycoBase } from "../base/RoycoBase.sol";
+-import { IRoycoFactory } from "../interfaces/IRoycoFactory.sol";
+-import { IRoycoKernel } from "../interfaces/IRoycoKernel.sol";
+-import { IRoycoVaultTranche } from "../interfaces/IRoycoVaultTranche.sol";
++import { EnumerableSet } from "lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
++import { RoycoBase } from "src/base/RoycoBase.sol";
++import { IRoycoFactory } from "src/interfaces/IRoycoFactory.sol";
++import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
++import { IRoycoVaultTranche } from "src/interfaces/IRoycoVaultTranche.sol";
+ 
+ /**
+  * @title RoycoMarketSyncer
+diff --git a/src/tranches/RoycoJuniorTranche.sol b/src/tranches/RoycoJuniorTranche.sol
+index cbf61d6..91d17d1 100644
+--- a/src/tranches/RoycoJuniorTranche.sol
++++ b/src/tranches/RoycoJuniorTranche.sol
+@@ -1,8 +1,8 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { TrancheType } from "../libraries/Types.sol";
+-import { RoycoVaultTranche } from "./base/RoycoVaultTranche.sol";
++import { TrancheType } from "src/libraries/Types.sol";
++import { RoycoVaultTranche } from "src/tranches/base/RoycoVaultTranche.sol";
+ 
+ /**
+  * @title RoycoJuniorTranche
+diff --git a/src/tranches/RoycoSeniorTranche.sol b/src/tranches/RoycoSeniorTranche.sol
+index 4addef4..528daa8 100644
+--- a/src/tranches/RoycoSeniorTranche.sol
++++ b/src/tranches/RoycoSeniorTranche.sol
+@@ -1,8 +1,8 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { TrancheType } from "../libraries/Types.sol";
+-import { RoycoVaultTranche } from "./base/RoycoVaultTranche.sol";
++import { TrancheType } from "src/libraries/Types.sol";
++import { RoycoVaultTranche } from "src/tranches/base/RoycoVaultTranche.sol";
+ 
+ /**
+  * @title RoycoSeniorTranche
+diff --git a/src/tranches/base/RoycoVaultTranche.sol b/src/tranches/base/RoycoVaultTranche.sol
+index c8f32c9..bd06759 100644
+--- a/src/tranches/base/RoycoVaultTranche.sol
++++ b/src/tranches/base/RoycoVaultTranche.sol
+@@ -1,19 +1,19 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { ERC20Upgradeable, IERC20, IERC20Metadata } from "../../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+-import { ERC20BurnableUpgradeable } from "../../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
+-import { ERC20PausableUpgradeable } from "../../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
+-import { ERC20PermitUpgradeable } from "../../../lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+-import { SafeERC20 } from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+-import { Math } from "../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+-import { RoycoBase } from "../../base/RoycoBase.sol";
+-import { IRoycoKernel } from "../../interfaces/IRoycoKernel.sol";
+-import { IRoycoVaultTranche } from "../../interfaces/IRoycoVaultTranche.sol";
+-import { WAD_DECIMALS, ZERO_NAV_UNITS } from "../../libraries/Constants.sol";
+-import { AssetClaims, SyncedAccountingState, TrancheType } from "../../libraries/Types.sol";
+-import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "../../libraries/Units.sol";
+-import { UtilsLib } from "../../libraries/UtilsLib.sol";
++import { ERC20Upgradeable, IERC20, IERC20Metadata } from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
++import { ERC20BurnableUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
++import { ERC20PausableUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
++import { ERC20PermitUpgradeable } from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
++import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
++import { Math } from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
++import { RoycoBase } from "src/base/RoycoBase.sol";
++import { IRoycoKernel } from "src/interfaces/IRoycoKernel.sol";
++import { IRoycoVaultTranche } from "src/interfaces/IRoycoVaultTranche.sol";
++import { WAD_DECIMALS, ZERO_NAV_UNITS } from "src/libraries/Constants.sol";
++import { AssetClaims, SyncedAccountingState, TrancheType } from "src/libraries/Types.sol";
++import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "src/libraries/Units.sol";
++import { UtilsLib } from "src/libraries/UtilsLib.sol";
+ 
+ /**
+  * @title RoycoVaultTranche
+diff --git a/src/ydm/AdaptiveCurveYDM_V1.sol b/src/ydm/AdaptiveCurveYDM_V1.sol
+index ae465e1..5f2455e 100644
+--- a/src/ydm/AdaptiveCurveYDM_V1.sol
++++ b/src/ydm/AdaptiveCurveYDM_V1.sol
+@@ -1,11 +1,11 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { FixedPointMathLib } from "../../lib/solady/src/utils/FixedPointMathLib.sol";
+-import { IYDM, MarketState } from "../interfaces/IYDM.sol";
+-import { TARGET_UTILIZATION_WAD, TARGET_UTILIZATION_WAD_INT, WAD, WAD_INT } from "../libraries/Constants.sol";
+-import { NAV_UNIT } from "../libraries/Units.sol";
+-import { UtilsLib } from "../libraries/UtilsLib.sol";
++import { FixedPointMathLib } from "lib/solady/src/utils/FixedPointMathLib.sol";
++import { IYDM, MarketState } from "src/interfaces/IYDM.sol";
++import { TARGET_UTILIZATION_WAD, TARGET_UTILIZATION_WAD_INT, WAD, WAD_INT } from "src/libraries/Constants.sol";
++import { NAV_UNIT } from "src/libraries/Units.sol";
++import { UtilsLib } from "src/libraries/UtilsLib.sol";
+ 
+ /**
+  * @title AdaptiveCurveYDM_V1
+diff --git a/src/ydm/AdaptiveCurveYDM_V2.sol b/src/ydm/AdaptiveCurveYDM_V2.sol
+index e3697d8..13d3568 100644
+--- a/src/ydm/AdaptiveCurveYDM_V2.sol
++++ b/src/ydm/AdaptiveCurveYDM_V2.sol
+@@ -1,11 +1,11 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { FixedPointMathLib } from "../../lib/solady/src/utils/FixedPointMathLib.sol";
+-import { IYDM, MarketState } from "../interfaces/IYDM.sol";
+-import { TARGET_UTILIZATION_WAD, TARGET_UTILIZATION_WAD_INT, WAD, WAD_INT } from "../libraries/Constants.sol";
+-import { NAV_UNIT } from "../libraries/Units.sol";
+-import { UtilsLib } from "../libraries/UtilsLib.sol";
++import { FixedPointMathLib } from "lib/solady/src/utils/FixedPointMathLib.sol";
++import { IYDM, MarketState } from "src/interfaces/IYDM.sol";
++import { TARGET_UTILIZATION_WAD, TARGET_UTILIZATION_WAD_INT, WAD, WAD_INT } from "src/libraries/Constants.sol";
++import { NAV_UNIT } from "src/libraries/Units.sol";
++import { UtilsLib } from "src/libraries/UtilsLib.sol";
+ 
+ /**
+  * @title AdaptiveCurveYDM_V2
+diff --git a/src/ydm/StaticCurveYDM.sol b/src/ydm/StaticCurveYDM.sol
+index 3b7e816..99995f4 100644
+--- a/src/ydm/StaticCurveYDM.sol
++++ b/src/ydm/StaticCurveYDM.sol
+@@ -1,11 +1,11 @@
+ // SPDX-License-Identifier: UNLICENSED
+ pragma solidity ^0.8.28;
+ 
+-import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+-import { IYDM, MarketState } from "../interfaces/IYDM.sol";
+-import { TARGET_UTILIZATION_WAD, WAD } from "../libraries/Constants.sol";
+-import { NAV_UNIT } from "../libraries/Units.sol";
+-import { UtilsLib } from "../libraries/UtilsLib.sol";
++import { Math } from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
++import { IYDM, MarketState } from "src/interfaces/IYDM.sol";
++import { TARGET_UTILIZATION_WAD, WAD } from "src/libraries/Constants.sol";
++import { NAV_UNIT } from "src/libraries/Units.sol";
++import { UtilsLib } from "src/libraries/UtilsLib.sol";
+ 
+ /**
+  * @title StaticCurveYDM

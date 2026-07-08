@@ -36,6 +36,9 @@ contract MockTranche is IRoycoVaultTranche, ERC20 {
     // Track total deposited assets for NAV calculation
     uint256 public totalDepositedAssets;
 
+    // The tranche's authority (defaults to the factory, mirroring the live deployment topology)
+    address public trancheAuthority;
+
     constructor(
         address _asset,
         address _factory,
@@ -46,6 +49,7 @@ contract MockTranche is IRoycoVaultTranche, ERC20 {
         UNDERLYING_ASSET = _asset;
         FACTORY = _factory;
         TRANCHE_TYPE_VALUE = _trancheType;
+        trancheAuthority = _factory;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -61,6 +65,11 @@ contract MockTranche is IRoycoVaultTranche, ERC20 {
     /// @notice Sets the kernel address
     function setKernel(address _kernel) external {
         kernelAddress = _kernel;
+    }
+
+    /// @notice Sets the tranche's authority
+    function setAuthority(address _authority) external {
+        trancheAuthority = _authority;
     }
 
     /// @notice Sets max deposit limit
@@ -109,6 +118,11 @@ contract MockTranche is IRoycoVaultTranche, ERC20 {
 
     function asset() external view override returns (address) {
         return UNDERLYING_ASSET;
+    }
+
+    /// @notice Returns the tranche's authority (the Royco factory by default, mirroring the live deployment topology)
+    function authority() external view returns (address) {
+        return trancheAuthority;
     }
 
     function getRawNAV() external view override returns (NAV_UNIT) {

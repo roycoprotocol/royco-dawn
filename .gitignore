@@ -27,3 +27,7 @@ output/
 # Certora directories
 **/.certora_internal
 **/.CertoraProverLiteReports
+
+# Editor and OS files
+.vscode
+.DS_Store

@@ -157,6 +157,12 @@ function toUint256(TRANCHE_UNIT _units) pure returns (uint256) {
     return TRANCHE_UNIT.unwrap(_units);
 }
 
+function toInt256(TRANCHE_UNIT _units) pure returns (int256 assets) {
+    // Ensure there was no overflow in the cast
+    // forge-lint: disable-next-line(unsafe-typecast)
+    require((assets = int256(TRANCHE_UNIT.unwrap(_units))) >= 0, ASSETS_MUST_BE_NON_NEGATIVE());
+}
+
 function addTrancheUnits(TRANCHE_UNIT _a, TRANCHE_UNIT _b) pure returns (TRANCHE_UNIT) {
     return TRANCHE_UNIT.wrap(TRANCHE_UNIT.unwrap(_a) + TRANCHE_UNIT.unwrap(_b));
 }

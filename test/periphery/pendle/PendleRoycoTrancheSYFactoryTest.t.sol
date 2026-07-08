@@ -12,14 +12,27 @@ import { PendleRoycoTrancheSYFactory } from "../../../src/periphery/pendle/Pendl
 
 import { MockTranche } from "../entrypoint/mocks/MockTranche.sol";
 
-/// @notice Minimal mock implementing only the IRoycoFactory tranche-mapping surface that the SY factory consumes
+/// @notice Minimal mock implementing the IRoycoFactory tranche-mapping and IAccessManager canCall surfaces that the SY consumes
 contract MockRoycoFactory {
     mapping(address senior => address junior) public seniorTrancheToJuniorTranche;
     mapping(address junior => address senior) public juniorTrancheToSeniorTranche;
 
+    // canCall result returned to the SY's base asset deposit gate (defaults to closed)
+    bool public canCallAllowed;
+    uint32 public canCallDelay;
+
     function registerPair(address _senior, address _junior) external {
         seniorTrancheToJuniorTranche[_senior] = _junior;
         juniorTrancheToSeniorTranche[_junior] = _senior;
+    }
+
+    function setCanCall(bool _allowed, uint32 _delay) external {
+        canCallAllowed = _allowed;
+        canCallDelay = _delay;
+    }
+
+    function canCall(address, address, bytes4) external view returns (bool, uint32) {
+        return (canCallAllowed, canCallDelay);
     }
 }
 
@@ -281,6 +294,56 @@ contract PendleRoycoTrancheSYFactoryTest is Test {
         assertEq(syFactory.trancheToOffchainRewardManagerToSY(address(seniorTranche), rewardManager), legitSY);
         assertEq(PendleRoycoTrancheSY(payable(legitSY)).offchainRewardManager(), rewardManager);
         assertEq(PendleRoycoTrancheSY(payable(attackerSY)).offchainRewardManager(), attacker);
+    }
+
+    /// =====================================================================
+    /// deploySY - base asset deposit wiring
+    /// =====================================================================
+
+    function test_deploySY_setsInfiniteBaseAssetApprovalToTranche() public {
+        // initialize runs in proxy context during deployment and must wire the SY's base asset approval to the tranche.
+        address sy = syFactory.deploySY(address(seniorTranche), rewardManager);
+        assertEq(asset.allowance(sy, address(seniorTranche)), type(uint256).max);
+    }
+
+    function test_deploySY_baseAssetGateClosedByDefault() public {
+        // The tranche's authority (the mock factory) rejects canCall by default: only the share is a valid token in.
+        PendleRoycoTrancheSY sy = PendleRoycoTrancheSY(payable(syFactory.deploySY(address(seniorTranche), rewardManager)));
+
+        address[] memory tokensIn = sy.getTokensIn();
+        assertEq(tokensIn.length, 1);
+        assertEq(tokensIn[0], address(seniorTranche));
+        assertFalse(sy.isValidTokenIn(address(asset)));
+    }
+
+    function test_deploySY_baseAssetGateOpensWithAuthorityApproval() public {
+        PendleRoycoTrancheSY sy = PendleRoycoTrancheSY(payable(syFactory.deploySY(address(seniorTranche), rewardManager)));
+
+        mockRoycoFactory.setCanCall(true, 0);
+        assertTrue(sy.isValidTokenIn(address(asset)));
+        assertEq(sy.getTokensIn().length, 2);
+
+        // An execution delay keeps the gate closed: the SY requires atomic deposit permission.
+        mockRoycoFactory.setCanCall(true, 1 hours);
+        assertFalse(sy.isValidTokenIn(address(asset)));
+    }
+
+    function test_deploySY_followsLiveTrancheAuthority() public {
+        PendleRoycoTrancheSY sy = PendleRoycoTrancheSY(payable(syFactory.deploySY(address(seniorTranche), rewardManager)));
+
+        // Opening deposits on the original authority opens the base asset gate.
+        mockRoycoFactory.setCanCall(true, 0);
+        assertTrue(sy.isValidTokenIn(address(asset)));
+
+        // Migrating the tranche to a fresh, closed authority closes the gate: the SY consults the tranche's
+        // current authority, not the one present at deployment.
+        MockRoycoFactory migratedAuthority = new MockRoycoFactory();
+        seniorTranche.setAuthority(address(migratedAuthority));
+        assertFalse(sy.isValidTokenIn(address(asset)));
+
+        // And opening deposits on the new authority re-opens the gate.
+        migratedAuthority.setCanCall(true, 0);
+        assertTrue(sy.isValidTokenIn(address(asset)));
     }
 
     /// =====================================================================

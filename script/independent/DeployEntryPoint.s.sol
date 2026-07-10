@@ -8,7 +8,7 @@ import { CREATE3 } from "../../lib/solady/src/utils/CREATE3.sol";
 import { RolesConfiguration } from "../../src/factory/RolesConfiguration.sol";
 import { IRoycoAuth } from "../../src/interfaces/IRoycoAuth.sol";
 import { IRoycoEntryPoint } from "../../src/interfaces/IRoycoEntryPoint.sol";
-import { RoycoEntryPoint } from "../../src/periphery/RoycoEntryPoint.sol";
+import { RoycoEntryPoint } from "../../src/entrypoint/RoycoEntryPoint.sol";
 import { EntryPointDeploymentConfig } from "../config/EntryPointDeploymentConfig.sol";
 import { ExtraRoles } from "../config/ExtraRoles.sol";
 import { AccessManagerConfigUtils } from "../utils/AccessManagerConfigUtils.sol";

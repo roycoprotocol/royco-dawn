@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { ERC20 } from "../../../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import { IERC20 } from "../../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "../../../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import { Math } from "../../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import { ERC20 } from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import { IERC20 } from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Math } from "../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
-import { IRoycoFactory } from "../../../../src/interfaces/IRoycoFactory.sol";
-import { IRoycoVaultTranche } from "../../../../src/interfaces/IRoycoVaultTranche.sol";
-import { MAX_NAV_UNITS, ZERO_NAV_UNITS } from "../../../../src/libraries/Constants.sol";
-import { AssetClaims, TrancheType } from "../../../../src/libraries/Types.sol";
-import { NAV_UNIT, TRANCHE_UNIT, toNAVUnits, toTrancheUnits, toUint256 } from "../../../../src/libraries/Units.sol";
+import { IRoycoFactory } from "../../../src/interfaces/IRoycoFactory.sol";
+import { IRoycoVaultTranche } from "../../../src/interfaces/IRoycoVaultTranche.sol";
+import { MAX_NAV_UNITS, ZERO_NAV_UNITS } from "../../../src/libraries/Constants.sol";
+import { AssetClaims, TrancheType } from "../../../src/libraries/Types.sol";
+import { NAV_UNIT, TRANCHE_UNIT, toNAVUnits, toTrancheUnits, toUint256 } from "../../../src/libraries/Units.sol";
 
 /// @title MockTranche
 /// @notice A simplified mock implementation of IRoycoVaultTranche for testing the entry point

@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import { AggregatorV3Interface } from "../../../../src/interfaces/external/chainlink/AggregatorV3Interface.sol";
 import { IdenticalAssetsChainlinkOracleQuoter } from "../../../../src/kernels/base/quoter/base/IdenticalAssetsChainlinkOracleQuoter.sol";
 import { NAV_UNIT } from "../../../../src/libraries/Units.sol";
-import { FundamentalStablecoinChainlinkOracle } from "../../../../src/periphery/oracle/FundamentalStablecoinChainlinkOracle.sol";
+import { FundamentalStablecoinChainlinkOracle } from "../../../mock/FundamentalStablecoinChainlinkOracle.sol";
 
 import { YieldBearingERC4626_ChainlinkOracle_TestBase } from "./YieldBearingERC4626_ChainlinkOracle_TestBase.t.sol";
 

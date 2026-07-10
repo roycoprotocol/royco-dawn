@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { Strings } from "../../../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import { AggregatorV3Interface } from "../../interfaces/external/chainlink/AggregatorV3Interface.sol";
+import { Strings } from "../../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+import { AggregatorV3Interface } from "../../src/interfaces/external/chainlink/AggregatorV3Interface.sol";
 
 /**
  * @title FundamentalStablecoinChainlinkOracle
@@ -10,6 +10,7 @@ import { AggregatorV3Interface } from "../../interfaces/external/chainlink/Aggre
  * @notice A Chainlink compatible oracle that wraps an underlying stablecoin Chainlink (compatible) oracle and anchors its price to the fundamental peg of 1 quote asset
  * @dev Any reported price at or above the configured minimum peg price is anchored to exactly 1 quote asset in the underlying oracle's precision
  * @dev Any reported price below the configured minimum peg price is forwarded unchanged, surfacing real depeg events
+ * @dev The canonical deployment source for this contract now lives in the royco-periphery repository; this copy exists only for kernel test wiring
  */
 contract FundamentalStablecoinChainlinkOracle is AggregatorV3Interface {
     /// @notice The address of the underlying stablecoin's Chainlink (compatible) oracle that this oracle wraps

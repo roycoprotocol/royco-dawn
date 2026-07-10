@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IRoycoKernel } from "../../../../src/interfaces/IRoycoKernel.sol";
+import { IRoycoKernel } from "../../../src/interfaces/IRoycoKernel.sol";
 
 /// @title MockKernel
 /// @notice A minimal mock implementation of IRoycoKernel for testing dual-asset transfers

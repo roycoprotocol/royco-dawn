@@ -78,8 +78,7 @@ contract stcUSD_stcUSD_Test is FundamentalStablecoinPeg_ERC4626_ChainlinkOracle_
         IRoycoFactory.RoleAssignmentConfiguration[] memory roleAssignments = _generateRoleAssignments();
 
         FundamentalStablecoinChainlinkOracleConfig ORACLE_CONFIG = new FundamentalStablecoinChainlinkOracleConfig();
-        FundamentalStablecoinChainlinkOracleDeploymentConfig.OracleConfig memory oracleConfig =
-            ORACLE_CONFIG.getOracleConfig(ORACLE_CONFIG.MAINNET_CUSD_USD());
+        FundamentalStablecoinChainlinkOracleDeploymentConfig.OracleConfig memory oracleConfig = ORACLE_CONFIG.getOracleConfig(ORACLE_CONFIG.MAINNET_CUSD_USD());
         address cUSDOracle = address(new FundamentalStablecoinChainlinkOracle(oracleConfig.underlyingOracle, oracleConfig.minPegPrice));
 
         marketConfig.kernelSpecificParams = abi.encode(

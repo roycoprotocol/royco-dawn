@@ -8,6 +8,7 @@ import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/E
 import { IERC20 } from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
+import { RoycoEntryPoint } from "../../src/entrypoint/RoycoEntryPoint.sol";
 import { RolesConfiguration, RoycoFactory } from "../../src/factory/RoycoFactory.sol";
 import { IRoycoEntryPoint } from "../../src/interfaces/IRoycoEntryPoint.sol";
 import { IRoycoFactory } from "../../src/interfaces/IRoycoFactory.sol";
@@ -15,7 +16,6 @@ import { IRoycoVaultTranche } from "../../src/interfaces/IRoycoVaultTranche.sol"
 import { MAX_NAV_UNITS, MAX_TRANCHE_UNITS, WAD, ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "../../src/libraries/Constants.sol";
 import { AssetClaims, TrancheType } from "../../src/libraries/Types.sol";
 import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "../../src/libraries/Units.sol";
-import { RoycoEntryPoint } from "../../src/entrypoint/RoycoEntryPoint.sol";
 
 import { MockKernel } from "./mocks/MockKernel.sol";
 import { MockTranche } from "./mocks/MockTranche.sol";

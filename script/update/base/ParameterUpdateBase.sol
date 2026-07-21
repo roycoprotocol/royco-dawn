@@ -77,6 +77,28 @@ abstract contract ParameterUpdateBase is AccessManagerConfigUtils, UpdateConfig 
     )
         internal
     {
+        _processChain(_chainId, ROOT_MULTISIG, SIMULATION_WARP_DURATION, _updates, _outputSubdir, _outputPrefix, _batchDescription);
+    }
+
+    /**
+     * @notice Scheduler-parameterized variant of `_processChain` for timelocked roles held by a
+     *         multisig other than ROOT (e.g. WAY_MULTISIG holding ADMIN_ENTRY_POINT_ROLE with a
+     *         1-day delay). Simulates schedule → warp(`_warpDuration`) → execute pranking
+     *         `_scheduler`, and embeds `_scheduler` as the canceling caller in the cancel batch.
+     * @param _scheduler The role holder that will schedule AND execute the operations
+     * @param _warpDuration Simulation warp; must exceed the role's execution delay
+     */
+    function _processChain(
+        uint256 _chainId,
+        address _scheduler,
+        uint256 _warpDuration,
+        UpdateParams[] memory _updates,
+        string memory _outputSubdir,
+        string memory _outputPrefix,
+        string memory _batchDescription
+    )
+        internal
+    {
         require(_updates.length > 0, NoUpdatesForChain(_chainId));
 
         // Fork the target chain
@@ -92,7 +114,7 @@ abstract contract ParameterUpdateBase is AccessManagerConfigUtils, UpdateConfig 
         // Simulate each update in isolation using snapshots
         for (uint256 i = 0; i < _updates.length; i++) {
             uint256 snapshot = vm.snapshotState();
-            _simulate(_updates[i]);
+            _simulate(_scheduler, _warpDuration, _updates[i]);
             vm.revertToState(snapshot);
         }
 
@@ -104,7 +126,7 @@ abstract contract ParameterUpdateBase is AccessManagerConfigUtils, UpdateConfig 
         for (uint256 i = 0; i < _updates.length; i++) {
             scheduleTxs[i] = _buildScheduleTx(_updates[i]);
             executeTxs[i] = _buildExecuteTx(_updates[i]);
-            cancelTxs[i] = _buildCancelTx(_updates[i]);
+            cancelTxs[i] = _buildCancelTx(_scheduler, _updates[i]);
         }
 
         // Write one JSON per phase for this chain
@@ -132,12 +154,12 @@ abstract contract ParameterUpdateBase is AccessManagerConfigUtils, UpdateConfig 
         return SafeTransaction({ to: ROYCO_FACTORY, value: 0, data: abi.encodeCall(IAccessManager.execute, (_p.target, _p.callData)) });
     }
 
-    function _buildCancelTx(UpdateParams memory _p) internal pure returns (SafeTransaction memory) {
-        return SafeTransaction({ to: ROYCO_FACTORY, value: 0, data: abi.encodeCall(IAccessManager.cancel, (ROOT_MULTISIG, _p.target, _p.callData)) });
+    function _buildCancelTx(address _scheduler, UpdateParams memory _p) internal pure returns (SafeTransaction memory) {
+        return SafeTransaction({ to: ROYCO_FACTORY, value: 0, data: abi.encodeCall(IAccessManager.cancel, (_scheduler, _p.target, _p.callData)) });
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // DIRECT-CALL FLOW (immediate-delay roles, e.g. WCE_MULTISIG)
+    // DIRECT-CALL FLOW (immediate-delay roles, e.g. WAY_MULTISIG holding SYNC_ROLE)
     // ═══════════════════════════════════════════════════════════════════════════
 
     /**
@@ -239,11 +261,11 @@ abstract contract ParameterUpdateBase is AccessManagerConfigUtils, UpdateConfig 
      *      wrapped in try/catch as a defensive fallback for oracles that haven't been registered
      *      — mock-state and snapshot-revert remain isolated to the per-update bracket.
      */
-    function _simulate(UpdateParams memory _params) internal {
+    function _simulate(address _scheduler, uint256 _warpDuration, UpdateParams memory _params) internal {
         console2.log("  Simulating:", _params.description);
 
         // Schedule — validates authorization (hard fail)
-        vm.prank(ROOT_MULTISIG);
+        vm.prank(_scheduler);
         IAccessManager(ROYCO_FACTORY).schedule(_params.target, _params.callData, uint48(0));
         console2.log("    [OK] Schedule (authorization validated)");
 
@@ -253,18 +275,18 @@ abstract contract ParameterUpdateBase is AccessManagerConfigUtils, UpdateConfig 
         bytes[] memory oraclePre = ChainlinkFreshness.capture(oracles);
 
         // Warp past the execution delay
-        vm.warp(vm.getBlockTimestamp() + SIMULATION_WARP_DURATION);
+        vm.warp(vm.getBlockTimestamp() + _warpDuration);
 
         ChainlinkFreshness.mockFresh(oracles, oraclePre);
 
         // Execute — try/catch as a fallback for any oracle staleness path not covered by the mock
-        vm.prank(ROOT_MULTISIG);
+        vm.prank(_scheduler);
         try IAccessManager(ROYCO_FACTORY).execute(_params.target, _params.callData) {
             console2.log("    [OK] Execute");
             _verify(_params);
             console2.log("    [OK] Verification");
         } catch (bytes memory reason) {
-            console2.log("    [WARN] Execute reverted (likely oracle staleness from 2-day warp)");
+            console2.log("    [WARN] Execute reverted (likely oracle staleness from the warp)");
             if (reason.length >= 4) {
                 console2.logBytes4(bytes4(reason));
             }

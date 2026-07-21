@@ -1108,7 +1108,7 @@ abstract contract MarketDeploymentConfig {
                         initialConversionRateWAD: 0,
                         // Chainlink MXN/USD feed (8 decimals, ~24h heartbeat)
                         baseAssetToNavAssetOracle: 0xdb4881Ab0ad6b8423f76dd8C9d65542749a1dB77,
-                        stalenessThresholdSeconds: 48 hours, // Conservative
+                        stalenessThresholdSeconds: 24 hours,
                         sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
                         gracePeriodSeconds: 0
                     })
@@ -1120,8 +1120,7 @@ abstract contract MarketDeploymentConfig {
             jtYieldShareProtocolFeeWAD: 0,
             coverageWAD: 0.15e18,
             betaWAD: 1e18,
-            // 300% liquidation utilization => protected exit at 15%/3 = 5% effective coverage remaining
-            liquidationUtilizationWAD: 3e18,
+            liquidationUtilizationWAD: 10e18,
             fixedTermDurationSeconds: 14 days,
             ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
             ydmSpecificParams: abi.encode(
@@ -1153,7 +1152,7 @@ abstract contract MarketDeploymentConfig {
                         baseAssetToNavAssetOracle: 0x3126E7F38D5f60f4E2B6ec3511C7bdbD79317Df1,
                         // 25h: max observed gap over 5+ weekends is 86,448s (24h heartbeat + 48s); heartbeat fires on
                         // weekends but carries Friday's close, so no updatedAt threshold can catch weekend FX staleness
-                        stalenessThresholdSeconds: 48 hours, // Conservative
+                        stalenessThresholdSeconds: 24 hours,
                         sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
                         gracePeriodSeconds: 0
                     })
@@ -1165,8 +1164,7 @@ abstract contract MarketDeploymentConfig {
             jtYieldShareProtocolFeeWAD: 0,
             coverageWAD: 0.15e18,
             betaWAD: 1e18,
-            // 300% liquidation utilization => protected exit at 15%/3 = 5% effective coverage remaining
-            liquidationUtilizationWAD: 3e18,
+            liquidationUtilizationWAD: 10e18,
             fixedTermDurationSeconds: 14 days,
             ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
             ydmSpecificParams: abi.encode(

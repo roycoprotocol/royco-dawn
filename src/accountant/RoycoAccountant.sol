@@ -869,9 +869,8 @@ contract RoycoAccountant is IRoycoAccountant, RoycoBase {
         require(
             // Ensure that the coverage requirement is valid
             (_coverageWAD >= MIN_COVERAGE_WAD) && (_coverageWAD <= MAX_COVERAGE_WAD) && 
-                // Ensure that beta is valid
-                // NOTE: Beta cannot exceed 1 because the junior tranche should never be in a more loss-prone investment than the senior tranche
-                (_betaWAD <= WAD) && 
+                // Ensure that beta is 1, ie. JT is always fully coinvested
+                (_betaWAD == WAD) && 
                 // Ensure that JT withdrawals are not permanently bricked
                 (uint256(_coverageWAD).mulDiv(_betaWAD, WAD, Math.Rounding.Ceil) < WAD) && 
                 // Ensure that the liquidation utilization threshold can only be breached once the NAVs have experienced losses

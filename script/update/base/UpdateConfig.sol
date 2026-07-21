@@ -54,6 +54,7 @@ abstract contract UpdateConfig {
     string internal constant PARETO_FALCONX = "ParetoFalconX";
     string internal constant APYUSD = "apyUSD";
     string internal constant eEARN = "eEARN";
+    string internal constant SUSN = "sUSN";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // TYPES
@@ -138,6 +139,9 @@ abstract contract UpdateConfig {
 
         // ── Arbitrum ─────────────────────────────────────────────────────────
         _deployedKernels[ARBITRUM][SUSDAI] = 0xFdb17E53eA5d342124b8473188BCB9F05F1949CA;
+
+        // ── Base ─────────────────────────────────────────────────────────────
+        _deployedKernels[BASE][SUSN] = 0x3FBC599C113923439Ca6878B7A9b5433Cc3F4116;
 
         // ── Chainlink oracles to keep fresh through the 2-day simulation warp ─
         // Add any aggregator address whose staleness check would otherwise revert mid-simulation.

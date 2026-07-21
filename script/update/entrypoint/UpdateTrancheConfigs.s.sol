@@ -11,12 +11,14 @@ import { ParameterUpdateBase } from "../base/ParameterUpdateBase.sol";
 
 /**
  * @title UpdateTrancheConfigs
- * @notice Bumps every market's entry-point delays to 24h and switches all senior tranches
- *         to REDEEMING_LP yield routing. Junior tranches keep PROTOCOL routing.
+ * @notice Sets the redemption (withdrawal) delay to 24h for every configured market's ST and JT.
+ *         Every other field of each tranche config (enabled, yield recipient, deposit delay) is
+ *         read from the current on-chain config and left untouched.
  *
  * @dev Hooks into `ParameterUpdateBase`'s direct-call harness:
  *      - Resolves ST/JT addresses per market via `getMarketAddresses(name)`.
- *      - Auto-classifies each tranche via `TRANCHE_TYPE()` to pick the yield recipient.
+ *      - Reads each tranche's current config via `getTrancheConfig()` and only overrides
+ *        `redemptionDelaySeconds`, preserving all other fields.
  *      - Encodes a single batched `modifyTrancheConfigs(tranches, configs)` call to the
  *        entry point per chain.
  *      - Runs the call via `_processChainDirect` pranking `WCE_MULTISIG` (immediate role).
@@ -33,12 +35,11 @@ contract UpdateTrancheConfigs is ParameterUpdateBase {
     /// @dev CREATE3-deterministic entry-point proxy address (same on every chain).
     address internal constant ENTRY_POINT = 0x63dA1229be88Fb4D20210147954a1a3e05f2581B;
 
-    uint24 internal constant NEW_DEPOSIT_DELAY = 5 minutes;
     uint24 internal constant NEW_REDEMPTION_DELAY = 24 hours;
 
     string internal constant OUTPUT_SUBDIR = "entrypoint";
     string internal constant OUTPUT_PREFIX = "update_tranche_configs";
-    string internal constant BATCH_DESCRIPTION = "Royco Entry Point: bump delays to 24h and route ST yield to REDEEMING_LP";
+    string internal constant BATCH_DESCRIPTION = "Royco Entry Point: set ST/JT redemption delay to 24h";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONFIG
@@ -56,9 +57,14 @@ contract UpdateTrancheConfigs is ParameterUpdateBase {
     }
 
     function _initializeConfigs() internal {
+        // ── Base ─────────────────────────────────────────────────────────────
+        ChainEntryPointConfig storage base = _entryPointConfigs.push();
+        base.chainId = BASE;
+        base.markets.push(SUSN);
+
         // ── Mainnet ──────────────────────────────────────────────────────────
-        ChainEntryPointConfig storage mainnet = _entryPointConfigs.push();
-        mainnet.chainId = MAINNET;
+        // ChainEntryPointConfig storage mainnet = _entryPointConfigs.push();
+        // mainnet.chainId = MAINNET;
         // mainnet.markets.push(SNUSD);
         // mainnet.markets.push(AUTOUSD);
         // mainnet.markets.push(SMOKEHOUSE_USDC);
@@ -66,7 +72,7 @@ contract UpdateTrancheConfigs is ParameterUpdateBase {
         // mainnet.markets.push(STCUSD);
         // mainnet.markets.push(PARETO_FALCONX);
         // mainnet.markets.push(APYUSD);
-        mainnet.markets.push(eEARN);
+        // mainnet.markets.push(eEARN);
 
         // ── Avalanche ────────────────────────────────────────────────────────
         // ChainEntryPointConfig storage avalanche = _entryPointConfigs.push();
@@ -105,23 +111,11 @@ contract UpdateTrancheConfigs is ParameterUpdateBase {
         for (uint256 i = 0; i < nMarkets; i++) {
             MarketAddresses memory addrs = getMarketAddresses(_cfg.markets[i]);
 
-            // Senior tranche → REDEEMING_LP
             tranches[2 * i] = addrs.seniorTranche;
-            configs[2 * i] = IRoycoEntryPoint.TrancheConfig({
-                enabled: true,
-                yieldRecipient: IRoycoEntryPoint.AccruedYieldRecipient.PROTOCOL,
-                depositDelaySeconds: NEW_DEPOSIT_DELAY,
-                redemptionDelaySeconds: NEW_REDEMPTION_DELAY
-            });
+            configs[2 * i] = _configWithNewRedemptionDelay(addrs.seniorTranche);
 
-            // Junior tranche → PROTOCOL (unchanged)
             tranches[2 * i + 1] = addrs.juniorTranche;
-            configs[2 * i + 1] = IRoycoEntryPoint.TrancheConfig({
-                enabled: true,
-                yieldRecipient: IRoycoEntryPoint.AccruedYieldRecipient.PROTOCOL,
-                depositDelaySeconds: NEW_DEPOSIT_DELAY,
-                redemptionDelaySeconds: NEW_REDEMPTION_DELAY
-            });
+            configs[2 * i + 1] = _configWithNewRedemptionDelay(addrs.juniorTranche);
         }
 
         // Defensive: the registered ST/JT slots must actually be SENIOR/JUNIOR per the
@@ -140,6 +134,14 @@ contract UpdateTrancheConfigs is ParameterUpdateBase {
         });
 
         _processChainDirect(_cfg.chainId, WCE_MULTISIG, updates, OUTPUT_SUBDIR, OUTPUT_PREFIX, BATCH_DESCRIPTION);
+    }
+
+    /// @dev Returns the tranche's current on-chain config with only `redemptionDelaySeconds`
+    ///      overridden to `NEW_REDEMPTION_DELAY`. `modifyTrancheConfigs` overwrites the whole
+    ///      config, so all other fields are echoed back verbatim to avoid clobbering them.
+    function _configWithNewRedemptionDelay(address _tranche) internal view returns (IRoycoEntryPoint.TrancheConfig memory config) {
+        config = IRoycoEntryPoint(ENTRY_POINT).getTrancheConfig(_tranche).baseConfig;
+        config.redemptionDelaySeconds = NEW_REDEMPTION_DELAY;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -162,6 +164,7 @@ contract UpdateTrancheConfigs is ParameterUpdateBase {
             require(ec.baseConfig.yieldRecipient == configs[i].yieldRecipient, VerificationFailed("yieldRecipient mismatch"));
             require(ec.baseConfig.depositDelaySeconds == configs[i].depositDelaySeconds, VerificationFailed("depositDelay mismatch"));
             require(ec.baseConfig.redemptionDelaySeconds == configs[i].redemptionDelaySeconds, VerificationFailed("redemptionDelay mismatch"));
+            require(ec.baseConfig.redemptionDelaySeconds == NEW_REDEMPTION_DELAY, VerificationFailed("redemptionDelay not 24h"));
         }
         console2.log("    [OK] Post-state verified for", tranches.length, "tranches");
     }

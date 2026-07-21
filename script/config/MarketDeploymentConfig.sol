@@ -59,7 +59,9 @@ abstract contract MarketDeploymentConfig {
     string public constant SUSDAT = "sUSDat";
     string public constant EEARN = "eEARN";
     string public constant MAKINA_MGLOBAL = "DMG";
-    string public constant SNUSN = "sNUSN";
+    string public constant SUSN = "SUSN";
+    string public constant STMXN = "stMXN";
+    string public constant STBRL = "stBRL";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // MARKET-SPECIFIC ADDRESSES
@@ -1042,13 +1044,13 @@ abstract contract MarketDeploymentConfig {
             transferAgentAddress: address(0)
         });
 
-        _marketConfigs[SNUSN] = MarketConfig({
-            marketName: SNUSN,
+        _marketConfigs[SUSN] = MarketConfig({
+            marketName: SUSN,
             chainId: BASE,
-            seniorTrancheName: _seniorTrancheName(SNUSN),
-            seniorTrancheSymbol: _seniorTrancheSymbol(SNUSN),
-            juniorTrancheName: _juniorTrancheName(SNUSN),
-            juniorTrancheSymbol: _juniorTrancheSymbol(SNUSN),
+            seniorTrancheName: _seniorTrancheName(SUSN),
+            seniorTrancheSymbol: _seniorTrancheSymbol(SUSN),
+            juniorTrancheName: _juniorTrancheName(SUSN),
+            juniorTrancheSymbol: _juniorTrancheSymbol(SUSN),
             // sUSN token (Noon staked USN) is both the senior and junior asset
             seniorAsset: 0x34a2798D47b238A7CbA9D87D49618DEE6C4D999F,
             juniorAsset: 0x34a2798D47b238A7CbA9D87D49618DEE6C4D999F,
@@ -1082,6 +1084,96 @@ abstract contract MarketDeploymentConfig {
                     jtYieldShareAtTargetUtilWAD: 0.11e18, // target = 11%
                     jtYieldShareAtFullUtilWAD: 0.31e18, // Y_100 = 31%
                     maxAdaptationSpeedWAD: uint64(40e18 / uint256(365 days)) // Adaptation Speed = 40
+                })
+            ),
+            transferAgentAddress: address(0)
+        });
+
+        _marketConfigs[STMXN] = MarketConfig({
+            marketName: STMXN,
+            chainId: MAINNET,
+            seniorTrancheName: _seniorTrancheName(STMXN),
+            seniorTrancheSymbol: _seniorTrancheSymbol(STMXN),
+            juniorTrancheName: _juniorTrancheName(STMXN),
+            juniorTrancheSymbol: _juniorTrancheSymbol(STMXN),
+            // Tenbin Staked MXN (ERC4626 over tMXN, 18 decimals) is both the senior and junior asset
+            seniorAsset: 0x8BDf6A2DFda084bD242Cd285CF75E80de3eB00ba,
+            juniorAsset: 0x8BDf6A2DFda084bD242Cd285CF75E80de3eB00ba,
+            stDustTolerance: 5,
+            jtDustTolerance: 5,
+            kernelType: DeployScript.KernelType.Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel,
+            kernelSpecificParams: abi.encode(
+                DeployScript.IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
+                        // Sentinel (0) enables the Oracle Leg: tMXN (== MXN) is priced to USD NAV via Chainlink
+                        initialConversionRateWAD: 0,
+                        // Chainlink MXN/USD feed (8 decimals, ~24h heartbeat)
+                        baseAssetToNavAssetOracle: 0xdb4881Ab0ad6b8423f76dd8C9d65542749a1dB77,
+                        stalenessThresholdSeconds: 48 hours, // Conservative
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
+                    })
+            ),
+            enforceVaultSharesTransferWhitelist: false,
+            stSelfLiquidationBonusWAD: 0.0025e18,
+            stProtocolFeeWAD: 0,
+            jtProtocolFeeWAD: 0,
+            jtYieldShareProtocolFeeWAD: 0,
+            coverageWAD: 0.15e18,
+            betaWAD: 1e18,
+            // 300% liquidation utilization => protected exit at 15%/3 = 5% effective coverage remaining
+            liquidationUtilizationWAD: 3e18,
+            fixedTermDurationSeconds: 14 days,
+            ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
+            ydmSpecificParams: abi.encode(
+                // TODO: jtYieldShareAtFullUtilWAD
+                DeployScript.AdaptiveCurveYDM_V2_Params({
+                    jtYieldShareAtZeroUtilWAD: 0.75e18, jtYieldShareAtTargetUtilWAD: 0.75e18, jtYieldShareAtFullUtilWAD: 0.75e18, maxAdaptationSpeedWAD: 0
+                })
+            ),
+            transferAgentAddress: address(0)
+        });
+
+        _marketConfigs[STBRL] = MarketConfig({
+            marketName: STBRL,
+            chainId: MAINNET,
+            seniorTrancheName: _seniorTrancheName(STBRL),
+            seniorTrancheSymbol: _seniorTrancheSymbol(STBRL),
+            juniorTrancheName: _juniorTrancheName(STBRL),
+            juniorTrancheSymbol: _juniorTrancheSymbol(STBRL),
+            // Tenbin Staked BRL (ERC4626 over tBRL, 18 decimals) is both the senior and junior asset
+            seniorAsset: 0xDaB276F6E19CCC54cA5aaA2645A94087ca776a3f,
+            juniorAsset: 0xDaB276F6E19CCC54cA5aaA2645A94087ca776a3f,
+            stDustTolerance: 5,
+            jtDustTolerance: 5,
+            kernelType: DeployScript.KernelType.Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel,
+            kernelSpecificParams: abi.encode(
+                DeployScript.IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
+                        // Sentinel (0) enables the Oracle Leg: tBRL (== BRL) is priced to USD NAV via Chainlink
+                        initialConversionRateWAD: 0,
+                        // Chainlink BRL/USD feed (8 decimals, ~24h heartbeat)
+                        baseAssetToNavAssetOracle: 0x3126E7F38D5f60f4E2B6ec3511C7bdbD79317Df1,
+                        // 25h: max observed gap over 5+ weekends is 86,448s (24h heartbeat + 48s); heartbeat fires on
+                        // weekends but carries Friday's close, so no updatedAt threshold can catch weekend FX staleness
+                        stalenessThresholdSeconds: 48 hours, // Conservative
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
+                    })
+            ),
+            enforceVaultSharesTransferWhitelist: false,
+            stSelfLiquidationBonusWAD: 0.0025e18,
+            stProtocolFeeWAD: 0,
+            jtProtocolFeeWAD: 0,
+            jtYieldShareProtocolFeeWAD: 0,
+            coverageWAD: 0.15e18,
+            betaWAD: 1e18,
+            // 300% liquidation utilization => protected exit at 15%/3 = 5% effective coverage remaining
+            liquidationUtilizationWAD: 3e18,
+            fixedTermDurationSeconds: 14 days,
+            ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
+            ydmSpecificParams: abi.encode(
+                // TODO: jtYieldShareAtFullUtilWAD
+                DeployScript.AdaptiveCurveYDM_V2_Params({
+                    jtYieldShareAtZeroUtilWAD: 0.8e18, jtYieldShareAtTargetUtilWAD: 0.8e18, jtYieldShareAtFullUtilWAD: 0.8e18, maxAdaptationSpeedWAD: 0
                 })
             ),
             transferAgentAddress: address(0)

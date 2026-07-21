@@ -1125,9 +1125,8 @@ abstract contract MarketDeploymentConfig {
             fixedTermDurationSeconds: 14 days,
             ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
             ydmSpecificParams: abi.encode(
-                // TODO: jtYieldShareAtFullUtilWAD
                 DeployScript.AdaptiveCurveYDM_V2_Params({
-                    jtYieldShareAtZeroUtilWAD: 0.75e18, jtYieldShareAtTargetUtilWAD: 0.75e18, jtYieldShareAtFullUtilWAD: 0.75e18, maxAdaptationSpeedWAD: 0
+                    jtYieldShareAtZeroUtilWAD: 0.65e18, jtYieldShareAtTargetUtilWAD: 0.75e18, jtYieldShareAtFullUtilWAD: 0.85e18, maxAdaptationSpeedWAD: 0
                 })
             ),
             transferAgentAddress: address(0)
@@ -1171,9 +1170,8 @@ abstract contract MarketDeploymentConfig {
             fixedTermDurationSeconds: 14 days,
             ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
             ydmSpecificParams: abi.encode(
-                // TODO: jtYieldShareAtFullUtilWAD
                 DeployScript.AdaptiveCurveYDM_V2_Params({
-                    jtYieldShareAtZeroUtilWAD: 0.8e18, jtYieldShareAtTargetUtilWAD: 0.8e18, jtYieldShareAtFullUtilWAD: 0.8e18, maxAdaptationSpeedWAD: 0
+                    jtYieldShareAtZeroUtilWAD: 0.7e18, jtYieldShareAtTargetUtilWAD: 0.8e18, jtYieldShareAtFullUtilWAD: 0.9e18, maxAdaptationSpeedWAD: 0
                 })
             ),
             transferAgentAddress: address(0)

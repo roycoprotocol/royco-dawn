@@ -1227,10 +1227,10 @@ abstract contract MarketDeploymentConfig {
         _marketConfigs[STRUSD] = MarketConfig({
             marketName: STRUSD,
             chainId: MAINNET,
-            seniorTrancheName: _seniorTrancheName(STRUSD),
-            seniorTrancheSymbol: _seniorTrancheSymbol(STRUSD),
-            juniorTrancheName: _juniorTrancheName(STRUSD),
-            juniorTrancheSymbol: _juniorTrancheSymbol(STRUSD),
+            seniorTrancheName: "Senior Staked trUSD",
+            seniorTrancheSymbol: "srStrUSD",
+            juniorTrancheName: "Junior Staked trUSD",
+            juniorTrancheSymbol: "jrStrUSD",
             // Tori Staked trUSD (ERC4626 over trUSD, 18 decimals; Ethena StakedUSDeV2 fork) is both tranche assets
             seniorAsset: 0x280839980a7eD0D7717F64125fE241012E5F5815,
             juniorAsset: 0x280839980a7eD0D7717F64125fE241012E5F5815,

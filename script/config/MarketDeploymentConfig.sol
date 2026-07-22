@@ -62,6 +62,8 @@ abstract contract MarketDeploymentConfig {
     string public constant SUSN = "SUSN";
     string public constant STMXN = "stMXN";
     string public constant STBRL = "stBRL";
+    string public constant USP = "USP";
+    string public constant STRUSD = "strUSD";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // MARKET-SPECIFIC ADDRESSES
@@ -1170,6 +1172,99 @@ abstract contract MarketDeploymentConfig {
             ydmSpecificParams: abi.encode(
                 DeployScript.AdaptiveCurveYDM_V2_Params({
                     jtYieldShareAtZeroUtilWAD: 0.7e18, jtYieldShareAtTargetUtilWAD: 0.8e18, jtYieldShareAtFullUtilWAD: 0.9e18, maxAdaptationSpeedWAD: 0
+                })
+            ),
+            transferAgentAddress: address(0)
+        });
+
+        _marketConfigs[USP] = MarketConfig({
+            marketName: USP,
+            chainId: MAINNET,
+            seniorTrancheName: _seniorTrancheName(USP),
+            seniorTrancheSymbol: _seniorTrancheSymbol(USP),
+            juniorTrancheName: _juniorTrancheName(USP),
+            juniorTrancheSymbol: _juniorTrancheSymbol(USP),
+            // Piku USP (plain ERC20, 18 decimals; NAV lives in the external permissioned oracle) is both tranche assets
+            seniorAsset: 0x098697bA3Fee4eA76294C5d6A466a4e3b3E95FE6,
+            juniorAsset: 0x098697bA3Fee4eA76294C5d6A466a4e3b3E95FE6,
+            // 6-decimal USP/USD adapter => WAD rate granularity is 1e12; dust sized accordingly
+            stDustTolerance: 5 * (10 ** 12),
+            jtDustTolerance: 5 * (10 ** 12),
+            kernelType: DeployScript.KernelType.Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel,
+            kernelSpecificParams: abi.encode(
+                DeployScript.IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams({
+                        // Reference asset (USDC) to NAV unit conversion rate is 1e18 (USDC treated as $1)
+                        initialConversionRateWAD: 1e18,
+                        // USPChainlinkAdapter (USP/USD, 6 decimals) — thin AggregatorV3 view over Piku's
+                        // permissioned LM_Oracle price, hard-bounded to [$0.90, $5.00]
+                        trancheAssetToReferenceAssetOracle: 0xb52eb13139905Eb11c472100a1E86cB1961b8EF3,
+                        stalenessThresholdSeconds: 86_400, // Irrelevant since time is always reported as block.timestamp
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
+                    })
+            ),
+            enforceVaultSharesTransferWhitelist: false,
+            stSelfLiquidationBonusWAD: 0.02e18,
+            stProtocolFeeWAD: 0,
+            jtProtocolFeeWAD: 0,
+            jtYieldShareProtocolFeeWAD: 0,
+            coverageWAD: 0.1e18,
+            betaWAD: 1e18,
+            liquidationUtilizationWAD: 6.6666667e18,
+            fixedTermDurationSeconds: 5 days,
+            ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
+            ydmSpecificParams: abi.encode(
+                DeployScript.AdaptiveCurveYDM_V2_Params({
+                    jtYieldShareAtZeroUtilWAD: 0.2e18, // Y_0 = 20%
+                    jtYieldShareAtTargetUtilWAD: 0.2e18, // target = 20%
+                    jtYieldShareAtFullUtilWAD: 0.4e18, // Y_100 = 40%
+                    maxAdaptationSpeedWAD: uint64(40e18 / uint256(365 days)) // Adaptation Speed = 40
+                })
+            ),
+            transferAgentAddress: address(0)
+        });
+
+        _marketConfigs[STRUSD] = MarketConfig({
+            marketName: STRUSD,
+            chainId: MAINNET,
+            seniorTrancheName: _seniorTrancheName(STRUSD),
+            seniorTrancheSymbol: _seniorTrancheSymbol(STRUSD),
+            juniorTrancheName: _juniorTrancheName(STRUSD),
+            juniorTrancheSymbol: _juniorTrancheSymbol(STRUSD),
+            // Tori Staked trUSD (ERC4626 over trUSD, 18 decimals; Ethena StakedUSDeV2 fork) is both tranche assets
+            seniorAsset: 0x280839980a7eD0D7717F64125fE241012E5F5815,
+            juniorAsset: 0x280839980a7eD0D7717F64125fE241012E5F5815,
+            stDustTolerance: 5,
+            jtDustTolerance: 5,
+            kernelType: DeployScript.KernelType.Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel,
+            kernelSpecificParams: abi.encode(
+                DeployScript.IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({
+                        // Enable the Oracle Leg by setting the initial conversion rate to the sentinel conversion rate
+                        initialConversionRateWAD: 0,
+                        // https://app.redstone.finance/push-feeds/trUSD_FUNDAMENTAL/ethereumMultiFeed
+                        baseAssetToNavAssetOracle: 0x33c6F75916Db4267e52209A8E6B270b22d983B53,
+                        // Updates to this oracle are pushed every 12 hours, so we set the staleness threshold to 24 hours for safety
+                        stalenessThresholdSeconds: 24 hours,
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
+                    })
+            ),
+            enforceVaultSharesTransferWhitelist: false,
+            stSelfLiquidationBonusWAD: 0.005e18,
+            stProtocolFeeWAD: 0,
+            jtProtocolFeeWAD: 0,
+            jtYieldShareProtocolFeeWAD: 0,
+            coverageWAD: 0.1e18,
+            betaWAD: 1e18,
+            liquidationUtilizationWAD: 6.6666667e18,
+            fixedTermDurationSeconds: 7 days,
+            ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
+            ydmSpecificParams: abi.encode(
+                DeployScript.AdaptiveCurveYDM_V2_Params({
+                    jtYieldShareAtZeroUtilWAD: 0.2e18, // Y_0 = 20%
+                    jtYieldShareAtTargetUtilWAD: 0.2e18, // target = 20%
+                    jtYieldShareAtFullUtilWAD: 0.4e18, // Y_100 = 40%
+                    maxAdaptationSpeedWAD: uint64(40e18 / uint256(365 days)) // Adaptation Speed = 40
                 })
             ),
             transferAgentAddress: address(0)

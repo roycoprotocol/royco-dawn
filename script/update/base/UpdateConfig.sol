@@ -157,5 +157,6 @@ abstract contract UpdateConfig {
         _chainlinkOracles[MAINNET].push(0x651b101f72F82630cf59c68E6EE4305aFBd3B1F5); // apyUSD: Chainlink apxusd-usd
         _chainlinkOracles[MAINNET].push(0xdb4881Ab0ad6b8423f76dd8C9d65542749a1dB77); // stMXN: Chainlink MXN/USD (24h heartbeat)
         _chainlinkOracles[MAINNET].push(0x3126E7F38D5f60f4E2B6ec3511C7bdbD79317Df1); // stBRL: Chainlink BRL/USD (24h heartbeat)
+        _chainlinkOracles[MAINNET].push(0x33c6F75916Db4267e52209A8E6B270b22d983B53); // strUSD: RedStone trUSD_FUNDAMENTAL (12h heartbeat)
     }
 }

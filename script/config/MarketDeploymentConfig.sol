@@ -1180,10 +1180,10 @@ abstract contract MarketDeploymentConfig {
         _marketConfigs[USP] = MarketConfig({
             marketName: USP,
             chainId: MAINNET,
-            seniorTrancheName: "Senior Staked USP",
-            seniorTrancheSymbol: "srStUSP",
-            juniorTrancheName: "Junior Staked USP",
-            juniorTrancheSymbol: "jrStUSP",
+            seniorTrancheName: "Senior USP",
+            seniorTrancheSymbol: "srUSP",
+            juniorTrancheName: "Junior USP",
+            juniorTrancheSymbol: "jrUSP",
             // Piku USP (plain ERC20, 18 decimals; NAV lives in the external permissioned oracle) is both tranche assets
             seniorAsset: 0x098697bA3Fee4eA76294C5d6A466a4e3b3E95FE6,
             juniorAsset: 0x098697bA3Fee4eA76294C5d6A466a4e3b3E95FE6,

@@ -760,28 +760,28 @@ contract RoycoAccountantComprehensiveTest is BaseTest {
     // =========================================================================
 
     /// @notice Test beta = 0 (JT in RFR, no sensitivity to ST stress)
-    function test_beta_zero() public {
-        IRoycoAccountant zeroBetaAccountant = _deployAccountant(
-            MOCK_KERNEL,
-            ST_PROTOCOL_FEE_WAD,
-            JT_PROTOCOL_FEE_WAD,
-            COVERAGE_WAD,
-            0, // Beta = 0
-            address(adaptiveYDM),
-            FIXED_TERM_DURATION_SECONDS,
-            DUST_TOLERANCE,
-            DUST_TOLERANCE,
-            LIQUIDATION_UTILIZATION_WAD,
-            YDM_JT_YIELD_AT_TARGET,
-            YDM_JT_YIELD_AT_FULL
-        );
+    function test_beta_zero_reverts() public {
+        // beta == 1 is asserted by the accountant; beta = 0 (JT in a different opportunity) is invalid
+        bytes memory ydmInitData = abi.encodeCall(AdaptiveCurveYDM_V1.initializeYDMForMarket, (YDM_JT_YIELD_AT_TARGET, YDM_JT_YIELD_AT_FULL));
+        RoycoAccountant newAccountantImpl = new RoycoAccountant(MOCK_KERNEL);
 
-        vm.prank(MOCK_KERNEL);
-        zeroBetaAccountant.preOpSyncTrancheAccounting(_nav(100e18), _nav(50e18));
+        IRoycoAccountant.RoycoAccountantInitParams memory params = IRoycoAccountant.RoycoAccountantInitParams({
+            stProtocolFeeWAD: ST_PROTOCOL_FEE_WAD,
+            jtProtocolFeeWAD: JT_PROTOCOL_FEE_WAD,
+            yieldShareProtocolFeeWAD: 0,
+            coverageWAD: COVERAGE_WAD,
+            betaWAD: 0, // Beta = 0 - no longer a valid configuration
+            ydm: address(adaptiveYDM),
+            ydmInitializationData: ydmInitData,
+            fixedTermDurationSeconds: FIXED_TERM_DURATION_SECONDS,
+            liquidationUtilizationWAD: LIQUIDATION_UTILIZATION_WAD,
+            stNAVDustTolerance: DUST_TOLERANCE,
+            jtNAVDustTolerance: DUST_TOLERANCE
+        });
+        bytes memory initData = abi.encodeCall(RoycoAccountant.initialize, (params, address(accessManager)));
 
-        // With beta=0, more ST deposit is allowed given coverage
-        NAV_UNIT maxDeposit = zeroBetaAccountant.maxSTDepositGivenCoverage(_nav(100e18), _nav(50e18));
-        assertGt(toUint256(maxDeposit), 0, "deposits allowed with beta=0");
+        vm.expectRevert(IRoycoAccountant.INVALID_COVERAGE_CONFIG.selector);
+        new ERC1967Proxy(address(newAccountantImpl), initData);
     }
 
     /// @notice Test beta = 1 (JT in same opportunity as ST, full sensitivity)
@@ -2362,27 +2362,30 @@ contract RoycoAccountantAdminTest is BaseTest {
     // =========================================================================
 
     function test_setBeta_success() public {
-        uint96 newBeta = 0.5e18;
-
+        // beta == 1 is asserted by the accountant; setting it to WAD is the only valid value
         vm.prank(OWNER_ADDRESS);
-        accountant.setBeta(newBeta);
+        accountant.setBeta(uint96(WAD));
 
-        assertEq(accountant.getState().betaWAD, newBeta, "Beta not updated");
+        assertEq(accountant.getState().betaWAD, uint96(WAD), "Beta not updated");
+    }
+
+    function test_setBeta_revert_nonUnitBeta() public {
+        vm.prank(OWNER_ADDRESS);
+        vm.expectRevert(IRoycoAccountant.INVALID_COVERAGE_CONFIG.selector);
+        accountant.setBeta(0.5e18);
     }
 
     function testFuzz_setBeta(uint96 newBeta) public {
         newBeta = uint96(bound(newBeta, 0, 2e18));
 
-        uint64 coverage = accountant.getState().coverageWAD;
-        if (uint256(coverage) * newBeta / WAD >= WAD) {
-            return; // Skip invalid config
-        }
-
+        // beta == 1 is asserted by the accountant; any other value must revert
         vm.prank(OWNER_ADDRESS);
-        try accountant.setBeta(newBeta) {
+        if (newBeta != uint96(WAD)) {
+            vm.expectRevert(IRoycoAccountant.INVALID_COVERAGE_CONFIG.selector);
+            accountant.setBeta(newBeta);
+        } else {
+            accountant.setBeta(newBeta);
             assertEq(accountant.getState().betaWAD, newBeta);
-        } catch {
-            // Invalid config - acceptable
         }
     }
 

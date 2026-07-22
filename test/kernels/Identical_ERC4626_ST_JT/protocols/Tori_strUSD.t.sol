@@ -154,6 +154,7 @@ contract Tori_strUSD_Test is YieldBearingERC4626_ChainlinkOracle_TestBase {
 
         // Let the currently active on-chain vesting window fully vest, then checkpoint
         vm.warp(vm.getBlockTimestamp() + VESTING_PERIOD + 1);
+        _refreshOraclesAfterWarp();
         vm.prank(SYNC_ROLE_ADDRESS);
         KERNEL.syncTrancheAccounting();
         NAV_UNIT navBefore = JT.totalAssets().nav;
@@ -173,6 +174,7 @@ contract Tori_strUSD_Test is YieldBearingERC4626_ChainlinkOracle_TestBase {
 
         // Rewards vest linearly; warp through the full vesting period
         vm.warp(vm.getBlockTimestamp() + VESTING_PERIOD + 1);
+        _refreshOraclesAfterWarp();
         vm.prank(SYNC_ROLE_ADDRESS);
         KERNEL.syncTrancheAccounting();
 
@@ -188,6 +190,7 @@ contract Tori_strUSD_Test is YieldBearingERC4626_ChainlinkOracle_TestBase {
 
         // Fully vest the active window first so reportLoss burns principal rather than unvested rewards
         vm.warp(vm.getBlockTimestamp() + VESTING_PERIOD + 1);
+        _refreshOraclesAfterWarp();
         assertEq(IStakedTrUSD(STRUSD).getUnvestedAmount(), 0, "vesting window should be exhausted");
         vm.prank(SYNC_ROLE_ADDRESS);
         KERNEL.syncTrancheAccounting();

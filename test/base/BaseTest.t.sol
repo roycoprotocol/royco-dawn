@@ -151,7 +151,7 @@ abstract contract BaseTest is Test, RolesConfiguration, Assertions, ExtraRoles {
     string internal JUNIOR_TRANCHE_NAME = "Royco Junior Tranche";
     string internal JUNIOR_TRANCHE_SYMBOL = "RJT";
     uint64 internal COVERAGE_WAD = 0.2e18; // 20% coverage
-    uint96 internal BETA_WAD = 0; // Different opportunities
+    uint96 internal BETA_WAD = 1e18; // JT fully coinvested (beta == 1 is asserted by the accountant)
     uint64 internal ST_PROTOCOL_FEE_WAD = 0.1e18; // 10% protocol fee
     uint64 internal JT_PROTOCOL_FEE_WAD = 0.1e18; // 10% protocol fee
     uint256 internal LIQUIDATION_UTILIZATION_WAD = 6.4667e18; // Liquidation utilization threshold

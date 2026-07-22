@@ -1094,10 +1094,10 @@ abstract contract MarketDeploymentConfig {
         _marketConfigs[STMXN] = MarketConfig({
             marketName: STMXN,
             chainId: MAINNET,
-            seniorTrancheName: _seniorTrancheName(STMXN),
-            seniorTrancheSymbol: _seniorTrancheSymbol(STMXN),
-            juniorTrancheName: _juniorTrancheName(STMXN),
-            juniorTrancheSymbol: _juniorTrancheSymbol(STMXN),
+            seniorTrancheName: "Senior Staked MXN",
+            seniorTrancheSymbol: "srStMXN",
+            juniorTrancheName: "Junior Staked MXN",
+            juniorTrancheSymbol: "jrStMXN",
             // Tenbin Staked MXN (ERC4626 over tMXN, 18 decimals) is both the senior and junior asset
             seniorAsset: 0x8BDf6A2DFda084bD242Cd285CF75E80de3eB00ba,
             juniorAsset: 0x8BDf6A2DFda084bD242Cd285CF75E80de3eB00ba,
@@ -1136,10 +1136,10 @@ abstract contract MarketDeploymentConfig {
         _marketConfigs[STBRL] = MarketConfig({
             marketName: STBRL,
             chainId: MAINNET,
-            seniorTrancheName: _seniorTrancheName(STBRL),
-            seniorTrancheSymbol: _seniorTrancheSymbol(STBRL),
-            juniorTrancheName: _juniorTrancheName(STBRL),
-            juniorTrancheSymbol: _juniorTrancheSymbol(STBRL),
+            seniorTrancheName: "Senior Staked BRL",
+            seniorTrancheSymbol: "srStBRL",
+            juniorTrancheName: "Junior Staked BRL",
+            juniorTrancheSymbol: "jrStBRL",
             // Tenbin Staked BRL (ERC4626 over tBRL, 18 decimals) is both the senior and junior asset
             seniorAsset: 0xDaB276F6E19CCC54cA5aaA2645A94087ca776a3f,
             juniorAsset: 0xDaB276F6E19CCC54cA5aaA2645A94087ca776a3f,

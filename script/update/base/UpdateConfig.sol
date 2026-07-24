@@ -58,6 +58,7 @@ abstract contract UpdateConfig {
     string internal constant SUSN = "sUSN";
     string internal constant STMXN = "stMXN";
     string internal constant STBRL = "stBRL";
+    string internal constant STRUSD = "strUSD";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // TYPES
@@ -136,8 +137,10 @@ abstract contract UpdateConfig {
         _deployedKernels[MAINNET][PARETO_FALCONX] = 0x15bb63C07740ff972F76716cAcC5766f0C641791;
         _deployedKernels[MAINNET][APYUSD] = 0xcFbdEA0990F21b103c8D123d0D5273B4ea269cb4;
         _deployedKernels[MAINNET][eEARN] = 0x36c1d7CaFa9A220fc1450fA070277aED69F8c9B2;
-        _deployedKernels[MAINNET][STMXN] = 0x37B6dc33FEF1707254c91446070E2050351Afb86;
-        _deployedKernels[MAINNET][STBRL] = 0x07D556f8288Ef55cC06Dfb1328dFe2F0fc20a410;
+        // NOTE: stMXN/stBRL are being redeployed (fixed term -> 0); update these after redeploy
+        _deployedKernels[MAINNET][STMXN] = 0xbC996F335BA322B83AF5B9115B447479d2FA981C;
+        _deployedKernels[MAINNET][STBRL] = 0x403ad537BdDf8Fb0A0700B7Eb73f1e14f5699063;
+        _deployedKernels[MAINNET][STRUSD] = 0x3c40CB4354582005e55370B7e3a1b190DEe8eB0b;
 
         // ── Avalanche ────────────────────────────────────────────────────────
         _deployedKernels[AVALANCHE][SAVUSD] = 0x7240FF91b471217FF93349184ABE9f102Ca1955C;
@@ -158,5 +161,6 @@ abstract contract UpdateConfig {
         _chainlinkOracles[MAINNET].push(0xdb4881Ab0ad6b8423f76dd8C9d65542749a1dB77); // stMXN: Chainlink MXN/USD (24h heartbeat)
         _chainlinkOracles[MAINNET].push(0x3126E7F38D5f60f4E2B6ec3511C7bdbD79317Df1); // stBRL: Chainlink BRL/USD (24h heartbeat)
         _chainlinkOracles[MAINNET].push(0x33c6F75916Db4267e52209A8E6B270b22d983B53); // strUSD: RedStone trUSD_FUNDAMENTAL (12h heartbeat)
+        _chainlinkOracles[MAINNET].push(0x1c7bEc0281080C0A4f85e55151191aF27EC69940); // StockMarketTRBasisTrade: RedStone NAV feed (1-4 day cadence)
     }
 }

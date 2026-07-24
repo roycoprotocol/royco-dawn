@@ -118,9 +118,11 @@ abstract contract SyncerDeploymentConfig {
         // - Maple syrupUSDC
         config.marketKernels.push(0xde1Ce2cF64808e50d000F93058784270E412B3A4);
         // - Tenbin stMXN
-        config.marketKernels.push(0x37B6dc33FEF1707254c91446070E2050351Afb86);
+        config.marketKernels.push(0xbC996F335BA322B83AF5B9115B447479d2FA981C);
         // - Tenbin stBRL
-        config.marketKernels.push(0x07D556f8288Ef55cC06Dfb1328dFe2F0fc20a410);
+        config.marketKernels.push(0x403ad537BdDf8Fb0A0700B7Eb73f1e14f5699063);
+        // - Tori strUSD
+        config.marketKernels.push(0x3c40CB4354582005e55370B7e3a1b190DEe8eB0b);
 
         // ═══════════════════════════════════════════════════════════════════════════
         // AVALANCHE SYNCER CONFIG

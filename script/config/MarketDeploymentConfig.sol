@@ -62,8 +62,8 @@ abstract contract MarketDeploymentConfig {
     string public constant SUSN = "SUSN";
     string public constant STMXN = "stMXN";
     string public constant STBRL = "stBRL";
-    string public constant USP = "USP";
     string public constant STRUSD = "strUSD";
+    string public constant STOCK_MARKET_TR_BASIS_TRADE = "StockMarketTRBasisTrade";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // MARKET-SPECIFIC ADDRESSES
@@ -1123,7 +1123,7 @@ abstract contract MarketDeploymentConfig {
             coverageWAD: 0.15e18,
             betaWAD: 1e18,
             liquidationUtilizationWAD: 10e18,
-            fixedTermDurationSeconds: 14 days,
+            fixedTermDurationSeconds: 0,
             ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
             ydmSpecificParams: abi.encode(
                 DeployScript.AdaptiveCurveYDM_V2_Params({
@@ -1167,58 +1167,11 @@ abstract contract MarketDeploymentConfig {
             coverageWAD: 0.15e18,
             betaWAD: 1e18,
             liquidationUtilizationWAD: 10e18,
-            fixedTermDurationSeconds: 14 days,
+            fixedTermDurationSeconds: 0,
             ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
             ydmSpecificParams: abi.encode(
                 DeployScript.AdaptiveCurveYDM_V2_Params({
                     jtYieldShareAtZeroUtilWAD: 0.7e18, jtYieldShareAtTargetUtilWAD: 0.8e18, jtYieldShareAtFullUtilWAD: 0.9e18, maxAdaptationSpeedWAD: 0
-                })
-            ),
-            transferAgentAddress: address(0)
-        });
-
-        _marketConfigs[USP] = MarketConfig({
-            marketName: USP,
-            chainId: MAINNET,
-            seniorTrancheName: "Senior USP",
-            seniorTrancheSymbol: "srUSP",
-            juniorTrancheName: "Junior USP",
-            juniorTrancheSymbol: "jrUSP",
-            // Piku USP (plain ERC20, 18 decimals; NAV lives in the external permissioned oracle) is both tranche assets
-            seniorAsset: 0x098697bA3Fee4eA76294C5d6A466a4e3b3E95FE6,
-            juniorAsset: 0x098697bA3Fee4eA76294C5d6A466a4e3b3E95FE6,
-            // 6-decimal USP/USD adapter => WAD rate granularity is 1e12; dust sized accordingly
-            stDustTolerance: 5 * (10 ** 12),
-            jtDustTolerance: 5 * (10 ** 12),
-            kernelType: DeployScript.KernelType.Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel,
-            kernelSpecificParams: abi.encode(
-                DeployScript.IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams({
-                        // Reference asset (USDC) to NAV unit conversion rate is 1e18 (USDC treated as $1)
-                        initialConversionRateWAD: 1e18,
-                        // USPChainlinkAdapter (USP/USD, 6 decimals) — thin AggregatorV3 view over Piku's
-                        // permissioned LM_Oracle price, hard-bounded to [$0.90, $5.00]
-                        trancheAssetToReferenceAssetOracle: 0xb52eb13139905Eb11c472100a1E86cB1961b8EF3,
-                        stalenessThresholdSeconds: 86_400, // Irrelevant since time is always reported as block.timestamp
-                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
-                        gracePeriodSeconds: 0
-                    })
-            ),
-            enforceVaultSharesTransferWhitelist: false,
-            stSelfLiquidationBonusWAD: 0.02e18,
-            stProtocolFeeWAD: 0,
-            jtProtocolFeeWAD: 0,
-            jtYieldShareProtocolFeeWAD: 0,
-            coverageWAD: 0.1e18,
-            betaWAD: 1e18,
-            liquidationUtilizationWAD: 6.6666667e18,
-            fixedTermDurationSeconds: 5 days,
-            ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
-            ydmSpecificParams: abi.encode(
-                DeployScript.AdaptiveCurveYDM_V2_Params({
-                    jtYieldShareAtZeroUtilWAD: 0.2e18, // Y_0 = 20%
-                    jtYieldShareAtTargetUtilWAD: 0.2e18, // target = 20%
-                    jtYieldShareAtFullUtilWAD: 0.4e18, // Y_100 = 40%
-                    maxAdaptationSpeedWAD: uint64(40e18 / uint256(365 days)) // Adaptation Speed = 40
                 })
             ),
             transferAgentAddress: address(0)
@@ -1258,6 +1211,53 @@ abstract contract MarketDeploymentConfig {
             betaWAD: 1e18,
             liquidationUtilizationWAD: 6.6666667e18,
             fixedTermDurationSeconds: 7 days,
+            ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
+            ydmSpecificParams: abi.encode(
+                DeployScript.AdaptiveCurveYDM_V2_Params({
+                    jtYieldShareAtZeroUtilWAD: 0.2e18, // Y_0 = 20%
+                    jtYieldShareAtTargetUtilWAD: 0.2e18, // target = 20%
+                    jtYieldShareAtFullUtilWAD: 0.4e18, // Y_100 = 40%
+                    maxAdaptationSpeedWAD: uint64(40e18 / uint256(365 days)) // Adaptation Speed = 40
+                })
+            ),
+            transferAgentAddress: address(0)
+        });
+
+        _marketConfigs[STOCK_MARKET_TR_BASIS_TRADE] = MarketConfig({
+            marketName: STOCK_MARKET_TR_BASIS_TRADE,
+            chainId: MAINNET,
+            seniorTrancheName: "Senior StockMarketTRBasisTrade",
+            seniorTrancheSymbol: "srStockMarketTRBasisTrade",
+            juniorTrancheName: "Junior StockMarketTRBasisTrade",
+            juniorTrancheSymbol: "jrStockMarketTRBasisTrade",
+            // Morini StockMarketTRBasisTrade Vault — a Midas mToken (RedDuck stack, same family as mF-ONE),
+            // curated by Morini Capital and distributed via Piku; plain role-minted ERC20, 18 decimals
+            seniorAsset: 0x827Ce7E8e35861D9Ac7fE002755767b695A5594a,
+            juniorAsset: 0x827Ce7E8e35861D9Ac7fE002755767b695A5594a,
+            // 8-decimal RedStone feed => WAD rate granularity is 1e10; dust sized accordingly
+            stDustTolerance: 5 * (10 ** 10),
+            jtDustTolerance: 5 * (10 ** 10),
+            kernelType: DeployScript.KernelType.Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel,
+            kernelSpecificParams: abi.encode(
+                DeployScript.IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams({
+                        // Reference asset (USD) to NAV unit conversion rate is 1e18 (feed prices the token in USD directly)
+                        initialConversionRateWAD: 1e18,
+                        // https://docs.piku.co/piku/piku-finance/vaults/morini-stockmarkettrbasistrade-vault/mint-and-redeem-stockmarkettrbasistrade-at-the-contract-level
+                        trancheAssetToReferenceAssetOracle: 0x1c7bEc0281080C0A4f85e55151191aF27EC69940,
+                        stalenessThresholdSeconds: 4 days,
+                        sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
+                        gracePeriodSeconds: 0
+                    })
+            ),
+            enforceVaultSharesTransferWhitelist: false,
+            stSelfLiquidationBonusWAD: 0.0025e18,
+            stProtocolFeeWAD: 0,
+            jtProtocolFeeWAD: 0,
+            jtYieldShareProtocolFeeWAD: 0,
+            coverageWAD: 0.1e18,
+            betaWAD: 1e18,
+            liquidationUtilizationWAD: 6.6666667e18,
+            fixedTermDurationSeconds: 5 days,
             ydmType: DeployScript.YDMType.AdaptiveCurve_V2,
             ydmSpecificParams: abi.encode(
                 DeployScript.AdaptiveCurveYDM_V2_Params({

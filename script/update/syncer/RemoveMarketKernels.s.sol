@@ -8,19 +8,21 @@ import { RoycoMarketSyncer } from "../../../src/periphery/RoycoMarketSyncer.sol"
 import { ParameterUpdateBase } from "../base/ParameterUpdateBase.sol";
 
 /**
- * @title AddMarketKernels
- * @notice Registers newly deployed market kernels with the RoycoMarketSyncer so the keeper's
- *         batch accounting sync covers them.
+ * @title RemoveMarketKernels
+ * @notice Deregisters obsolete market kernels from the RoycoMarketSyncer so the keeper's batch
+ *         accounting sync stops covering them.
  *
- * @dev Hooks into `ParameterUpdateBase`'s direct-call harness:
- *      - `addMarketKernels` is gated by `SYNC_ROLE`, which `WAY_MULTISIG` holds with 0 execution
- *        delay — so this is a single atomic call, no schedule/execute split.
- *      - The syncer itself validates each kernel against the factory registry
- *        (`_validateMarketKernel`: senior tranche pairing + kernel back-reference).
- *      - Writes one Safe JSON per chain at
- *        `output/update/syncer/{chainId}_add_market_kernels.json`.
+ * @dev Current removal set (mainnet):
+ *      - Piku USP kernel — market decommissioned, should never have been deployed
+ *      - First-generation Tenbin stMXN/stBRL kernels — superseded by the beta==1 redeployments
+ *      Kernels are listed by explicit address (not name-resolved) because removed markets are
+ *      dropped from the UpdateConfig registry.
+ *
+ *      `removeMarketKernels` is gated by `SYNC_ROLE`, which `WAY_MULTISIG` holds with 0 execution
+ *      delay — single atomic call. Writes one Safe JSON per chain at
+ *      `output/update/syncer/{chainId}_remove_market_kernels.json`.
  */
-contract AddMarketKernels is ParameterUpdateBase {
+contract RemoveMarketKernels is ParameterUpdateBase {
     // ═══════════════════════════════════════════════════════════════════════════
     // CONSTANTS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -29,8 +31,8 @@ contract AddMarketKernels is ParameterUpdateBase {
     address internal constant MAINNET_SYNCER = 0xc46367BBdbC62F1825a46549062a3A88D8668D52;
 
     string internal constant OUTPUT_SUBDIR = "syncer";
-    string internal constant OUTPUT_PREFIX = "add_market_kernels";
-    string internal constant BATCH_DESCRIPTION = "Royco Market Syncer: register market kernels";
+    string internal constant OUTPUT_PREFIX = "remove_market_kernels";
+    string internal constant BATCH_DESCRIPTION = "Royco Market Syncer: deregister obsolete market kernels";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONFIG
@@ -39,7 +41,7 @@ contract AddMarketKernels is ParameterUpdateBase {
     struct ChainSyncerConfig {
         uint256 chainId;
         address syncer;
-        string[] markets;
+        address[] kernels;
     }
 
     ChainSyncerConfig[] internal _syncerConfigs;
@@ -53,9 +55,12 @@ contract AddMarketKernels is ParameterUpdateBase {
         ChainSyncerConfig storage mainnet = _syncerConfigs.push();
         mainnet.chainId = MAINNET;
         mainnet.syncer = MAINNET_SYNCER;
-        // stMXN/stBRL pending redeploy (fixed term -> 0) and the Morini market pending deploy —
-        // re-add them here once live. USP was decommissioned and must not be configured.
-        mainnet.markets.push(STRUSD);
+        // Piku USP (decommissioned)
+        mainnet.kernels.push(0xC3B216EA46fa1DF32139cF40f748232c52bFFaBa);
+        // First-generation Tenbin stMXN (superseded)
+        mainnet.kernels.push(0x37B6dc33FEF1707254c91446070E2050351Afb86);
+        // First-generation Tenbin stBRL (superseded)
+        mainnet.kernels.push(0x07D556f8288Ef55cC06Dfb1328dFe2F0fc20a410);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -68,24 +73,23 @@ contract AddMarketKernels is ParameterUpdateBase {
         }
     }
 
-    /// @dev Forks the chain, resolves kernels from the market registry, encodes the batched
-    ///      `addMarketKernels` call, and hands off to `_processChainDirect` as WAY_MULTISIG.
+    /// @dev Forks the chain, encodes the batched `removeMarketKernels` call, and hands off to
+    ///      `_processChainDirect` as WAY_MULTISIG.
     function _processOneChain(ChainSyncerConfig storage _cfg) internal {
-        // Fork once up front so `getMarketAddresses` (which reads the kernel) works.
         vm.createSelectFork(_getRpcUrl(_cfg.chainId));
 
-        address[] memory kernels = new address[](_cfg.markets.length);
-        for (uint256 i = 0; i < _cfg.markets.length; i++) {
-            kernels[i] = getMarketAddresses(_cfg.markets[i]).kernel;
-            require(!RoycoMarketSyncer(_cfg.syncer).isMarketKernelRegistered(kernels[i]), "kernel already registered");
+        address[] memory kernels = new address[](_cfg.kernels.length);
+        for (uint256 i = 0; i < _cfg.kernels.length; i++) {
+            kernels[i] = _cfg.kernels[i];
+            require(RoycoMarketSyncer(_cfg.syncer).isMarketKernelRegistered(kernels[i]), "kernel not registered");
         }
 
         UpdateParams[] memory updates = new UpdateParams[](1);
         updates[0] = UpdateParams({
             marketName: "",
             target: _cfg.syncer,
-            callData: abi.encodeCall(RoycoMarketSyncer.addMarketKernels, (kernels)),
-            description: string.concat("Register ", vm.toString(kernels.length), " market kernels with the syncer")
+            callData: abi.encodeCall(RoycoMarketSyncer.removeMarketKernels, (kernels)),
+            description: string.concat("Deregister ", vm.toString(kernels.length), " market kernels from the syncer")
         });
 
         _processChainDirect(_cfg.chainId, WAY_MULTISIG, updates, OUTPUT_SUBDIR, OUTPUT_PREFIX, BATCH_DESCRIPTION);
@@ -95,7 +99,7 @@ contract AddMarketKernels is ParameterUpdateBase {
     // VERIFICATION (read back isMarketKernelRegistered for every kernel)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @dev Decodes the batched calldata, then asserts every kernel is registered.
+    /// @dev Decodes the batched calldata, then asserts every kernel is deregistered.
     function _verify(UpdateParams memory _params) internal view override {
         // Skip the 4-byte selector and decode (address[])
         bytes memory cd = _params.callData;
@@ -106,8 +110,8 @@ contract AddMarketKernels is ParameterUpdateBase {
         address[] memory kernels = abi.decode(args, (address[]));
 
         for (uint256 i = 0; i < kernels.length; i++) {
-            require(RoycoMarketSyncer(_params.target).isMarketKernelRegistered(kernels[i]), VerificationFailed("kernel not registered"));
+            require(!RoycoMarketSyncer(_params.target).isMarketKernelRegistered(kernels[i]), VerificationFailed("kernel still registered"));
         }
-        console2.log("    [OK] Post-state verified for", kernels.length, "kernels");
+        console2.log("    [OK] Post-state verified:", kernels.length, "kernels deregistered");
     }
 }

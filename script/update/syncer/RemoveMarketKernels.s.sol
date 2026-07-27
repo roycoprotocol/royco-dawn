@@ -61,6 +61,10 @@ contract RemoveMarketKernels is ParameterUpdateBase {
         mainnet.kernels.push(0x37B6dc33FEF1707254c91446070E2050351Afb86);
         // First-generation Tenbin stBRL (superseded)
         mainnet.kernels.push(0x07D556f8288Ef55cC06Dfb1328dFe2F0fc20a410);
+        // Second-generation Tenbin stMXN (superseded by the fixed-term-0 redeploy)
+        mainnet.kernels.push(0xbC996F335BA322B83AF5B9115B447479d2FA981C);
+        // Second-generation Tenbin stBRL (superseded by the fixed-term-0 redeploy)
+        mainnet.kernels.push(0x403ad537BdDf8Fb0A0700B7Eb73f1e14f5699063);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

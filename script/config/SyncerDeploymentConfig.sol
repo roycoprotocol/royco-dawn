@@ -118,11 +118,13 @@ abstract contract SyncerDeploymentConfig {
         // - Maple syrupUSDC
         config.marketKernels.push(0xde1Ce2cF64808e50d000F93058784270E412B3A4);
         // - Tenbin stMXN
-        config.marketKernels.push(0xbC996F335BA322B83AF5B9115B447479d2FA981C);
+        config.marketKernels.push(0x90F114A99a439b1C2808A17198E3B764eaF63d1B);
         // - Tenbin stBRL
-        config.marketKernels.push(0x403ad537BdDf8Fb0A0700B7Eb73f1e14f5699063);
+        config.marketKernels.push(0xB9BD7b477872D428E3C38EE71ed8F739E8AEc0dB);
         // - Tori strUSD
         config.marketKernels.push(0x3c40CB4354582005e55370B7e3a1b190DEe8eB0b);
+        // - Morini StockMarketTRBasisTrade
+        config.marketKernels.push(0x48fE2F6A0168C49F5a7aF6E2e6884F6b2531D634);
 
         // ═══════════════════════════════════════════════════════════════════════════
         // AVALANCHE SYNCER CONFIG

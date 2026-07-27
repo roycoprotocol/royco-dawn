@@ -53,9 +53,10 @@ contract AddMarketKernels is ParameterUpdateBase {
         ChainSyncerConfig storage mainnet = _syncerConfigs.push();
         mainnet.chainId = MAINNET;
         mainnet.syncer = MAINNET_SYNCER;
-        // stMXN/stBRL pending redeploy (fixed term -> 0) and the Morini market pending deploy —
-        // re-add them here once live. USP was decommissioned and must not be configured.
-        mainnet.markets.push(STRUSD);
+        // strUSD is already registered on-chain; the redeployed Tenbin markets and Morini are new
+        mainnet.markets.push(STMXN);
+        mainnet.markets.push(STBRL);
+        mainnet.markets.push(STOCK_MARKET_TR_BASIS_TRADE);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

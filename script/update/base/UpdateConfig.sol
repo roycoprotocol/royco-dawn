@@ -59,6 +59,8 @@ abstract contract UpdateConfig {
     string internal constant STMXN = "stMXN";
     string internal constant STBRL = "stBRL";
     string internal constant STRUSD = "strUSD";
+    string internal constant STOCK_MARKET_TR_BASIS_TRADE = "StockMarketTRBasisTrade";
+    string internal constant DMG = "DMG";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // TYPES
@@ -137,10 +139,11 @@ abstract contract UpdateConfig {
         _deployedKernels[MAINNET][PARETO_FALCONX] = 0x15bb63C07740ff972F76716cAcC5766f0C641791;
         _deployedKernels[MAINNET][APYUSD] = 0xcFbdEA0990F21b103c8D123d0D5273B4ea269cb4;
         _deployedKernels[MAINNET][eEARN] = 0x36c1d7CaFa9A220fc1450fA070277aED69F8c9B2;
-        // NOTE: stMXN/stBRL are being redeployed (fixed term -> 0); update these after redeploy
-        _deployedKernels[MAINNET][STMXN] = 0xbC996F335BA322B83AF5B9115B447479d2FA981C;
-        _deployedKernels[MAINNET][STBRL] = 0x403ad537BdDf8Fb0A0700B7Eb73f1e14f5699063;
+        _deployedKernels[MAINNET][STMXN] = 0x90F114A99a439b1C2808A17198E3B764eaF63d1B;
+        _deployedKernels[MAINNET][STBRL] = 0xB9BD7b477872D428E3C38EE71ed8F739E8AEc0dB;
         _deployedKernels[MAINNET][STRUSD] = 0x3c40CB4354582005e55370B7e3a1b190DEe8eB0b;
+        _deployedKernels[MAINNET][STOCK_MARKET_TR_BASIS_TRADE] = 0x48fE2F6A0168C49F5a7aF6E2e6884F6b2531D634;
+        _deployedKernels[MAINNET][DMG] = 0x753fB559B67DcED89020ef222bF87099776d1676;
 
         // ── Avalanche ────────────────────────────────────────────────────────
         _deployedKernels[AVALANCHE][SAVUSD] = 0x7240FF91b471217FF93349184ABE9f102Ca1955C;

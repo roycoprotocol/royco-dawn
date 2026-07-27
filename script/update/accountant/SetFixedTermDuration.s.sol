@@ -19,6 +19,14 @@ import { ParameterUpdateBase } from "../base/ParameterUpdateBase.sol";
  */
 contract SetFixedTermDuration is ParameterUpdateBase {
     // ═══════════════════════════════════════════════════════════════════════════
+    // CONSTANTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// @dev Execution delay on WAY_MULTISIG's fixed-term-duration permission (verified on-chain via
+    ///      `canCall` returning delay 259200); simulation warps past it.
+    uint256 internal constant ACCOUNTANT_FTD_ROLE_DELAY = 72 hours;
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // TYPES
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -51,8 +59,8 @@ contract SetFixedTermDuration is ParameterUpdateBase {
      * @dev `newFixedTermDurationSeconds` is a `uint24` (max ~194 days). Use `0` for perpetual.
      */
     function _initializeConfigs() internal {
-        // autoUSD → 5 days
-        _configs.push(SetFixedTermDurationConfig({ chainId: MAINNET, marketName: AUTOUSD, newFixedTermDurationSeconds: uint24(5 days) }));
+        // DMG → 72 hours
+        _configs.push(SetFixedTermDurationConfig({ chainId: MAINNET, marketName: DMG, newFixedTermDurationSeconds: uint24(72 hours) }));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -93,7 +101,9 @@ contract SetFixedTermDuration is ParameterUpdateBase {
                 }
             }
 
-            _processChain(chainId, updates, "accountant", "set_fixed_term_duration", "Set fixed term duration");
+            // WAY_MULTISIG holds the setFixedTermDuration permission with a 72h execution delay,
+            // so it both schedules and (72h later) executes; simulation warps past that delay.
+            _processChain(chainId, WAY_MULTISIG, ACCOUNTANT_FTD_ROLE_DELAY + 1, updates, "accountant", "set_fixed_term_duration", "Set fixed term duration");
         }
     }
 

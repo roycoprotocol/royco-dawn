@@ -65,9 +65,10 @@ contract UpdateTrancheConfigs is ParameterUpdateBase {
         // ── Mainnet ──────────────────────────────────────────────────────────
         ChainEntryPointConfig storage mainnet = _entryPointConfigs.push();
         mainnet.chainId = MAINNET;
-        // stMXN/stBRL pending redeploy (fixed term -> 0) and the Morini market pending deploy —
-        // re-add them here once live. USP was decommissioned and must not be configured.
+        mainnet.markets.push(STMXN);
+        mainnet.markets.push(STBRL);
         mainnet.markets.push(STRUSD);
+        mainnet.markets.push(STOCK_MARKET_TR_BASIS_TRADE);
 
         // ── Base ─────────────────────────────────────────────────────────────
         // Applied on-chain (SUSN ST/JT: enabled, PROTOCOL, 300s deposit, 24h redemption).

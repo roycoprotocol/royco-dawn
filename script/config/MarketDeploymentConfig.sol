@@ -1244,7 +1244,7 @@ abstract contract MarketDeploymentConfig {
                         initialConversionRateWAD: 1e18,
                         // https://docs.piku.co/piku/piku-finance/vaults/morini-stockmarkettrbasistrade-vault/mint-and-redeem-stockmarkettrbasistrade-at-the-contract-level
                         trancheAssetToReferenceAssetOracle: 0x1c7bEc0281080C0A4f85e55151191aF27EC69940,
-                        stalenessThresholdSeconds: 4 days,
+                        stalenessThresholdSeconds: 5 days,
                         sequencerUptimeFeed: getSequencerUptimeFeed(MAINNET),
                         gracePeriodSeconds: 0
                     })

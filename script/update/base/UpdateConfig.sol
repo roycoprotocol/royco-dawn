@@ -36,9 +36,10 @@ abstract contract UpdateConfig {
     /// @dev Executor multisig — holds the GUARDIAN_ROLE (can cancel pending operations)
     address internal constant EXECUTOR_MULTISIG = 0x84d37A25e46029CE161111420E07cEb78880119e;
 
-    /// @dev WCE multisig — operations multisig holding immediate-delay admin roles
-    ///      (e.g. ADMIN_ENTRY_POINT_ROLE with 0 delay).
-    address internal constant WCE_MULTISIG = 0x84d37A25e46029CE161111420E07cEb78880119e;
+    /// @dev Way (WCE) multisig — operations multisig. Holds ADMIN_ENTRY_POINT_ROLE with a 1-day
+    ///      execution delay (schedule/execute via the AccessManager) and SYNC_ROLE with 0 delay
+    ///      (direct calls).
+    address internal constant WAY_MULTISIG = 0x84d37A25e46029CE161111420E07cEb78880119e;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // MARKET NAMES
@@ -54,6 +55,12 @@ abstract contract UpdateConfig {
     string internal constant PARETO_FALCONX = "ParetoFalconX";
     string internal constant APYUSD = "apyUSD";
     string internal constant eEARN = "eEARN";
+    string internal constant SUSN = "sUSN";
+    string internal constant STMXN = "stMXN";
+    string internal constant STBRL = "stBRL";
+    string internal constant STRUSD = "strUSD";
+    string internal constant STOCK_MARKET_TR_BASIS_TRADE = "StockMarketTRBasisTrade";
+    string internal constant DMG = "DMG";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // TYPES
@@ -132,12 +139,20 @@ abstract contract UpdateConfig {
         _deployedKernels[MAINNET][PARETO_FALCONX] = 0x15bb63C07740ff972F76716cAcC5766f0C641791;
         _deployedKernels[MAINNET][APYUSD] = 0xcFbdEA0990F21b103c8D123d0D5273B4ea269cb4;
         _deployedKernels[MAINNET][eEARN] = 0x36c1d7CaFa9A220fc1450fA070277aED69F8c9B2;
+        _deployedKernels[MAINNET][STMXN] = 0x90F114A99a439b1C2808A17198E3B764eaF63d1B;
+        _deployedKernels[MAINNET][STBRL] = 0xB9BD7b477872D428E3C38EE71ed8F739E8AEc0dB;
+        _deployedKernels[MAINNET][STRUSD] = 0x3c40CB4354582005e55370B7e3a1b190DEe8eB0b;
+        _deployedKernels[MAINNET][STOCK_MARKET_TR_BASIS_TRADE] = 0x48fE2F6A0168C49F5a7aF6E2e6884F6b2531D634;
+        _deployedKernels[MAINNET][DMG] = 0x753fB559B67DcED89020ef222bF87099776d1676;
 
         // ── Avalanche ────────────────────────────────────────────────────────
         _deployedKernels[AVALANCHE][SAVUSD] = 0x7240FF91b471217FF93349184ABE9f102Ca1955C;
 
         // ── Arbitrum ─────────────────────────────────────────────────────────
         _deployedKernels[ARBITRUM][SUSDAI] = 0xFdb17E53eA5d342124b8473188BCB9F05F1949CA;
+
+        // ── Base ─────────────────────────────────────────────────────────────
+        _deployedKernels[BASE][SUSN] = 0x3FBC599C113923439Ca6878B7A9b5433Cc3F4116;
 
         // ── Chainlink oracles to keep fresh through the 2-day simulation warp ─
         // Add any aggregator address whose staleness check would otherwise revert mid-simulation.
@@ -146,5 +161,9 @@ abstract contract UpdateConfig {
         _chainlinkOracles[MAINNET].push(0x5e7281f74e74D76347f0b8f4a36Fd3cb29c19d95); // sNUSD: RedStone nusd_fundamental
         _chainlinkOracles[MAINNET].push(0x9A5a3c3Ed0361505cC1D4e824B3854De5724434A); // stcUSD: RedStone cUSD_FUNDAMENTAL
         _chainlinkOracles[MAINNET].push(0x651b101f72F82630cf59c68E6EE4305aFBd3B1F5); // apyUSD: Chainlink apxusd-usd
+        _chainlinkOracles[MAINNET].push(0xdb4881Ab0ad6b8423f76dd8C9d65542749a1dB77); // stMXN: Chainlink MXN/USD (24h heartbeat)
+        _chainlinkOracles[MAINNET].push(0x3126E7F38D5f60f4E2B6ec3511C7bdbD79317Df1); // stBRL: Chainlink BRL/USD (24h heartbeat)
+        _chainlinkOracles[MAINNET].push(0x33c6F75916Db4267e52209A8E6B270b22d983B53); // strUSD: RedStone trUSD_FUNDAMENTAL (12h heartbeat)
+        _chainlinkOracles[MAINNET].push(0x1c7bEc0281080C0A4f85e55151191aF27EC69940); // StockMarketTRBasisTrade: RedStone NAV feed (1-4 day cadence)
     }
 }

@@ -428,7 +428,7 @@ contract GuardianCancellationTest is BaseTest {
     /// @notice Test that ADMIN_ACCOUNTANT_ROLE can call setCoverageConfiguration
     function test_role_accountantAdmin_canSetCoverageConfiguration() public {
         uint64 newCoverage = 0.3e18;
-        uint96 newBeta = 0.5e18;
+        uint96 newBeta = 1e18; // beta == 1 is asserted by the accountant
         uint256 newLiquidationUtilization = 3e18;
         bytes memory data = abi.encodeCall(ACCOUNTANT.setCoverageConfiguration, (newCoverage, newBeta, newLiquidationUtilization));
 

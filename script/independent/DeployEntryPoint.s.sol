@@ -5,10 +5,10 @@ import { UUPSUpgradeable } from "../../lib/openzeppelin-contracts-upgradeable/co
 import { IAccessManager } from "../../lib/openzeppelin-contracts/contracts/access/manager/IAccessManager.sol";
 import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { CREATE3 } from "../../lib/solady/src/utils/CREATE3.sol";
-import { RoycoEntryPoint } from "../../src/entrypoint/RoycoEntryPoint.sol";
 import { RolesConfiguration } from "../../src/factory/RolesConfiguration.sol";
 import { IRoycoAuth } from "../../src/interfaces/IRoycoAuth.sol";
 import { IRoycoEntryPoint } from "../../src/interfaces/IRoycoEntryPoint.sol";
+import { RoycoEntryPoint } from "../../src/periphery/RoycoEntryPoint.sol";
 import { EntryPointDeploymentConfig } from "../config/EntryPointDeploymentConfig.sol";
 import { ExtraRoles } from "../config/ExtraRoles.sol";
 import { AccessManagerConfigUtils } from "../utils/AccessManagerConfigUtils.sol";

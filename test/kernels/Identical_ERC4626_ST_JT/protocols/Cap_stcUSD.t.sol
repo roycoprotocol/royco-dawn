@@ -6,12 +6,12 @@ import { IERC4626 } from "../../../../lib/openzeppelin-contracts/contracts/inter
 import { DeployScript } from "../../../../script/Deploy.s.sol";
 import { FundamentalStablecoinChainlinkOracleDeploymentConfig } from "../../../../script/config/FundamentalStablecoinChainlinkOracleDeploymentConfig.sol";
 import { MarketDeploymentConfig } from "../../../../script/config/MarketDeploymentConfig.sol";
+import { DeployFundamentalStablecoinChainlinkOracleScript } from "../../../../script/independent/DeployFundamentalStablecoinChainlinkOracle.s.sol";
 import { IRoycoFactory } from "../../../../src/interfaces/IRoycoFactory.sol";
 import {
     Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel
 } from "../../../../src/kernels/Identical_ERC4626_ST_JT_SharePriceToChainlinkOracle_Kernel.sol";
 import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits, toUint256 } from "../../../../src/libraries/Units.sol";
-import { FundamentalStablecoinChainlinkOracle } from "../../../mock/FundamentalStablecoinChainlinkOracle.sol";
 import { FundamentalStablecoinPeg_ERC4626_ChainlinkOracle_TestBase } from "../base/FundamentalStablecoinPeg_ERC4626_ChainlinkOracle_TestBase.t.sol";
 
 /// @title stcUSD_stcUSD_Test
@@ -24,10 +24,6 @@ import { FundamentalStablecoinPeg_ERC4626_ChainlinkOracle_TestBase } from "../ba
 ///   - NAV Unit: USD
 /// The deployment uses initialConversionRateWAD: 0 (sentinel mode) so the cUSD→USD
 /// FundamentalStablecoinChainlinkOracle provides the live rate.
-
-/// @notice Concrete instantiation of the abstract oracle deployment config so the test can read the MAINNET_CUSD_USD parameters
-contract FundamentalStablecoinChainlinkOracleConfig is FundamentalStablecoinChainlinkOracleDeploymentConfig { }
-
 contract stcUSD_stcUSD_Test is FundamentalStablecoinPeg_ERC4626_ChainlinkOracle_TestBase {
     // ═══════════════════════════════════════════════════════════════════════════
     // MAINNET ADDRESSES
@@ -77,9 +73,10 @@ contract stcUSD_stcUSD_Test is FundamentalStablecoinPeg_ERC4626_ChainlinkOracle_
         uint32 scheduledOperationsExpirySeconds = DEPLOY_SCRIPT.getChainConfig(block.chainid).scheduledOperationsExpirySeconds;
         IRoycoFactory.RoleAssignmentConfiguration[] memory roleAssignments = _generateRoleAssignments();
 
-        FundamentalStablecoinChainlinkOracleConfig ORACLE_CONFIG = new FundamentalStablecoinChainlinkOracleConfig();
-        FundamentalStablecoinChainlinkOracleDeploymentConfig.OracleConfig memory oracleConfig = ORACLE_CONFIG.getOracleConfig(ORACLE_CONFIG.MAINNET_CUSD_USD());
-        address cUSDOracle = address(new FundamentalStablecoinChainlinkOracle(oracleConfig.underlyingOracle, oracleConfig.minPegPrice));
+        DeployFundamentalStablecoinChainlinkOracleScript ORACLE_DEPLOY_SCRIPT = new DeployFundamentalStablecoinChainlinkOracleScript();
+        FundamentalStablecoinChainlinkOracleDeploymentConfig.OracleConfig memory oracleConfig =
+            ORACLE_DEPLOY_SCRIPT.getOracleConfig(ORACLE_DEPLOY_SCRIPT.MAINNET_CUSD_USD());
+        address cUSDOracle = ORACLE_DEPLOY_SCRIPT.deployOracle(oracleConfig.underlyingOracle, oracleConfig.minPegPrice, DEPLOYER.privateKey);
 
         marketConfig.kernelSpecificParams = abi.encode(
             DeployScript.IdenticalERC4626SharesToChainlinkOracleQuoterKernelParams({

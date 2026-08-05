@@ -74,7 +74,7 @@ contract DeploymentScriptRerunTest is Test, RolesConfiguration {
 
     // Deployment params
     uint64 internal COVERAGE_WAD = 0.2e18;
-    uint96 internal BETA_WAD = 0;
+    uint96 internal BETA_WAD = 1e18; // JT fully coinvested (beta == 1 is asserted by the accountant)
     uint64 internal ST_PROTOCOL_FEE_WAD = 0.1e18;
     uint64 internal JT_PROTOCOL_FEE_WAD = 0.1e18;
     uint256 internal LIQUIDATION_UTILIZATION_WAD = 6.4667e18;

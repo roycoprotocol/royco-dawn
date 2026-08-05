@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { Test } from "../../lib/forge-std/src/Test.sol";
-import { Vm } from "../../lib/forge-std/src/Vm.sol";
-import { ERC20Mock } from "../../lib/openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol";
-import { ERC1967Proxy } from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { IERC20 } from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import { Math } from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import { Test } from "../../../lib/forge-std/src/Test.sol";
+import { Vm } from "../../../lib/forge-std/src/Vm.sol";
+import { ERC20Mock } from "../../../lib/openzeppelin-contracts/contracts/mocks/token/ERC20Mock.sol";
+import { ERC1967Proxy } from "../../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { IERC20 } from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import { Math } from "../../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
-import { RoycoEntryPoint } from "../../src/entrypoint/RoycoEntryPoint.sol";
-import { RolesConfiguration, RoycoFactory } from "../../src/factory/RoycoFactory.sol";
-import { IRoycoEntryPoint } from "../../src/interfaces/IRoycoEntryPoint.sol";
-import { IRoycoFactory } from "../../src/interfaces/IRoycoFactory.sol";
-import { IRoycoVaultTranche } from "../../src/interfaces/IRoycoVaultTranche.sol";
-import { MAX_NAV_UNITS, MAX_TRANCHE_UNITS, WAD, ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "../../src/libraries/Constants.sol";
-import { AssetClaims, TrancheType } from "../../src/libraries/Types.sol";
-import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "../../src/libraries/Units.sol";
+import { RolesConfiguration, RoycoFactory } from "../../../src/factory/RoycoFactory.sol";
+import { IRoycoEntryPoint } from "../../../src/interfaces/IRoycoEntryPoint.sol";
+import { IRoycoFactory } from "../../../src/interfaces/IRoycoFactory.sol";
+import { IRoycoVaultTranche } from "../../../src/interfaces/IRoycoVaultTranche.sol";
+import { MAX_NAV_UNITS, MAX_TRANCHE_UNITS, WAD, ZERO_NAV_UNITS, ZERO_TRANCHE_UNITS } from "../../../src/libraries/Constants.sol";
+import { AssetClaims, TrancheType } from "../../../src/libraries/Types.sol";
+import { NAV_UNIT, TRANCHE_UNIT, UnitsMathLib, toNAVUnits, toTrancheUnits, toUint256 } from "../../../src/libraries/Units.sol";
+import { RoycoEntryPoint } from "../../../src/periphery/RoycoEntryPoint.sol";
 
 import { MockKernel } from "./mocks/MockKernel.sol";
 import { MockTranche } from "./mocks/MockTranche.sol";

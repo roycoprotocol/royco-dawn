@@ -11,7 +11,7 @@ import { NAV_UNIT, TRANCHE_UNIT, toTrancheUnits } from "../../../../src/librarie
 import { YieldBearingERC20Chainlink_TestBase } from "../base/YieldBearingERC20Chainlink_TestBase.t.sol";
 
 /// @title Noon_sUSN_Test
-/// @notice Integration tests for the sNUSN market: Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel with
+/// @notice Integration tests for the SUSN market: Identical_ERC20_ST_JT_ChainlinkToAdminOracle_Kernel with
 ///         Noon staked USN (sUSN) as both the senior and junior tranche asset, on Base.
 /// @dev sUSN is priced to USD via a composite Chainlink feed:
 ///        - Tranche Unit:    sUSN (18 decimals)
@@ -102,13 +102,13 @@ contract Noon_sUSN_Test is YieldBearingERC20Chainlink_TestBase {
     // DEPLOYMENT (uses MarketDeploymentConfig)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// @notice Deploys the sNUSN kernel/market using MarketDeploymentConfig params against the real oracle
+    /// @notice Deploys the SUSN kernel/market using MarketDeploymentConfig params against the real oracle
     function _deployKernelAndMarket() internal override returns (DeployScript.DeploymentResult memory) {
         // The deployed composite oracle must exist at the fork block for the market to price sUSN.
         require(SUSN_USD_ORACLE.code.length > 0, "composite oracle not deployed at FORK_BLOCK");
 
         // Read config from the deploy script (which inherits MarketDeploymentConfig)
-        MarketDeploymentConfig.MarketConfig memory susnConfig = DEPLOY_SCRIPT.getMarketConfig("sNUSN");
+        MarketDeploymentConfig.MarketConfig memory susnConfig = DEPLOY_SCRIPT.getMarketConfig("SUSN");
 
         // Decode kernel-specific params from the deployment config
         DeployScript.IdenticalAssetsChainlinkToAdminOracleQuoterKernelParams memory kernelParams =
@@ -147,13 +147,13 @@ contract Noon_sUSN_Test is YieldBearingERC20Chainlink_TestBase {
     function test_susn_compositeOracleComposition() external view {
         assertEq(AggregatorV3Interface(SUSN_USD_ORACLE).decimals(), ORACLE_DECIMALS, "oracle should have 18 decimals");
 
-        (, int256 susnUsn,,,) = AggregatorV3Interface(SUSN_USN_FEED).latestRoundData();
+        (, int256 suSUSN,,,) = AggregatorV3Interface(SUSN_USN_FEED).latestRoundData();
         (, int256 usnUsd,,,) = AggregatorV3Interface(USN_USD_FEED).latestRoundData();
 
         (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) = AggregatorV3Interface(SUSN_USD_ORACLE).latestRoundData();
 
         // Both feeds are 18 decimals, output is 18 decimals => combinedScale 1e36, priceFeedScale 1e18.
-        int256 expected = susnUsn * usnUsd * 1e18 / 1e36;
+        int256 expected = suSUSN * usnUsd * 1e18 / 1e36;
         assertEq(answer, expected, "composite == sUSN/USN * USN/USD, scaled to 18 decimals");
 
         // sUSN is a yield-bearing wrapper of USN (~$1), so sUSN/USD (18 decimals) should be comfortably above $1.

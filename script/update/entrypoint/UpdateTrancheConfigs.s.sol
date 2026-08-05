@@ -11,19 +11,20 @@ import { ParameterUpdateBase } from "../base/ParameterUpdateBase.sol";
 
 /**
  * @title UpdateTrancheConfigs
- * @notice Bumps every market's entry-point delays to 24h and switches all senior tranches
- *         to REDEEMING_LP yield routing. Junior tranches keep PROTOCOL routing.
+ * @notice Registers/updates entry-point tranche configs for the configured markets' ST and JT.
+ *         Already-registered tranches keep their current config with only `redemptionDelaySeconds`
+ *         overridden; unregistered (new-market) tranches get the standard initial config:
+ *         enabled, PROTOCOL yield recipient, 5-minute deposit delay, 24h redemption delay.
  *
- * @dev Hooks into `ParameterUpdateBase`'s direct-call harness:
+ * @dev Hooks into `ParameterUpdateBase`'s scheduled (timelocked) harness:
  *      - Resolves ST/JT addresses per market via `getMarketAddresses(name)`.
- *      - Auto-classifies each tranche via `TRANCHE_TYPE()` to pick the yield recipient.
  *      - Encodes a single batched `modifyTrancheConfigs(tranches, configs)` call to the
  *        entry point per chain.
- *      - Runs the call via `_processChainDirect` pranking `WCE_MULTISIG` (immediate role).
- *      - Writes one Safe JSON per chain at
- *        `output/update/entrypoint/{chainId}_update_tranche_configs.json`.
- *
- *      No schedule/execute split: WCE holds `ADMIN_ENTRY_POINT_ROLE` with delay 0.
+ *      - `WAY_MULTISIG` holds `ADMIN_ENTRY_POINT_ROLE` with a 1-day execution delay, so the
+ *        harness simulates schedule → warp(1 day + 1) → execute pranking WAY, and writes
+ *        schedule/execute/cancel Safe JSONs at
+ *        `output/update/entrypoint/{chainId}_update_tranche_configs_{schedule,execute,cancel}.json`.
+ *        Both the schedule and execute batches are submitted from the WAY Safe, one day apart.
  */
 contract UpdateTrancheConfigs is ParameterUpdateBase {
     // ═══════════════════════════════════════════════════════════════════════════
@@ -33,12 +34,17 @@ contract UpdateTrancheConfigs is ParameterUpdateBase {
     /// @dev CREATE3-deterministic entry-point proxy address (same on every chain).
     address internal constant ENTRY_POINT = 0x63dA1229be88Fb4D20210147954a1a3e05f2581B;
 
-    uint24 internal constant NEW_DEPOSIT_DELAY = 5 minutes;
+    /// @dev Execution delay on WAY_MULTISIG's ADMIN_ENTRY_POINT_ROLE; simulation warps past it.
+    uint256 internal constant ENTRY_POINT_ROLE_DELAY = 1 days;
+
     uint24 internal constant NEW_REDEMPTION_DELAY = 24 hours;
+
+    /// @dev Standard deposit delay for newly registered tranches (mainnet convention)
+    uint24 internal constant INITIAL_DEPOSIT_DELAY = 5 minutes;
 
     string internal constant OUTPUT_SUBDIR = "entrypoint";
     string internal constant OUTPUT_PREFIX = "update_tranche_configs";
-    string internal constant BATCH_DESCRIPTION = "Royco Entry Point: bump delays to 24h and route ST yield to REDEEMING_LP";
+    string internal constant BATCH_DESCRIPTION = "Royco Entry Point: register/update ST/JT tranche configs";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CONFIG
@@ -59,24 +65,16 @@ contract UpdateTrancheConfigs is ParameterUpdateBase {
         // ── Mainnet ──────────────────────────────────────────────────────────
         ChainEntryPointConfig storage mainnet = _entryPointConfigs.push();
         mainnet.chainId = MAINNET;
-        // mainnet.markets.push(SNUSD);
-        // mainnet.markets.push(AUTOUSD);
-        // mainnet.markets.push(SMOKEHOUSE_USDC);
-        // mainnet.markets.push(SYRUP_USDC);
-        // mainnet.markets.push(STCUSD);
-        // mainnet.markets.push(PARETO_FALCONX);
-        // mainnet.markets.push(APYUSD);
-        mainnet.markets.push(eEARN);
+        mainnet.markets.push(STMXN);
+        mainnet.markets.push(STBRL);
+        mainnet.markets.push(STRUSD);
+        mainnet.markets.push(STOCK_MARKET_TR_BASIS_TRADE);
 
-        // ── Avalanche ────────────────────────────────────────────────────────
-        // ChainEntryPointConfig storage avalanche = _entryPointConfigs.push();
-        // avalanche.chainId = AVALANCHE;
-        // avalanche.markets.push(SAVUSD);
-
-        // ── Arbitrum ─────────────────────────────────────────────────────────
-        // ChainEntryPointConfig storage arbitrum = _entryPointConfigs.push();
-        // arbitrum.chainId = ARBITRUM;
-        // arbitrum.markets.push(SUSDAI);
+        // ── Base ─────────────────────────────────────────────────────────────
+        // Applied on-chain (SUSN ST/JT: enabled, PROTOCOL, 300s deposit, 24h redemption).
+        // ChainEntryPointConfig storage base = _entryPointConfigs.push();
+        // base.chainId = BASE;
+        // base.markets.push(SUSN);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -89,11 +87,11 @@ contract UpdateTrancheConfigs is ParameterUpdateBase {
         }
     }
 
-    /// @dev Forks the chain, resolves tranche addresses, encodes the batched call, and
-    ///      hands off to `_processChainDirect` for simulation + JSON write.
+    /// @dev Forks the chain, resolves tranche addresses, encodes the batched call, and hands off
+    ///      to the scheduled `_processChain` flow (WAY schedules, waits 1 day, executes).
     function _processOneChain(ChainEntryPointConfig storage _cfg) internal {
         // Fork once up front so `getMarketAddresses` (which reads the kernel) works.
-        // `_processChainDirect` re-forks the same chain — that's fine; calldata is in memory.
+        // `_processChain` re-forks the same chain — that's fine; calldata is in memory.
         vm.createSelectFork(_getRpcUrl(_cfg.chainId));
 
         uint256 nMarkets = _cfg.markets.length;
@@ -105,23 +103,11 @@ contract UpdateTrancheConfigs is ParameterUpdateBase {
         for (uint256 i = 0; i < nMarkets; i++) {
             MarketAddresses memory addrs = getMarketAddresses(_cfg.markets[i]);
 
-            // Senior tranche → REDEEMING_LP
             tranches[2 * i] = addrs.seniorTranche;
-            configs[2 * i] = IRoycoEntryPoint.TrancheConfig({
-                enabled: true,
-                yieldRecipient: IRoycoEntryPoint.AccruedYieldRecipient.PROTOCOL,
-                depositDelaySeconds: NEW_DEPOSIT_DELAY,
-                redemptionDelaySeconds: NEW_REDEMPTION_DELAY
-            });
+            configs[2 * i] = _buildTrancheConfig(addrs.seniorTranche);
 
-            // Junior tranche → PROTOCOL (unchanged)
             tranches[2 * i + 1] = addrs.juniorTranche;
-            configs[2 * i + 1] = IRoycoEntryPoint.TrancheConfig({
-                enabled: true,
-                yieldRecipient: IRoycoEntryPoint.AccruedYieldRecipient.PROTOCOL,
-                depositDelaySeconds: NEW_DEPOSIT_DELAY,
-                redemptionDelaySeconds: NEW_REDEMPTION_DELAY
-            });
+            configs[2 * i + 1] = _buildTrancheConfig(addrs.juniorTranche);
         }
 
         // Defensive: the registered ST/JT slots must actually be SENIOR/JUNIOR per the
@@ -136,10 +122,33 @@ contract UpdateTrancheConfigs is ParameterUpdateBase {
             marketName: "",
             target: ENTRY_POINT,
             callData: abi.encodeCall(IRoycoEntryPoint.modifyTrancheConfigs, (tranches, configs)),
-            description: string.concat("Update entry-point tranche configs (", vm.toString(nTranches), " tranches)")
+            description: string.concat("Register/update entry-point tranche configs (", vm.toString(nTranches), " tranches)")
         });
 
-        _processChainDirect(_cfg.chainId, WCE_MULTISIG, updates, OUTPUT_SUBDIR, OUTPUT_PREFIX, BATCH_DESCRIPTION);
+        _processChain(_cfg.chainId, WAY_MULTISIG, ENTRY_POINT_ROLE_DELAY + 1, updates, OUTPUT_SUBDIR, OUTPUT_PREFIX, BATCH_DESCRIPTION);
+    }
+
+    /// @dev Builds the target config for a tranche:
+    ///      - Already registered (asset set on-chain): echo the current config, overriding only
+    ///        `redemptionDelaySeconds` (modifyTrancheConfigs overwrites the whole config).
+    ///      - Unregistered (new market): standard initial config — enabled, PROTOCOL yield
+    ///        recipient, 5-minute deposit delay, 24h redemption delay.
+    function _buildTrancheConfig(address _tranche) internal view returns (IRoycoEntryPoint.TrancheConfig memory config) {
+        IRoycoEntryPoint.EnrichedTrancheConfig memory enriched = IRoycoEntryPoint(ENTRY_POINT).getTrancheConfig(_tranche);
+
+        if (enriched.asset == address(0)) {
+            // New market — full initial config
+            config = IRoycoEntryPoint.TrancheConfig({
+                enabled: true,
+                yieldRecipient: IRoycoEntryPoint.AccruedYieldRecipient.PROTOCOL,
+                depositDelaySeconds: INITIAL_DEPOSIT_DELAY,
+                redemptionDelaySeconds: NEW_REDEMPTION_DELAY
+            });
+        } else {
+            // Existing registration — preserve all fields except the redemption delay
+            config = enriched.baseConfig;
+            config.redemptionDelaySeconds = NEW_REDEMPTION_DELAY;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -158,10 +167,12 @@ contract UpdateTrancheConfigs is ParameterUpdateBase {
 
         for (uint256 i = 0; i < tranches.length; i++) {
             IRoycoEntryPoint.EnrichedTrancheConfig memory ec = IRoycoEntryPoint(_params.target).getTrancheConfig(tranches[i]);
+            require(ec.asset != address(0), VerificationFailed("asset not registered"));
             require(ec.baseConfig.enabled == configs[i].enabled, VerificationFailed("enabled mismatch"));
             require(ec.baseConfig.yieldRecipient == configs[i].yieldRecipient, VerificationFailed("yieldRecipient mismatch"));
             require(ec.baseConfig.depositDelaySeconds == configs[i].depositDelaySeconds, VerificationFailed("depositDelay mismatch"));
             require(ec.baseConfig.redemptionDelaySeconds == configs[i].redemptionDelaySeconds, VerificationFailed("redemptionDelay mismatch"));
+            require(ec.baseConfig.redemptionDelaySeconds == NEW_REDEMPTION_DELAY, VerificationFailed("redemptionDelay not 24h"));
         }
         console2.log("    [OK] Post-state verified for", tranches.length, "tranches");
     }

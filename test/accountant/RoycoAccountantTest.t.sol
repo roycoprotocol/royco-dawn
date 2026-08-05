@@ -125,7 +125,7 @@ contract RoycoAccountantTest is BaseTest {
             ST_PROTOCOL_FEE_WAD,
             JT_PROTOCOL_FEE_WAD,
             coverageWAD,
-            0,
+            uint96(WAD), // beta == 1 is asserted by the accountant
             address(adaptiveYDM),
             FIXED_TERM_DURATION_SECONDS,
             DUST_TOLERANCE,
@@ -893,7 +893,9 @@ contract RoycoAccountantTest is BaseTest {
         SyncedAccountingState memory preview = accountant.previewSyncTrancheAccounting(_nav(100e18), _nav(50e18));
         uint256 jtEff = toUint256(preview.jtEffectiveNAV);
         uint256 maxCovered = jtEff * WAD / COVERAGE_WAD;
-        uint256 expectedMax = maxCovered > 100e18 ? maxCovered - 100e18 : 0;
+        // With beta == 1, JT's own raw NAV consumes coverage capacity alongside ST
+        uint256 covered = 100e18 + 50e18;
+        uint256 expectedMax = maxCovered > covered ? maxCovered - covered : 0;
 
         assertApproxEqAbs(toUint256(maxDeposit), expectedMax, 2, "max deposit matches");
     }

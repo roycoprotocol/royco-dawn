@@ -2,6 +2,20 @@
 
 Dawn enables structured risk tranching for any yield source by splitting it into two distinct risk and return profiles: a junior and senior tranche. The junior tranche serves as first-loss capital in exchange for a risk premium paid by the senior tranche.
 
+## Status: Legacy Deployment
+
+Royco Dawn is a legacy Royco protocol deployment. The deployed contracts remain active and may continue to accept deposits, process withdrawals, accrue yield, and otherwise operate according to their deployed logic. However, Dawn is no longer under active protocol development and no upgrades to the deployed contracts are currently planned.
+
+This repository documents the behavior of the deployed Dawn contracts and is maintained for transparency and reference. Users interacting with existing Dawn markets should review the known behavioral limitations described below.
+
+## Known Junior Recovery Behavior
+
+Dawn tracks coverage provided by the Junior tranche to Senior as Junior impermanent loss (“JT IL”). During a recovery, subsequent appreciation is used to repay tracked JT IL.
+
+A market may treat JT IL as fully recovered once this accounting balance reaches zero. This does not necessarily imply that Junior tranche share value has returned to its level immediately before the relevant observation period. Changes in tranche NAV during the observation period can result in Junior share value remaining below its prior level even after the tracked JT IL balance has been fully repaid.
+
+This behavior is part of the currently deployed accounting logic.
+
 ## Core Concepts
 
 ### NAV Types
@@ -84,7 +98,7 @@ Dawn supports multiple YDM implementations:
 
 ### Market States
 
-Markets operate as perpetual instruments with full liquidity for both tranches under normal conditions. If senior capital incurs a loss, junior coverage is immediately applied and the market enters a fixed-term regime. This gives the underlying position time to recover before junior LPs realize any losses. If the position recovers, juniors are made whole and the market shifts back to a perpetual state. In the event that losses persist and coverage runs thin, seniors can exit early with their guaranteed protection intact.
+Markets operate as perpetual instruments with full liquidity for both tranches under normal conditions. If senior capital incurs a loss, junior coverage is immediately applied and the market enters a fixed-term regime. This gives the underlying position time to recover before junior LPs realize any losses. If the protocol’s tracked recovery conditions are satisfied, including repayment of tracked JT IL, the market can shift back to a perpetual state. Repayment of JT IL does not necessarily mean that Junior share value has returned to its pre-observation-period level. In the event that losses persist and coverage runs thin, seniors can exit early with their guaranteed protection intact.
 
 The two states are:
 
@@ -102,7 +116,7 @@ When losses occur, they are handled differently based on which tranche experienc
 
 **JT Losses**: First reduce JT effective NAV. If JT effective NAV is depleted, excess losses spill over to ST and are tracked as ST IL.
 
-**Recovery**: When appreciation occurs, ST IL is recovered first (senior priority), then JT IL is repaid. Remaining gains are distributed as yield via the YDM.
+**Recovery**: When appreciation occurs, ST IL is recovered first (senior priority), then JT IL is repaid. JT IL represents the protocol’s tracked accounting claim; its repayment is distinct from restoration of Junior’s historical share value. Remaining gains are distributed as yield via the YDM.
 
 **JT IL Erasure**: JT IL is erased (JT forfeits its claim) when the market transitions to PERPETUAL state. This occurs when the fixed-term period expires, utilization exceeds the liquidation threshold, or ST IL exists (distressed state).
 
